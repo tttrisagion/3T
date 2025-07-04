@@ -25,7 +25,7 @@ System_Ext(hyperliquid, "HyperLiquid Exchange", "Cryptocurrency derivatives exch
 System_Ext(uptime_robot, "UptimeRobot", "External 3rd-party monitoring and alerting service.", $sprite="robot")
 System_Ext(source_repo, "Source Code Repository", "Git-based repository (e.g., GitHub) for code and configuration management.", $sprite="git")
 
-System_Boundary(c1, "Trisagion Trading System") {
+System_Boundary(c1, "3T (Tactical Trend Trader)") {
     System(trisagion, "Trisagion", "A proof-of-concept algorithmic trading system that uses ML-based predictions to manage a live portfolio.")
 }
 
