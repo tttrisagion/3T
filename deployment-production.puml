@@ -1,0 +1,39 @@
+@startuml Production Deployment
+!include <C4/C4_Deployment.puml>
+
+LAYOUT_WITH_LEGEND()
+
+title Deployment Diagram for Trisagion System (Production Environment)
+
+Deployment_Node(cloud_provider, "Cloud Provider (e.g., AWS)", "IaaS/PaaS") {
+    Deployment_Node(k8s_cluster, "Kubernetes Cluster", "e.g., Amazon EKS") {
+        Deployment_Node(worker_node_1, "Worker Node 1", "Virtual Machine") {
+            Container_Instance(inference_service_pod, "Inference Service", "Docker Container")
+            Container_Instance(strategy_runner_pod, "Strategy Runner", "Docker Container")
+            Container_Instance(slicer_pod, "Slice Service", "Docker Container")
+        }
+        Deployment_Node(worker_node_2, "Worker Node 2", "Virtual Machine") {
+            Container_Instance(portfolio_service_pod, "Portfolio Service", "Docker Container")
+            Container_Instance(streaming_provider_pod, "Streaming Data Provider", "Docker Container")
+            Container_Instance(resilience_checker_pod, "Data Resilience Checker", "Docker Container")
+        }
+    }
+
+    Deployment_Node(rds, "Managed Database Service", "e.g., Amazon RDS for PostgreSQL") {
+        Container_Instance(db_instance, "Database", "PostgreSQL")
+    }
+
+    Deployment_Node(s3, "Object Storage Service", "e.g., Amazon S3") {
+        Container_Instance(model_artifacts, "Model Artifacts", "Stored Files")
+    }
+}
+
+System_Ext(hyperliquid, "HyperLiquid Exchange")
+System_Ext(uptime_robot, "UptimeRobot")
+
+Rel(inference_service_pod, model_artifacts, "Reads model from", "S3 API")
+Rel(k8s_cluster, rds, "Connects to", "TCP/IP")
+Rel(k8s_cluster, hyperliquid, "Connects to", "HTTPS, WSS")
+Rel(k8s_cluster, uptime_robot, "Sends health checks to", "HTTPS")
+
+@enduml
