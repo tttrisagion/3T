@@ -1,0 +1,31 @@
+@startuml Inference Service Components
+!include <C4/C4_Component.puml>
+
+LAYOUT_WITH_LEGEND()
+LAYOUT_TOP_DOWN()
+
+title Component Diagram for Inference Service
+
+Container_Boundary(inference_service, "Inference Service") {
+    Component(nginx, "Nginx Reverse Proxy", "Nginx", "Terminates HTTPS, load balances requests across workers.")
+    Component(gunicorn, "Gunicorn WSGI Server", "Gunicorn", "Manages a pool of Python worker processes for concurrency.")
+    Component(flask_app, "Flask Web App", "Flask", "Provides the /predict API endpoint and request handling.")
+    Component(controller, "Prediction Controller", "Python Class", "Validates input features and orchestrates the prediction flow.")
+    Component(loader, "Model Loader", "Python Class", "Loads the serialized AutoGluon model from storage at startup.")
+    Component(inference_component, "Inference Component", "Python Class, AutoGluon", "Wraps the TabularPredictor and executes the predict() method.")
+    
+    Rel(nginx, gunicorn, "Forwards requests to")
+    Rel(gunicorn, flask_app, "Invokes")
+    Rel(flask_app, controller, "Routes /predict requests to")
+    Rel(controller, inference_component, "Calls predict method with features")
+    Rel(loader, inference_component, "Provides loaded model to")
+}
+
+System_Ext(strategy_runner, "Strategy Runner", "Requests predictions.")
+System_Ext(model_storage, "Model Artifact Store", "e.g., S3 Bucket or Mounted Volume. Stores the trained model.tar.gz file.")
+
+Rel(strategy_runner, nginx, "Sends prediction request", "JSON/HTTPS")
+Rel(inference_component, strategy_runner, "Returns prediction", "JSON/HTTPS")
+Rel(loader, model_storage, "Loads model from", "File I/O")
+
+@enduml
