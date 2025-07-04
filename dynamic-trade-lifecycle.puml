@@ -1,0 +1,30 @@
+@startuml Trade Signal Lifecycle
+!include <C4/C4_Sequence.puml>
+
+LAYOUT_WITH_LEGEND()
+
+title Dynamic Diagram: End-to-End Trade Signal Lifecycle
+
+Person(risk_manager, "Risk Manager")
+System_Ext(hyperliquid_ws, "HyperLiquid WebSocket")
+System_Ext(hyperliquid_api, "HyperLiquid REST API")
+
+Container(streaming_provider, "Streaming Data Provider")
+Container(slicer, "Slice Service")
+ContainerDb(db, "Database")
+Container(strategy_runner, "Strategy Runner")
+Container(inference_service, "Inference Service")
+Container(portfolio_service, "Portfolio Service")
+
+hyperliquid_ws -> streaming_provider: 1. New trade event pushed
+streaming_provider -> slicer: 2. Streams normalized trade data
+slicer -> db: 3. Writes completed 1-min bar
+db --> strategy_runner: 4. Reads new market data bar
+strategy_runner -> inference_service: 5. Requests prediction with features
+inference_service --> strategy_runner: 6. Returns profit/loss prediction
+strategy_runner -> portfolio_service: 7. Sends trade instruction (e.g., BUY 0.1 BTC)
+portfolio_service -> hyperliquid_api: 8. Places order on exchange
+hyperliquid_api --> portfolio_service: 9. Confirms order placement
+portfolio_service --> risk_manager: 10. (Async) Updates portfolio state for reporting
+
+@enduml
