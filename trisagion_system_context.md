@@ -1,3 +1,4 @@
+```
 @startuml trisagion_system_context
 !include <C4/C4_Context.puml>
 
@@ -37,3 +38,4 @@ Rel(trisagion, uptime_robot, "Sends Health Status to", "HTTP/S")
 Rel(trisagion, source_repo, "Is Deployed From", "CI/CD Pipeline")
 
 @enduml
+```
