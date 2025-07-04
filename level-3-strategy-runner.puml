@@ -9,7 +9,7 @@ title Component Diagram for Strategy Runner
 Container_Boundary(strategy_runner, "Strategy Runner") {
     Component(main_loop, "Main Application Loop", "Python", "Initializes and runs the main control flow.")
     Component(context, "Strategy Context", "Python Class", "Orchestrates the data-to-decision workflow and holds the active strategy.")
-    ComponentInterface(istrategy, "IStrategy", "Python Interface (ABC)", "Defines the common interface for all trading algorithms.")
+    Component(istrategy, "IStrategy", "Python Interface (ABC)", "Defines the common interface for all trading algorithms.")
     Component(concrete_strategy, "Concrete Strategy", "Python Class", "Implements a specific trading algorithm (e.g., Mean Reversion).")
     Component(data_consumer, "Market Data Consumer", "Python Class", "Fetches latest market data slices.")
     Component(inference_client, "Inference Client", "Python Class", "Handles HTTP communication with the Inference Service.")
