@@ -1,0 +1,34 @@
+@startuml Strategy Runner Components
+!include <C4/C4_Component.puml>
+
+LAYOUT_WITH_LEGEND()
+LAYOUT_TOP_DOWN()
+
+title Component Diagram for Strategy Runner
+
+Container_Boundary(strategy_runner, "Strategy Runner") {
+    Component(main_loop, "Main Application Loop", "Python", "Initializes and runs the main control flow.")
+    Component(context, "Strategy Context", "Python Class", "Orchestrates the data-to-decision workflow and holds the active strategy.")
+    ComponentInterface(istrategy, "IStrategy", "Python Interface (ABC)", "Defines the common interface for all trading algorithms.")
+    Component(concrete_strategy, "Concrete Strategy", "Python Class", "Implements a specific trading algorithm (e.g., Mean Reversion).")
+    Component(data_consumer, "Market Data Consumer", "Python Class", "Fetches latest market data slices.")
+    Component(inference_client, "Inference Client", "Python Class", "Handles HTTP communication with the Inference Service.")
+    Component(portfolio_client, "Portfolio Client", "Python Class", "Communicates desired position changes to the Portfolio Service.")
+
+    Rel(main_loop, context, "Invokes")
+    Rel(context, data_consumer, "Gets market data from")
+    Rel(context, istrategy, "Delegates decision logic to")
+    Rel(concrete_strategy, istrategy, "Implements")
+    Rel(concrete_strategy, inference_client, "Uses to get predictions")
+    Rel(context, portfolio_client, "Sends trade instructions via")
+}
+
+System_Ext(db, "Database", "Provides market data.")
+System_Ext(inference_service, "Inference Service", "Provides ML predictions.")
+System_Ext(portfolio_service, "Portfolio Service", "Manages trade execution.")
+
+Rel(data_consumer, db, "Reads from", "SQL")
+Rel(inference_client, inference_service, "Requests prediction from", "JSON/HTTPS")
+Rel(portfolio_client, portfolio_service, "Sends instructions to", "Internal API")
+
+@enduml
