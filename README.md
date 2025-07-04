@@ -19,4 +19,6 @@ PlantUML diagrams will be posted here for use by agents to help advance the deve
 
 ![container](https://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/tttrisagion/3T/refs/heads/main/level-2-container.puml)
 
-![inference](https://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/tttrisagion/3T/refs/heads/main/level-2-inference.puml)
+![inference](https://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/tttrisagion/3T/refs/heads/main/level-3-inference.puml)
+
+![strategy](https://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/tttrisagion/3T/refs/heads/main/level-3-strategy-runner.puml)
