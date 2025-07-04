@@ -1,0 +1,95 @@
+@startuml Trisagion System Containers
+!include <C4/C4_Container.puml>
+
+!define DEVICONS https://raw.githubusercontent.com/tupadr3/plantuml-icon-font-sprites/master/devicons
+!define FONTAWESOME https://raw.githubusercontent.com/tupadr3/plantuml-icon-font-sprites/master/font-awesome-5
+!include DEVICONS/python.puml
+!include DEVICONS/nginx.puml
+!include DEVICONS/postgresql.puml
+!include FONTAWESOME/brain.puml
+!include FONTAWESOME/robot.puml
+!include FONTAWESOME/building.puml
+!include FONTAWESOME/user_shield.puml
+!include FONTAWESOME/cogs.puml
+!include FONTAWESOME/database.puml
+!include FONTAWESOME/network_wired.puml
+!include FONTAWESOME/heartbeat.puml
+!include FONTAWESOME/server.puml
+!include FONTAWESOME/chart_line.puml
+!include FONTAWESOME/wallet.puml
+!include FONTAWESOME/hand_holding_usd.puml
+!include FONTAWESOME/ghost.puml
+!include FONTAWESOME/tasks.puml
+
+LAYOUT_WITH_LEGEND()
+LAYOUT_TOP_DOWN()
+
+title Container Diagram for Trisagion Algorithmic Trading System
+
+Person(risk_manager, "Risk Manager", "Oversees portfolio risk and performance.", $sprite="user_shield")
+
+System_Ext(hyperliquid, "HyperLiquid Exchange", "Provides market data and trade execution.", $sprite="building")
+System_Ext(uptime_robot, "UptimeRobot", "External monitoring and alerting service.", $sprite="robot")
+
+System_Boundary(trisagion_system, "Trisagion Trading System") {
+
+    ContainerDb(db, "Database", "PostgreSQL", "Stores time-series market data, model metrics, and portfolio state.", $sprite="database")
+
+    System_Boundary(data_domain, "Data & Connectivity Domain") {
+        Container(streaming_provider, "Streaming Data Provider", "Python, WebSocket Client", "Connects to HyperLiquid WebSocket for real-time trade data.", $sprite="network_wired")
+        Container(slicer, "Slice Service", "Python, Pandas", "Aggregates raw trades into 1-minute OHLCV bars.", $sprite="cogs")
+        Container(resilience_checker, "Data Resilience Checker", "Python", "Monitors data feed health and freshness.", $sprite="heartbeat")
+        Container(db_ops, "DB Operations", "Python, SQL", "Performs periodic database cleanup and maintenance.", $sprite="tasks")
+        Container(upstream_conn, "Upstream Connectivity", "Network Utility/Proxy", "Ensures and manages internet access for external APIs.")
+    }
+
+    System_Boundary(ml_domain, "Machine Learning & Intelligence Domain") {
+        Container(inference_service, "Inference Service", "Python, Gunicorn, Flask, Nginx", "Serves predictions from a loaded AutoGluon model via a REST API.", $sprite="server")
+        Container(train_service, "Train Service", "Python, AutoGluon", "Extracts data, trains a new model, and deploys the artifact.", $sprite="brain")
+        Container(antropy_service, "Antropy Service", "Python, Gunicorn, Flask", "Provides entropy calculations as a shared service to reduce memory load.", $sprite="server")
+        Container(model_score_service, "Best Model Score Service", "Python, Flask", "Tracks and stores model performance metrics.", $sprite="chart_line")
+    }
+
+    System_Boundary(trading_domain, "Trading & Execution Domain") {
+        Container(strategy_runner, "Strategy Runner", "Python", "Core logic engine that consumes data and predictions to generate trade signals.", $sprite="cogs")
+        Container(positions_service, "Positions & Account Service", "Python", "Queries HyperLiquid for current account balance and open positions.", $sprite="wallet")
+        Container(portfolio_service, "Portfolio Service", "Python", "Manages order execution and synchronizes live portfolio state.", $sprite="tasks")
+        Container(take_profit_service, "Take Profit Service", "Python", "Monitors positions and triggers exits based on profit targets.", $sprite="hand_holding_usd")
+        Container(reap_service, "Reap Service", "Python, OS Utils", "Cleans up zombie processes from failed strategies to prevent resource leaks.", $sprite="ghost")
+    }
+
+    ' === Relationships ===
+
+    ' Data Domain Flows
+    Rel(streaming_provider, slicer, "Streams raw trade data to")
+    Rel(slicer, db, "Writes 1-minute bars to", "SQL INSERT")
+    Rel(resilience_checker, db, "Reads latest timestamp from", "SQL SELECT")
+    Rel(resilience_checker, uptime_robot, "Sends alerts to", "HTTPS API Call")
+    Rel(db_ops, db, "Executes cleanup queries on", "SQL DELETE/UPDATE")
+    Rel(upstream_conn, hyperliquid, "Provides connectivity for")
+
+    ' ML Domain Flows
+    Rel(train_service, db, "Reads training data from", "SQL SELECT")
+    Rel(train_service, inference_service, "Deploys new model artifact to", "File Transfer/S3")
+    Rel(train_service, model_score_service, "Logs model metadata to", "HTTPS API Call")
+    Rel(inference_service, model_score_service, "Logs prediction latency to", "HTTPS API Call")
+    
+    ' Trading Domain Flows
+    Rel(strategy_runner, db, "Reads market data from", "SQL SELECT")
+    Rel(strategy_runner, inference_service, "Requests prediction from", "JSON/HTTPS")
+    Rel(strategy_runner, antropy_service, "Requests computation from", "JSON/HTTPS")
+    Rel(strategy_runner, positions_service, "Gets account state from", "Internal API")
+    Rel(strategy_runner, portfolio_service, "Sends trade instructions to", "Internal API")
+
+    Rel(positions_service, hyperliquid, "Fetches account data from", "REST API")
+    Rel(portfolio_service, hyperliquid, "Places and cancels orders on", "REST API")
+    Rel(portfolio_service, model_score_service, "Logs trade outcomes to", "HTTPS API Call")
+    
+    Rel(take_profit_service, positions_service, "Gets PnL data from", "Internal API")
+    Rel(take_profit_service, portfolio_service, "Sends exit orders to", "Internal API")
+    
+    ' Cross-Domain User Interactions
+    Rel(risk_manager, model_score_service, "Views performance reports from")
+}
+
+@enduml
