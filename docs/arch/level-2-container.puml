@@ -1,0 +1,59 @@
+@startuml Trisagion System Containers
+!include <C4/C4_Container.puml>
+
+!define DEVICONS https://raw.githubusercontent.com/tupadr3/plantuml-icon-font-sprites/master/devicons
+!define FONTAWESOME https://raw.githubusercontent.com/tupadr3/plantuml-icon-font-sprites/master/font-awesome-5
+!include DEVICONS/python.puml
+!include DEVICONS/redis.puml
+!include DEVICONS/postgresql.puml
+!include FONTAWESOME/user_shield.puml
+!include FONTAWESOME/cogs.puml
+!include FONTAWESOME/database.puml
+!include FONTAWESOME/tasks.puml
+!include FONTAWESOME/file_alt.puml
+
+LAYOUT_WITH_LEGEND()
+LAYOUT_TOP_DOWN()
+
+title Container Diagram for Trisagion Algorithmic Trading System (Current)
+
+Person(developer, "Developer", "Develops and maintains the trading system.", $sprite="user_shield")
+
+System_Ext(hyperliquid, "HyperLiquid Exchange", "Provides market data and trade execution.", $sprite="building")
+
+System_Boundary(trisagion_system, "Trisagion Trading System") {
+
+    Container(components, "Components", "Python", "The core logic of the trading bot, running in multiple threads.", $sprite="python")
+    Container(celery_worker, "Celery Worker", "Celery", "Executes asynchronous tasks.", $sprite="cogs")
+    ContainerDb(redis, "Redis", "Redis", "Acts as a message broker for Celery and a key-value store.", $sprite="redis")
+    Container(flower, "Flower", "Flower", "Web-based tool for monitoring and administrating Celery jobs.", $sprite="tasks")
+    ContainerDb(mariadb, "MariaDB", "MariaDB", "Persistent storage for larger datasets.", $sprite="database")
+    Container(secrets, "secrets.yml", "YAML", "Stores API keys and other secrets.", $sprite="file_alt")
+
+        Container(prometheus, "Prometheus", "Prometheus", "Collects metrics from Flower and other services.", $sprite="cogs")
+    Container(grafana, "Grafana", "Grafana", "Visualizes metrics.", $sprite="cogs")
+    Container(jaeger, "Jaeger", "Jaeger", "Distributed Tracing.", $sprite="cogs")
+    Container(otel_collector, "OpenTelemetry Collector", "OpenTelemetry Collector", "Receives and exports telemetry data.", $sprite="cogs")
+
+    Rel(developer, components, "Manages and develops")
+    Rel(developer, celery_worker, "Manages and develops")
+    Rel(developer, flower, "Monitors")
+    
+    Rel(components, celery_worker, "Sends tasks to", "Celery")
+    Rel(components, hyperliquid, "Connects to", "HTTPS, WSS")
+    Rel(components, secrets, "Reads secrets from", "File I/O")
+    
+    Rel(celery_worker, redis, "Uses as message broker", "TCP/IP")
+    Rel(celery_worker, mariadb, "Stores results in", "TCP/IP")
+    
+        Rel(flower, redis, "Monitors", "TCP/IP")
+    Rel(flower, celery_worker, "Monitors", "Celery")
+
+    Rel(prometheus, flower, "Scrapes metrics from", "HTTP")
+    Rel(grafana, prometheus, "Queries metrics from", "HTTP")
+    Rel(otel_collector, jaeger, "Exports traces to", "gRPC")
+    Rel(components, otel_collector, "Sends traces to", "gRPC")
+    Rel(celery_worker, otel_collector, "Sends traces to", "gRPC")
+}
+
+@enduml

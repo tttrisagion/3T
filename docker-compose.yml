@@ -1,0 +1,100 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:7.2-alpine
+    ports:
+      - "6379:6379"
+
+  celery_worker:
+    build:
+      context: .
+      dockerfile: celery/Dockerfile
+    command: celery -A worker.tasks worker -P eventlet --loglevel=info --autoscale=600,1
+    volumes:
+      - ./celery/worker:/app/worker
+      - ./shared:/app/shared
+    environment:
+      - PYTHONPATH=/app
+    depends_on:
+      - redis
+
+  components:
+    build:
+      context: .
+      dockerfile: components/Dockerfile
+    command: python -u src/example.py
+    volumes:
+      - ./components/src:/app/src
+      - ./celery/worker:/app/worker
+      - ./shared:/app/shared
+    environment:
+      - PYTHONPATH=/app
+      - NUM_THREADS=50
+      - OTEL_EXPORTER_OTLP_ENDPOINT=otel-collector:4317
+    depends_on:
+      - redis
+      - celery_worker
+
+  flower:
+    build:
+      context: .
+      dockerfile: flower/Dockerfile
+    command: celery -A worker.tasks flower --address=0.0.0.0 --port=5555
+    volumes:
+      - ./celery/worker:/app/worker
+      - ./shared:/app/shared
+    environment:
+      - PYTHONPATH=/app
+      - FLOWER_UNAUTHENTICATED_API=true
+    ports:
+      - "5555:5555"
+    depends_on:
+      - redis
+      - celery_worker
+
+  prometheus:
+    image: prom/prometheus:v2.47.2
+    ports:
+      - "9090:9090"
+    volumes:
+      - type: bind
+        source: ./prometheus/prometheus.yml
+        target: /etc/prometheus/prometheus.yml
+
+  grafana:
+    image: grafana/grafana:10.2.2
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources
+      - ./grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards
+
+  mariadb:
+    image: mariadb:10.11
+    ports:
+      - "3306:3306"
+    environment:
+      - MARIADB_ROOT_PASSWORD=secret
+      - MARIADB_DATABASE=3t
+    volumes:
+      - mariadb_data:/var/lib/mysql
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.53
+    ports:
+      - "16686:16686"
+      - "14268:14268"
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.88.0
+    volumes:
+      - ./otel-collector.yml:/etc/otel-collector.yml
+    command: ["--config=/etc/otel-collector.yml"]
+    ports:
+      - "4317:4317"
+    depends_on:
+      - jaeger
+
+volumes:
+  mariadb_data:

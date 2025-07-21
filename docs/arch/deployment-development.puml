@@ -1,0 +1,34 @@
+@startuml Development Deployment
+!include <C4/C4_Deployment.puml>
+
+LAYOUT_WITH_LEGEND()
+
+title Deployment Diagram for Trisagion System (Development Environment)
+
+Deployment_Node(developer_machine, "Developer Machine", "Docker Desktop") {
+    Deployment_Node(docker, "Docker", "Container Engine") {
+        Container_Instance(components, "Components Service", "Docker Container")
+        Container_Instance(celery_worker, "Celery Worker", "Docker Container")
+        Container_Instance(redis, "Redis", "Docker Container")
+        Container_Instance(flower, "Flower", "Docker Container")
+        Container_Instance(prometheus, "Prometheus", "Docker Container")
+        Container_Instance(grafana, "Grafana", "Docker Container")
+                Container_Instance(jaeger, "Jaeger", "Docker Container")
+        Container_Instance(otel_collector, "OpenTelemetry Collector", "Docker Container")
+        Container_Instance(mariadb, "MariaDB", "Docker Container")
+    }
+}
+
+System_Ext(hyperliquid, "HyperLiquid Exchange")
+
+Rel(components, hyperliquid, "Connects to", "HTTPS, WSS")
+Rel(celery_worker, redis, "Connects to", "TCP/IP")
+Rel(flower, redis, "Connects to", "TCP/IP")
+Rel(prometheus, flower, "Scrapes metrics from", "HTTP")
+Rel(grafana, prometheus, "Queries metrics from", "HTTP")
+Rel(celery_worker, mariadb, "Connects to", "TCP/IP")
+
+Rel(otel_collector, jaeger, "Exports traces to", "gRPC")
+Rel(components, otel_collector, "Sends traces to", "gRPC")
+
+@enduml
