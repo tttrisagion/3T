@@ -15,7 +15,7 @@
 
 ## Introduction
 
-The Trisagion Tactical Trend Trader (3T) is a sophisticated, service-oriented trading bot designed for automated trend trading. It leverages a robust architecture to analyze market data, execute trades, and provide real-time observability into its operations.
+Tactical Trend Trader (3T) is a sophisticated, service-oriented platform designed for automated trend trading. It leverages a robust architecture to analyze market data, execute trades, and provide real-time observability into its operations.
 
 ## Architecture
 
