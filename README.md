@@ -1,4 +1,4 @@
-# Trisagion Tactical Trend Trader (3T)
+# Tactical Trend Trader (3T)
 
 ```
               P
