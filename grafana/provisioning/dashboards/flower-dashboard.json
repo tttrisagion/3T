@@ -54,7 +54,10 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": "${DS_PROMETHEUS}",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
       "description": "This panel shows status of celery workers. 1 = online, 0 = offline.",
       "fieldConfig": {
         "defaults": {},
@@ -152,7 +155,10 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": "${DS_PROMETHEUS}",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
       "description": "This panel shows number of tasks currently executing at worker.",
       "fieldConfig": {
         "defaults": {},
@@ -250,7 +256,10 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": "${DS_PROMETHEUS}",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
       "description": "This panel shows average task runtime at worker by worker and task name.",
       "fieldConfig": {
         "defaults": {},
@@ -348,7 +357,10 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": "${DS_PROMETHEUS}",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
       "description": "This panel shows task prefetch time at worker by worker and task name.",
       "fieldConfig": {
         "defaults": {},
@@ -446,7 +458,10 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": "${DS_PROMETHEUS}",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
       "description": "This panel shows number of tasks prefetched at worker by task and worker name.",
       "fieldConfig": {
         "defaults": {},
@@ -544,7 +559,10 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": "${DS_PROMETHEUS}",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
       "description": "This panel presents average task success ratio over time by task name.",
       "fieldConfig": {
         "defaults": {},
@@ -642,7 +660,10 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": "${DS_PROMETHEUS}",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
       "description": "This panel presents average task failure ratio over time by task name.",
       "fieldConfig": {
         "defaults": {},
