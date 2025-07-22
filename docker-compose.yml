@@ -16,6 +16,8 @@ services:
       - ./shared:/app/shared
     environment:
       - PYTHONPATH=/app
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318/v1/traces
+      - OTEL_SERVICE_NAME=celery_worker
     depends_on:
       - redis
 
@@ -31,7 +33,8 @@ services:
     environment:
       - PYTHONPATH=/app
       - NUM_THREADS=50
-      - OTEL_EXPORTER_OTLP_ENDPOINT=otel-collector:4317
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318/v1/traces
+      - OTEL_SERVICE_NAME=components
     depends_on:
       - redis
       - celery_worker
@@ -93,6 +96,7 @@ services:
     command: ["--config=/etc/otel-collector.yml"]
     ports:
       - "4317:4317"
+      - "4318:4318"
     depends_on:
       - jaeger
 

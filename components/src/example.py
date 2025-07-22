@@ -7,7 +7,7 @@ from shared.opentelemetry_config import get_tracer
 from worker.tasks import add
 
 # Get a tracer
-tracer = get_tracer("components")
+tracer = get_tracer(os.environ.get("OTEL_SERVICE_NAME", "components"))
 
 def dispatch_task():
     """Dispatches a Celery task in an infinite loop."""
