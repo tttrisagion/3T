@@ -76,6 +76,25 @@ To get started with the 3T system, you will need to have Docker and Docker Compo
 
 The Python components are located in the `components` directory. The main entry point for the trading bot is `src/example.py`.
 
+### Deploying Code Changes
+
+When you make changes to the code in any service, you need to rebuild the Docker image for that service to apply the changes. Running `docker-compose up -d` alone will not work, as it only starts existing containers.
+
+-   **To rebuild all services that have changed:**
+    ```bash
+    docker-compose up -d --build
+    ```
+-   **To rebuild a specific service (recommended for efficiency):**
+    ```bash
+    docker-compose up -d --build <service_name>
+    ```
+    For example, to rebuild the `components` service, you would run:
+    ```bash
+    docker-compose up -d --build components
+    ```
+
+This ensures your containers are running the latest code while preserving persistent data in volumes for services like MariaDB.
+
 ### Prerequisites
 
 - Python 3.11
