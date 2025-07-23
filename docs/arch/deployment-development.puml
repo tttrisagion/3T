@@ -9,6 +9,7 @@ Deployment_Node(developer_machine, "Developer Machine", "Docker Desktop") {
     Deployment_Node(docker, "Docker", "Container Engine") {
         Container_Instance(components, "Components Service", "Docker Container")
         Container_Instance(celery_worker, "Celery Worker", "Docker Container")
+        Container_Instance(celery_beat, "Celery Beat", "Docker Container")
         Container_Instance(redis, "Redis", "Docker Container")
         Container_Instance(flower, "Flower", "Docker Container")
         Container_Instance(prometheus, "Prometheus", "Docker Container")
