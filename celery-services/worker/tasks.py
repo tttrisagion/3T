@@ -4,6 +4,7 @@ import os
 import ccxt.async_support as ccxt
 import mysql.connector
 import redis
+from opentelemetry.instrumentation.celery import CeleryInstrumentor
 
 from shared.celery_app import app
 from shared.config import config
@@ -12,8 +13,6 @@ from shared.opentelemetry_config import get_tracer
 # Get a tracer
 tracer = get_tracer(os.environ.get("OTEL_SERVICE_NAME", "celery-worker"))
 
-# Instrument Celery
-from opentelemetry.instrumentation.celery import CeleryInstrumentor
 
 CeleryInstrumentor().instrument()
 

@@ -29,7 +29,7 @@ if __name__ == "__main__":
 
     print(f"Starting {num_threads} threads...")
 
-    for i in range(num_threads):
+    for _ in range(num_threads):
         thread = threading.Thread(target=dispatch_task)
         threads.append(thread)
         thread.start()
