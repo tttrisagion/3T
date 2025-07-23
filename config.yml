@@ -1,0 +1,20 @@
+# Application-wide configuration
+database:
+  host: mariadb
+  user: root
+  database: 3t
+
+redis:
+  host: redis
+  port: 6379
+  db: 0
+  streams:
+    balance_updates: "balance:updated"
+
+celery:
+  task_name: "tasks.update_balance"
+  schedule_seconds: 60
+
+# Exchange and product configuration can be managed here
+# or dynamically from the database.
+# For now, we will rely on the database for product info.

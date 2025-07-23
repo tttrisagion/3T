@@ -1,0 +1,13 @@
+# /grafana/provisioning/datasources/mariadb.yml
+apiVersion: 1
+
+datasources:
+  - name: MariaDB-3T
+    type: mysql
+    uid: 3T-MariaDB-Datasource # Assign a stable, unique ID
+    url: mariadb:3306
+    user: root # As defined in docker-compose.yml
+    database: 3t # As defined in docker-compose.yml
+    editable: true
+    secureJsonData:
+      password: "secret" # As defined in docker-compose.yml

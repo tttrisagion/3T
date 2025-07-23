@@ -42,9 +42,22 @@ The system architecture is documented using C4 diagrams, which can be found in t
 
 When a service is inaccessible, always run `docker-compose ps` first to check if the container is running. If it is not running, attempt to start it before further troubleshooting.
 
+- **Database Schema Errors:** If you encounter errors like `Table '3t.positions' doesn't exist`, it means the database initialization script was not executed. This happens because the script only runs when the database volume is first created. To force a re-initialization, you must completely reset the database:
+  1.  `docker-compose down` (Stops and removes all containers)
+  2.  `docker volume rm 3t_mariadb_data` (Deletes the persistent database data)
+  3.  `docker-compose up -d --build` (Restarts the system with a fresh database)
+
 ## Development Notes
 
 - **Applying Changes:** When you modify code or dependencies, you must rebuild the container for the changes to take effect. Use `docker-compose up -d --build --no-deps <service_name>`.
 - **Volume Mounts:** If you encounter a `ModuleNotFoundError` or `FileNotFoundError`, the most likely cause is a missing or incorrect volume mount in the `docker-compose.yml` file for the service in question.
 - **Shared Dependencies:** Some services depend on others. For instance, `flower` inspects the `celery_worker`, so its Dockerfile must install the same dependencies from `celery/requirements.txt`.
 - **Celery Autoscaling:** For autoscaling to work with I/O-bound tasks, the worker must use the `eventlet` concurrency pool. This requires adding `eventlet` to `celery/requirements.txt` and using the `-P eventlet` flag in the `docker-compose.yml` command for the `celery_worker`.
+
+## Defensive Programming
+
+To improve system resilience and accelerate development, all modules and services should be built with a defensive posture. This means they should anticipate and gracefully handle potential failures, invalid inputs, and missing configuration.
+
+- **Fail Fast with Clear Errors:** Instead of allowing a cryptic error to emerge from a third-party library, perform pre-flight checks on inputs and configuration. If validation fails, raise an immediate, informative exception that clearly explains the root cause.
+- **Validate Critical Inputs:** Always validate critical data, especially secrets and configuration values, before they are used. Ensure they are not null, empty, or in an incorrect format.
+- **Example (`update_balance` task):** The `update_balance` task provides a reference implementation. Before attempting to connect to the exchange, it verifies that all required API secrets (`apiKey`, `walletAddress`, `privateKey`) have been loaded from `secrets.yml`. If any are missing, it raises a `ValueError` that pinpoints the exact missing items, preventing the `ccxt` library from failing with a generic and unhelpful `ExchangeError`.

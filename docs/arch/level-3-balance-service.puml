@@ -1,0 +1,32 @@
+@startuml Balance Service Components
+!include <C4/C4_Component.puml>
+
+LAYOUT_WITH_LEGEND()
+LAYOUT_TOP_DOWN()
+
+title Component Diagram for Balance Update Service
+
+Container_Boundary(celery_worker, "Celery Worker") {
+    Component(update_balance_task, "Update Balance Task", "Celery Task", "Orchestrates the entire balance update process.")
+    Component(config_loader, "Config Loader", "Python Module", "Loads and provides access to configuration and secrets.")
+    Component(db_client, "Database Client", "Python Module", "Handles all communication with the MariaDB database.")
+    Component(exchange_client, "Exchange Client", "Python Module (CCXT)", "Handles all communication with the HyperLiquid exchange API.")
+    Component(event_publisher, "Event Publisher", "Python Module", "Publishes events to the Redis Stream.")
+
+    Rel(update_balance_task, config_loader, "Uses to get config and secrets")
+    Rel(update_balance_task, db_client, "Uses to read products and write balances/positions")
+    Rel(update_balance_task, exchange_client, "Uses to fetch balance and position data")
+    Rel(update_balance_task, event_publisher, "Uses to publish update events")
+}
+
+System_Ext(celery_beat, "Celery Beat", "Schedules the update_balance_task to run periodically.")
+System_Db_Ext(mariadb, "MariaDB", "Stores product, position, and balance data.")
+System_Db_Ext(redis_stream, "Redis Stream", "Receives 'balance:updated' events.")
+System_Ext(hyperliquid, "HyperLiquid Exchange", "Provides balance and position data.")
+
+Rel(celery_beat, update_balance_task, "Triggers", "Celery Protocol")
+Rel(db_client, mariadb, "Reads/Writes", "SQL")
+Rel(exchange_client, hyperliquid, "Fetches data from", "HTTPS")
+Rel(event_publisher, redis_stream, "Publishes to", "Redis Protocol")
+
+@enduml

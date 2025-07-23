@@ -14,25 +14,48 @@ services:
     volumes:
       - ./celery/worker:/app/worker
       - ./shared:/app/shared
+      - ./config.yml:/app/config.yml
+      - ./secrets.yml:/app/secrets.yml
     environment:
       - PYTHONPATH=/app
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318/v1/traces
       - OTEL_SERVICE_NAME=celery_worker
     depends_on:
       - redis
+      - mariadb
+
+  celery_beat:
+    build:
+      context: .
+      dockerfile: celery/Dockerfile
+    command: celery -A worker.tasks beat --loglevel=info
+    volumes:
+      - ./celery/worker:/app/worker
+      - ./shared:/app/shared
+      - ./config.yml:/app/config.yml
+      - ./secrets.yml:/app/secrets.yml
+    environment:
+      - PYTHONPATH=/app
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318/v1/traces
+      - OTEL_SERVICE_NAME=celery_beat
+    depends_on:
+      - redis
+      - mariadb
 
   components:
     build:
       context: .
       dockerfile: components/Dockerfile
-    command: python -u src/example.py
+    # The command is removed as the core logic is now in Celery.
+    # This service can be used for other components or removed if not needed.
+    command: tail -f /dev/null
     volumes:
       - ./components/src:/app/src
-      - ./celery/worker:/app/worker
       - ./shared:/app/shared
+      - ./config.yml:/app/config.yml
+      - ./secrets.yml:/app/secrets.yml
     environment:
       - PYTHONPATH=/app
-      - NUM_THREADS=50
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318/v1/traces
       - OTEL_SERVICE_NAME=components
     depends_on:
@@ -47,6 +70,8 @@ services:
     volumes:
       - ./celery/worker:/app/worker
       - ./shared:/app/shared
+      - ./config.yml:/app/config.yml
+      - ./secrets.yml:/app/secrets.yml
     environment:
       - PYTHONPATH=/app
       - FLOWER_UNAUTHENTICATED_API=true
@@ -82,6 +107,7 @@ services:
       - MARIADB_DATABASE=3t
     volumes:
       - mariadb_data:/var/lib/mysql
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
 
   jaeger:
     image: jaegertracing/all-in-one:1.53

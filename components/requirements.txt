@@ -7,3 +7,4 @@ numba
 numpy
 mysql-connector-python
 ccxt
+pyyaml
