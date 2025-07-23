@@ -7,10 +7,10 @@ services:
   celery_worker:
     build:
       context: .
-      dockerfile: celery/Dockerfile
+      dockerfile: celery-services/Dockerfile
     command: celery -A worker.tasks worker -P eventlet --loglevel=info --autoscale=600,1
     volumes:
-      - ./celery/worker:/app/worker
+      - ./celery-services/worker:/app/worker
       - ./shared:/app/shared
       - ./config.yml:/app/config.yml
       - ./secrets.yml:/app/secrets.yml
@@ -25,10 +25,10 @@ services:
   celery_beat:
     build:
       context: .
-      dockerfile: celery/Dockerfile
+      dockerfile: celery-services/Dockerfile
     command: celery -A worker.tasks beat --loglevel=info
     volumes:
-      - ./celery/worker:/app/worker
+      - ./celery-services/worker:/app/worker
       - ./shared:/app/shared
       - ./config.yml:/app/config.yml
       - ./secrets.yml:/app/secrets.yml
@@ -66,7 +66,7 @@ services:
       dockerfile: flower/Dockerfile
     command: celery -A worker.tasks flower --address=0.0.0.0 --port=5555
     volumes:
-      - ./celery/worker:/app/worker
+      - ./celery-services/worker:/app/worker
       - ./shared:/app/shared
       - ./config.yml:/app/config.yml
       - ./secrets.yml:/app/secrets.yml

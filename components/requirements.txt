@@ -8,3 +8,4 @@ numpy
 mysql-connector-python
 ccxt
 pyyaml
+pytest

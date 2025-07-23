@@ -54,6 +54,14 @@ When a service is inaccessible, always run `docker-compose ps` first to check if
 - **Shared Dependencies:** Some services depend on others. For instance, `flower` inspects the `celery_worker`, so its Dockerfile must install the same dependencies from `celery/requirements.txt`.
 - **Celery Autoscaling:** For autoscaling to work with I/O-bound tasks, the worker must use the `eventlet` concurrency pool. This requires adding `eventlet` to `celery/requirements.txt` and using the `-P eventlet` flag in the `docker-compose.yml` command for the `celery_worker`.
 
+## Naming Conventions
+
+- **CRITICAL: Avoid Python Library Name Conflicts:** Directory names must not conflict with Python library imports. The current `/celery` directory creates import shadowing issues with the `celery` Python package, causing `ModuleNotFoundError` and unpredictable import behavior.
+  - **Problem:** When Python sees `from celery import Celery`, it may resolve to the local `/celery` folder instead of the installed package
+  - **Solution:** Use descriptive prefixes like `/celery-workers`, `/celery-services`, or `/task-workers`
+  - **Best Practice:** Always check PyPI for existing package names before creating directories
+- **Import Path Testing:** When adding new modules, always test imports from the project root to ensure no shadowing occurs
+
 ## Defensive Programming
 
 To improve system resilience and accelerate development, all modules and services should be built with a defensive posture. This means they should anticipate and gracefully handle potential failures, invalid inputs, and missing configuration.
