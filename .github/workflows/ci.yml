@@ -28,4 +28,6 @@ jobs:
       run: make test
     
     - name: Test Docker build
-      run: make install
+      run: |
+        cp secrets.yml.example secrets.yml
+        docker-compose build --no-cache
