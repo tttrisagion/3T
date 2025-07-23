@@ -13,7 +13,7 @@ redis:
 
 celery:
   task_name: "tasks.update_balance"
-  schedule_seconds: 60
+  schedule_seconds: 30
 
 # Exchange and product configuration can be managed here
 # or dynamically from the database.
