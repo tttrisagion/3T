@@ -1,0 +1,51 @@
+@startuml Market Data Service Components
+!include <C4/C4_Component.puml>
+
+LAYOUT_WITH_LEGEND()
+LAYOUT_TOP_DOWN()
+
+title Component Diagram for Market Data Service
+
+Container_Boundary(celery_worker, "Celery Worker") {
+    Component(schedule_market_data_task, "Schedule Market Data Task", "Celery Task", "Dispatcher that queries products table and launches individual fetch tasks.")
+    Component(fetch_market_data_task, "Fetch Market Data Task", "Celery Task", "Worker task that fetches OHLCV data for a single symbol.")
+    Component(config_loader, "Config Loader", "Python Module", "Loads and provides access to configuration and secrets.")
+    Component(db_client, "Database Client", "Python Module", "Handles all communication with the MariaDB database.")
+    Component(exchange_client, "Exchange Client", "Python Module (CCXT)", "Handles all communication with the HyperLiquid exchange API.")
+    Component(data_processor, "Data Processor", "Python Module (Pandas)", "Processes and formats OHLCV data for database storage.")
+
+    Rel(schedule_market_data_task, config_loader, "Uses to get configuration")
+    Rel(schedule_market_data_task, db_client, "Uses to query products table")
+    Rel(schedule_market_data_task, fetch_market_data_task, "Dispatches tasks for each symbol", "Celery")
+    
+    Rel(fetch_market_data_task, config_loader, "Uses to get config and secrets")
+    Rel(fetch_market_data_task, exchange_client, "Uses to fetch OHLCV data")
+    Rel(fetch_market_data_task, data_processor, "Uses to format data")
+    Rel(fetch_market_data_task, db_client, "Uses to store market data")
+}
+
+System_Ext(celery_beat, "Celery Beat", "Schedules the schedule_market_data_task to run every minute.")
+System_Db_Ext(mariadb, "MariaDB", "Stores products configuration and market_data OHLCV records.")
+System_Ext(hyperliquid, "HyperLiquid Exchange", "Provides OHLCV market data for 23+ symbols.")
+
+Rel(celery_beat, schedule_market_data_task, "Triggers every minute", "Celery Protocol")
+Rel(db_client, mariadb, "Reads products / Writes market_data", "SQL")
+Rel(exchange_client, hyperliquid, "Fetches OHLCV data from", "HTTPS")
+
+note right of schedule_market_data_task
+  **Dispatcher Pattern:**
+  1. Query products table for all symbols
+  2. Launch individual fetch_market_data_task 
+     for each symbol (23+ parallel tasks)
+  3. Each task handles one symbol independently
+end note
+
+note right of fetch_market_data_task
+  **Per-Symbol Processing:**
+  1. Fetch last 20 minutes of 1m OHLCV data
+  2. Process with pandas DataFrame
+  3. Store using REPLACE INTO market_data
+  4. Full OpenTelemetry instrumentation
+end note
+
+@enduml

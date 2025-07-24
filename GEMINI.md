@@ -18,13 +18,40 @@ This project provides a production grade service-oriented architecture for the 3
 2.  The Grafana dashboard will be available at http://localhost:3000.
 3.  The Flower dashboard will be available at http://localhost:5555.
 
-## Development
+## Development Workflow
 
-The Python components are located in the `components` directory. The main entry point is `src/main.py`.
+This project uses a `Makefile` to standardize the development and testing workflow.
 
-## Development
+-   **Install/Update Services:** To build or rebuild the Docker containers after a code change, run:
+    ```bash
+    make install
+    ```
+-   **Run Tests:** To run the entire test suite, including linting and formatting, use:
+    ```bash
+    make test
+    ```
+    This command is also run automatically as a pre-commit hook to ensure code quality before it enters the repository.
 
-After making changes to the codebase, it is important to run the test suite to ensure that the changes have not introduced any regressions. The tests can be run by executing the `docker-compose.yml` file with the `components` service and the `test` command.
+-   **Clean Up:** To stop and remove all running containers and networks, run:
+    ```bash
+    make clean
+    ```
+
+### Database Resets
+
+If you need to completely reset the database to re-run the `init.sql` script (for example, after changing the schema), you must manually delete the persistent volume:
+
+1.  `make clean`
+2.  `docker volume rm 3t_mariadb_data`
+3.  `make install`
+
+### Pre-commit Hooks
+
+The repository is configured with a pre-commit hook that automatically runs `make test`. To enable this, you must have `pre-commit` installed and run the following command once:
+
+```bash
+pre-commit install
+```
 
 ## Observability
 
