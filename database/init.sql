@@ -67,14 +67,14 @@ CREATE TABLE `market_data` (
   KEY `idx_symbol` (`symbol`),
   KEY `idx_timeframe` (`timeframe`),
   KEY `idx_timestamp_symbol_timeframe` (`timestamp`,`symbol`,`timeframe`)
-) ENGINE=MEMORY DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=MEMORY DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_.ci;
 
 -- Insert initial data
 INSERT INTO `exchanges` (`id`, `name`, `api_url`) VALUES (1, 'HyperLiquid', 'https://api.hyperliquid.xyz');
 
 INSERT INTO `instruments` (`name`) VALUES
 ('BTC'), ('ETH'), ('SOL'), ('XRP'), ('MKR'), ('TRUMP'), ('HYPE'), ('SUI'),
-('FARTCOIN'), ('DOGE'), ('kPEPE'), ('ENA'), ('ADA'), ('AVAX'), ('CRV'),
+('FARTCOIN'), ('DOGE'), ('KPEPE'), ('ENA'), ('ADA'), ('AVAX'), ('CRV'),
 ('BERA'), ('GRASS'), ('TAO'), ('RENDER'), ('WLD'), ('AI16Z'), ('AIXBT'), ('PAXG');
 
 INSERT INTO `products` (`instrument_id`, `exchange_id`, `symbol`, `product_type`, `max_leverage`) VALUES
@@ -88,7 +88,7 @@ INSERT INTO `products` (`instrument_id`, `exchange_id`, `symbol`, `product_type`
 ((SELECT id from `instruments` where name = 'SUI'), 1, 'SUI/USDC:USDC', 'PERP', 10),
 ((SELECT id from `instruments` where name = 'FARTCOIN'), 1, 'FARTCOIN/USDC:USDC', 'PERP', 3),
 ((SELECT id from `instruments` where name = 'DOGE'), 1, 'DOGE/USDC:USDC', 'PERP', 10),
-((SELECT id from `instruments` where name = 'kPEPE'), 1, 'kPEPE/USDC:USDC', 'PERP', 10),
+((SELECT id from `instruments` where name = 'KPEPE'), 1, 'KPEPE/USDC:USDC', 'PERP', 10),
 ((SELECT id from `instruments` where name = 'ENA'), 1, 'ENA/USDC:USDC', 'PERP', 10),
 ((SELECT id from `instruments` where name = 'ADA'), 1, 'ADA/USDC:USDC', 'PERP', 10),
 ((SELECT id from `instruments` where name = 'AVAX'), 1, 'AVAX/USDC:USDC', 'PERP', 10),
