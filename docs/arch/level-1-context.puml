@@ -1,29 +1,19 @@
 @startuml trisagion_system_context
 !include <C4/C4_Context.puml>
 
-!define DEVICONS https://raw.githubusercontent.com/tttrisagion/plantuml-icon-font-sprites/refs/heads/main/icons/devicons
-!define FONTAWESOME https://github.com/tttrisagion/plantuml-icon-font-sprites/blob/main/icons/font-awesome-6
-!include DEVICONS/git.puml
-!include FONTAWESOME/brain.puml
-!include FONTAWESOME/robot.puml
-!include FONTAWESOME/chart_line.puml
-!include FONTAWESOME/user_shield.puml
-!include FONTAWESOME/user_cog.puml
-!include FONTAWESOME/building.puml
-
 LAYOUT_WITH_LEGEND()
 LAYOUT_TOP_DOWN()
 
 title System Context Diagram for Trisagion Algorithmic Trading System
 
-Person(risk_manager, "Risk Manager", "Oversees portfolio risk and performance. Receives alerts and reports.", $sprite="user_shield")
-Person(quant, "Data Scientist / Quant Analyst", "Develops, trains, and deploys predictive models.", $sprite="brain")
-Person(developer, "Developer", "Develops and maintains trading system using make test workflow with automated quality gates.", $sprite="user_cog")
-Person(ops_team, "Operations Team", "Monitors system health and manages uptime.", $sprite="user_cog")
+Person(risk_manager, "Risk Manager", "Oversees portfolio risk and performance. Receives alerts and reports.")
+Person(quant, "Data Scientist / Quant Analyst", "Develops, trains, and deploys predictive models.")
+Person(developer, "Developer", "Develops and maintains trading system using make test workflow with automated quality gates.")
+Person(ops_team, "Operations Team", "Monitors system health and manages uptime.")
 
-System_Ext(hyperliquid, "HyperLiquid Exchange", "Cryptocurrency derivatives exchange providing market data and trade execution.", $sprite="building")
-System_Ext(uptime_robot, "UptimeRobot", "External 3rd-party monitoring and alerting service.", $sprite="robot")
-System_Ext(github_repo, "GitHub Repository", "Source code with automated CI/CD: pre-commit hooks, GitHub Actions running make test for quality gates.", $sprite="git")
+System_Ext(hyperliquid, "HyperLiquid Exchange", "Cryptocurrency derivatives exchange providing market data and trade execution.")
+System_Ext(uptime_robot, "UptimeRobot", "External 3rd-party monitoring and alerting service.")
+System_Ext(github_repo, "GitHub Repository", "Source code with automated CI/CD: pre-commit hooks, GitHub Actions running make test for quality gates.")
 
 System_Boundary(c1, "3T (Tactical Trend Trader)") {
     System(trisagion, "Trisagion", "A proof-of-concept algorithmic trading system that uses ML-based predictions to manage a live portfolio.")
