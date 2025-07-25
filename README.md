@@ -69,55 +69,9 @@ To get started with the 3T system, you will need to have Docker and Docker Compo
 
 4. **Access the dashboards:**
 
-   - **Grafana**: http://localhost:3000
+   - **Grafana**: http://localhost:3000/dashboards
    - **Jaeger**: http://localhost:16686
-
-## Development
-
-The Python components are located in the `components` directory. The main entry point for the trading bot is `src/example.py`.
-
-### Deploying Code Changes
-
-When you make changes to the code in any service, you need to rebuild the Docker image for that service to apply the changes. Running `docker-compose up -d` alone will not work, as it only starts existing containers.
-
--   **To rebuild all services that have changed:**
-    ```bash
-    docker-compose up -d --build
-    ```
--   **To rebuild a specific service (recommended for efficiency):**
-    ```bash
-    docker-compose up -d --build <service_name>
-    ```
-    For example, to rebuild the `components` service, you would run:
-    ```bash
-    docker-compose up -d --build components
-    ```
-
-This ensures your containers are running the latest code while preserving persistent data in volumes for services like MariaDB.
-
-### Prerequisites
-
-- Python 3.11
-- Docker
-- Docker Compose
-
-### Dependencies
-
-The Python dependencies for the `components` service are listed in the `components/requirements.txt` file. The main dependencies are:
-
-- **celery[redis]**: For asynchronous task management.
-- **numba**: For high-performance Python code.
-- **numpy**: For numerical computing.
-- **mysql-connector-python**: For connecting to the MariaDB database.
-- **ccxt**: For interacting with cryptocurrency exchanges.
-- **opentelemetry-api**: For OpenTelemetry instrumentation.
-- **opentelemetry-sdk**: For OpenTelemetry instrumentation.
-- **opentelemetry-exporter-otlp**: For exporting OpenTelemetry data.
-- **opentelemetry-instrumentation-celery**: For instrumenting Celery with OpenTelemetry.
-
-### Running Tests
-
-A comprehensive testing framework will be implemented to ensure code quality and reliability.
+   - **Flower**: http://localhost:5555
 
 ## Observability
 
@@ -132,17 +86,19 @@ For technical documentation please see https://trisagion.gitbook.io/trisagion-do
 
 ## Roadmap
 
-The future plans for the 3T project include:
+The current plans for this repository involve migrating the proof-of-concept functionality into a more refined architecture that provides:
 
 - **Enhanced Trading Strategies**: Implementing more sophisticated trading strategies and models.
 - **Advanced Analytics**: Integrating advanced analytics and machine learning to improve trading performance.
 - **Real-time Portfolio Management**: Developing a real-time portfolio management system to track and manage assets.
 - **Expanded Exchange Support**: Adding support for more cryptocurrency exchanges and trading pairs.
 
+The future plans for the 3T project are updated here https://trisagion.gitbook.io/trisagion-docs/technology/research-and-roadmap
+
 ## Contributing
 
-Contributions to the 3T project are welcome. Please refer to the contributing guidelines for more information.
+Contributions to the 3T project are welcome. Please refer to the [contributing](https://github.com/tttrisagion/3T/blob/main/CONTRIBUTING.md) guidelines for more information.
 
 ## License
 
-The 3T project is licensed under the MIT License.
+The 3T project is licensed under the [MIT License](https://github.com/tttrisagion/3T/blob/main/LICENSE).
