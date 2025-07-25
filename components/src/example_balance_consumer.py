@@ -66,7 +66,7 @@ def listen_for_balance_updates():
             if not response:
                 continue
 
-            for stream, messages in response:
+            for _stream, messages in response:
                 for message_id, event_data in messages:
                     if "account_value" in event_data:
                         balance = event_data["account_value"]

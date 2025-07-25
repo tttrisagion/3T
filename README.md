@@ -32,13 +32,13 @@ The 3T system is built on a microservices architecture, with each component cont
 The system architecture is documented using the C4 model, and the diagrams can be found in the `docs/arch` directory. The diagrams are written in PlantUML and can be generated using the PlantUML extension for VS Code or other PlantUML-compatible tools.
 
 
-![context](https://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/tttrisagion/3T/refs/heads/main/docs/arch/level-1-context.puml)
+![context](docs/arch/level-1-context.png)
 
-![container](https://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/tttrisagion/3T/refs/heads/main/docs/arch/level-2-container.puml)
+![container](docs/arch/level-2-container.png)
 
-![inference](https://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/tttrisagion/3T/refs/heads/main/docs/arch/level-3-inference.puml)
+![inference](docs/arch/level-3-inference.png)
 
-![strategy](https://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/tttrisagion/3T/refs/heads/main/docs/arch/level-3-strategy-runner.puml)
+![strategy](docs/arch/level-3-strategy-runner.png)
 
 ## Getting Started
 
