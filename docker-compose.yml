@@ -44,9 +44,7 @@ services:
     build:
       context: .
       dockerfile: components/Dockerfile
-    # The command is removed as the core logic is now in Celery.
-    # This service can be used for other components or removed if not needed.
-    command: tail -f /dev/null
+    command: python src/example_balance_consumer.py
     volumes:
       - ./components/src:/app/src
       - ./shared:/app/shared

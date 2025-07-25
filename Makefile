@@ -1,4 +1,4 @@
-.PHONY: install test clean
+.PHONY: install test clean restart
 
 install:
 	docker-compose up -d --build
@@ -11,3 +11,6 @@ test:
 clean:
 	docker-compose down
 	docker system prune -f
+
+restart:
+	docker-compose restart

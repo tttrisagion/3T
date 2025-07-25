@@ -3,6 +3,7 @@ opentelemetry-sdk
 opentelemetry-exporter-otlp
 opentelemetry-instrumentation-celery
 celery[redis]
+redis
 numba
 numpy
 mysql-connector-python

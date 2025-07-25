@@ -79,6 +79,7 @@ When a service is inaccessible, always run `docker-compose ps` first to check if
 - **Applying Changes:** When you modify code or dependencies, you must rebuild the container for the changes to take effect. Use `docker-compose up -d --build --no-deps <service_name>`.
 - **Volume Mounts:** If you encounter a `ModuleNotFoundError` or `FileNotFoundError`, the most likely cause is a missing or incorrect volume mount in the `docker-compose.yml` file for the service in question.
 - **Shared Dependencies:** Some services depend on others. For instance, `flower` inspects the `celery_worker`, so its Dockerfile must install the same dependencies from `celery/requirements.txt`.
+- **Celery Beat Naming:** Name Celery Beat schedules based on the *action* they perform (e.g., `update-balance`), not their frequency (e.g., `update-balance-every-30-seconds`). Frequencies should be managed in `config.yml` to avoid hardcoding configuration into code.
 - **Celery Autoscaling:** For autoscaling to work with I/O-bound tasks, the worker must use the `eventlet` concurrency pool. This requires adding `eventlet` to `celery/requirements.txt` and using the `-P eventlet` flag in the `docker-compose.yml` command for the `celery_worker`.
 
 ## Naming Conventions

@@ -12,9 +12,14 @@ redis:
     balance_updates: "balance:updated"
 
 celery:
-  task_name: "tasks.update_balance"
-  schedule_seconds: 30
+  schedules:
+    update_balance: 30.0
+    schedule_market_data_fetching: 30.0 # Runs every minute to check for needed updates
 
 # Exchange and product configuration can be managed here
 # or dynamically from the database.
-# For now, we will rely on the database for product info.
+market_data:
+  timeframes:
+    - "1m"
+    - "4h"
+  concurrency_limit: 10
