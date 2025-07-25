@@ -23,3 +23,7 @@ market_data:
     - "1m"
     - "4h"
   concurrency_limit: 10
+  lookback_bars:
+    default: 20
+    "4h": 50
+    "1m": 20

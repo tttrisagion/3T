@@ -105,13 +105,17 @@ def schedule_market_data_fetching(is_backfill=False):
             span.set_attribute("products.count", len(products))
             span.set_attribute("timeframes.configured", timeframes)
 
+            lookback_config = config.get("market_data.lookback_bars", {})
+            default_lookback = lookback_config.get("default", 20)
+
             jobs_to_run = []
             for product in products:
                 for timeframe in timeframes:
                     symbol = product["symbol"]
+                    lookback = lookback_config.get(timeframe, default_lookback)
 
                     if is_backfill:
-                        jobs_to_run.append((symbol, timeframe))
+                        jobs_to_run.append((symbol, timeframe, lookback))
                         continue
 
                     # Stateful check
@@ -131,7 +135,7 @@ def schedule_market_data_fetching(is_backfill=False):
                     )
 
                     if latest_bar_ts > last_fetched_ts:
-                        jobs_to_run.append((symbol, timeframe))
+                        jobs_to_run.append((symbol, timeframe, lookback))
 
             if not jobs_to_run:
                 span.add_event("No new market data to fetch at this time.")
@@ -145,7 +149,11 @@ def schedule_market_data_fetching(is_backfill=False):
                 (
                     job,
                     pool.spawn(
-                        traced_fetch_and_store_ohlcv, job[0], job[1], parent_context
+                        traced_fetch_and_store_ohlcv,
+                        job[0],
+                        job[1],
+                        job[2],
+                        parent_context,
                     ),
                 )
                 for job in jobs_to_run
@@ -178,7 +186,10 @@ def schedule_market_data_fetching(is_backfill=False):
 
 
 def traced_fetch_and_store_ohlcv(
-    symbol: str, timeframe: str, parent_context: opentelemetry_context.Context
+    symbol: str,
+    timeframe: str,
+    lookback: int,
+    parent_context: opentelemetry_context.Context,
 ):
     """
     A wrapper that creates a dedicated OTEL span for each fetch, and upon success,
@@ -189,8 +200,9 @@ def traced_fetch_and_store_ohlcv(
         with tracer.start_as_current_span(f"fetch_job.{symbol}.{timeframe}") as span:
             span.set_attribute("symbol", symbol)
             span.set_attribute("timeframe", timeframe)
+            span.set_attribute("lookback", lookback)
             try:
-                fetch_and_store_ohlcv(symbol, timeframe)
+                fetch_and_store_ohlcv(symbol, timeframe, lookback)
 
                 # On success, update Redis with the timestamp of the latest bar
                 redis_cnx = get_redis_connection()
@@ -217,7 +229,7 @@ def traced_fetch_and_store_ohlcv(
         opentelemetry_context.detach(token)
 
 
-def fetch_and_store_ohlcv(symbol: str, timeframe: str):
+def fetch_and_store_ohlcv(symbol: str, timeframe: str, lookback: int):
     """
     Connects to the exchange, fetches OHLCV data, and stores it in the database.
     """
@@ -238,9 +250,9 @@ def fetch_and_store_ohlcv(symbol: str, timeframe: str):
             }
         )
 
-        # Fetch the last 20 bars to be safe
+        # Fetch the last N bars to be safe
         since = int(time.time() * 1000) - (
-            20 * exchange.parse_timeframe(timeframe) * 1000
+            lookback * exchange.parse_timeframe(timeframe) * 1000
         )
         ohlcv_data = exchange.fetchOHLCV(symbol, timeframe, since)
 

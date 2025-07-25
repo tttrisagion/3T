@@ -25,13 +25,13 @@ System_Ext(hyperliquid, "HyperLiquid Exchange", "Provides market data and trade 
 System_Boundary(trisagion_system, "Trisagion Trading System") {
 
     System_Boundary(celery_services, "Celery Services") {
-        Container(celery_worker, "Worker", "Python/Celery", "Executes asynchronous tasks: balance updates, market data fetching, and trading logic.", $sprite="cogs")
-        Container(celery_beat, "Beat", "Python/Celery", "Schedules periodic tasks: balance updates (30s), market data (60s).", $sprite="clock")
+        Container(celery_worker, "Worker", "Python/Celery", "Executes asynchronous tasks: balance updates and market data fetching for configured symbols.", $sprite="cogs")
+        Container(celery_beat, "Beat", "Python/Celery", "Schedules periodic tasks based on config.yml.", $sprite="clock")
     }
     
-    Container(components, "Components Service", "Python", "General purpose service for future features or manual tasks.", $sprite="python")
+    Container(components, "Balance Consumer", "Python/Redis", "Consumes balance update events from Redis stream and logs them.", $sprite="python")
 
-    ContainerDb(redis, "Redis", "Redis", "Acts as a message broker for Celery and a key-value cache.", $sprite="redis")
+    ContainerDb(redis, "Redis", "Redis", "Acts as a message broker for Celery and a key-value cache for market data state. Provides a stream for balance updates.", $sprite="redis")
     ContainerDb(mariadb, "MariaDB", "MariaDB", "Stores product, position, balance, and market data (OHLCV).", $sprite="database")
     
     System_Boundary(observability, "Observability") {
@@ -49,12 +49,13 @@ System_Boundary(trisagion_system, "Trisagion Trading System") {
     
     Rel(celery_beat, celery_worker, "Schedules tasks for", "Celery")
     
-    Rel(celery_worker, redis, "Uses as message broker", "TCP/IP")
+    Rel(celery_worker, redis, "Uses as message broker and for stateful market data fetching", "TCP/IP")
+    Rel_D(celery_worker, redis, "Publishes balance updates to", "XADD")
     Rel(celery_worker, mariadb, "Reads/writes trading data", "SQL/TCP")
     Rel(celery_worker, hyperliquid, "Fetches market data & executes trades", "HTTPS")
     
-    Rel(components, redis, "Uses for caching/messaging")
-    Rel(components, celery_worker, "Dispatches tasks to")
+    Rel(components, redis, "Consumes balance updates from", "XREADGROUP")
+    Rel_Back(components, celery_worker, "Is decoupled from by Redis")
 
     Rel(flower, redis, "Monitors queue", "TCP/IP")
     Rel(flower, celery_worker, "Monitors workers", "Celery")

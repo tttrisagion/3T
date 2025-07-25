@@ -24,11 +24,11 @@ Container_Boundary(celery_worker, "Celery Worker") {
     Rel(fetch_market_data_task, db_client, "Uses to store market data")
 }
 
-System_Ext(celery_beat, "Celery Beat", "Schedules the schedule_market_data_task to run every minute.")
+System_Ext(celery_beat, "Celery Beat", "Schedules the schedule_market_data_task to run on configured schedule.")
 System_Db_Ext(mariadb, "MariaDB", "Stores products configuration and market_data OHLCV records.")
-System_Ext(hyperliquid, "HyperLiquid Exchange", "Provides OHLCV market data for 23+ symbols.")
+System_Ext(hyperliquid, "HyperLiquid Exchange", "Provides OHLCV market data for configured symbols.")
 
-Rel(celery_beat, schedule_market_data_task, "Triggers every minute", "Celery Protocol")
+Rel(celery_beat, schedule_market_data_task, "Triggers on configured schedule", "Celery Protocol")
 Rel(db_client, mariadb, "Reads products / Writes market_data", "SQL")
 Rel(exchange_client, hyperliquid, "Fetches OHLCV data from", "HTTPS")
 
@@ -36,13 +36,13 @@ note right of schedule_market_data_task
   **Dispatcher Pattern:**
   1. Query products table for all symbols
   2. Launch individual fetch_market_data_task 
-     for each symbol (23+ parallel tasks)
+     for each symbol (parallel execution)
   3. Each task handles one symbol independently
 end note
 
 note right of fetch_market_data_task
   **Per-Symbol Processing:**
-  1. Fetch last 20 minutes of 1m OHLCV data
+  1. Fetch recent OHLCV data for configured timeframes
   2. Process with pandas DataFrame
   3. Store using REPLACE INTO market_data
   4. Full OpenTelemetry instrumentation

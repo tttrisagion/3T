@@ -65,6 +65,8 @@ A comprehensive testing framework will be implemented to ensure code quality and
 
 The system architecture is documented using C4 diagrams, which can be found in the `docs/arch` directory.
 
+- **C4 Diagram Best Practices:** C4 diagrams should not contain specific configuration values. For example, instead of "every 30 seconds," the diagram should say "on a configured schedule." This prevents the diagrams from becoming outdated when configuration changes.
+
 ## Troubleshooting
 
 When a service is inaccessible, always run `docker-compose ps` first to check if the container is running. If it is not running, attempt to start it before further troubleshooting.
