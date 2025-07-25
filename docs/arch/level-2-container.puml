@@ -1,11 +1,8 @@
 @startuml Trisagion System Containers
 !include <C4/C4_Container.puml>
 
-!define DEVICONS https://raw.githubusercontent.com/tupadr3/plantuml-icon-font-sprites/master/devicons
-!define FONTAWESOME https://raw.githubusercontent.com/tupadr3/plantuml-icon-font-sprites/master/font-awesome-5
-!include DEVICONS/python.puml
-!include DEVICONS/redis.puml
-!include DEVICONS/mariadb.puml
+!define DEVICONS https://raw.githubusercontent.com/tttrisagion/plantuml-icon-font-sprites/refs/heads/main/icons/devicons
+!define FONTAWESOME https://github.com/tttrisagion/plantuml-icon-font-sprites/blob/main/icons/font-awesome-6
 !include FONTAWESOME/user_shield.puml
 !include FONTAWESOME/cogs.puml
 !include FONTAWESOME/database.puml
@@ -29,9 +26,9 @@ System_Boundary(trisagion_system, "Trisagion Trading System") {
         Container(celery_beat, "Beat", "Python/Celery", "Schedules periodic tasks based on config.yml.", $sprite="clock")
     }
     
-    Container(components, "Balance Consumer", "Python/Redis", "Consumes balance update events from Redis stream and logs them.", $sprite="python")
+    Container(components, "Balance Consumer", "Python/Redis", "Consumes balance update events from Redis stream and logs them." )
 
-    ContainerDb(redis, "Redis", "Redis", "Acts as a message broker for Celery and a key-value cache for market data state. Provides a stream for balance updates.", $sprite="redis")
+    ContainerDb(redis, "Redis", "Redis", "Acts as a message broker for Celery and a key-value cache for market data state. Provides a stream for balance updates.")
     ContainerDb(mariadb, "MariaDB", "MariaDB", "Stores product, position, balance, and market data (OHLCV).", $sprite="database")
     
     System_Boundary(observability, "Observability") {
