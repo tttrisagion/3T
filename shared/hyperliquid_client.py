@@ -11,6 +11,7 @@ from hyperliquid.info import Info
 from opentelemetry import trace
 
 from shared.config import config
+from shared.exchange_manager import exchange_manager
 
 tracer = trace.get_tracer(__name__)
 
@@ -121,3 +122,13 @@ def get_exchange_instruments():
             if db_cnx and db_cnx.is_connected():
                 cursor.close()
                 db_cnx.close()
+
+
+def get_resilient_exchange():
+    """
+    Get a resilient exchange instance with connection pooling and retry logic.
+
+    Returns:
+        ccxt.Exchange: Resilient exchange instance
+    """
+    return exchange_manager.get_exchange()

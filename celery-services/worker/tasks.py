@@ -12,6 +12,7 @@ from worker.trading_range import update_trading_range
 from shared.celery_app import app
 from shared.config import config
 from shared.database import get_db_connection, get_redis_connection
+from shared.exchange_manager import exchange_manager
 from shared.opentelemetry_config import get_tracer
 
 # Get a tracer
@@ -217,29 +218,22 @@ def traced_fetch_and_store_ohlcv(
 def fetch_and_store_ohlcv(symbol: str, timeframe: str, lookback: int):
     """
     Connects to the exchange, fetches OHLCV data, and stores it in the database.
+    Uses the resilient exchange manager for connection pooling and retry logic.
     """
     db_cnx = None
     try:
-        api_key = config.get_secret("exchanges.hyperliquid.apiKey")
-        wallet_address = config.get_secret("exchanges.hyperliquid.walletAddress")
-        private_key = config.get_secret("exchanges.hyperliquid.privateKey")
-
-        if not all([api_key, wallet_address, private_key]):
-            raise ValueError("Missing required Hyperliquid secrets in secrets.yml")
-
-        exchange = ccxt.hyperliquid(
-            {
-                "apiKey": api_key,
-                "walletAddress": wallet_address,
-                "privateKey": private_key,
-            }
-        )
+        # Get resilient exchange instance
+        exchange = exchange_manager.get_exchange()
 
         # Fetch the last N bars to be safe
         since = int(time.time() * 1000) - (
             lookback * exchange.parse_timeframe(timeframe) * 1000
         )
-        ohlcv_data = exchange.fetchOHLCV(symbol, timeframe, since)
+
+        # Execute with automatic retry and circuit breaker protection
+        ohlcv_data = exchange_manager.execute_with_retry(
+            exchange.fetchOHLCV, symbol, timeframe, since
+        )
 
         if not ohlcv_data:
             return
@@ -311,32 +305,13 @@ def fetch_and_store_balance() -> float | None:
         db_cnx = None
         account_value = None
         try:
-            api_key = config.get_secret("exchanges.hyperliquid.apiKey")
-            wallet_address = config.get_secret("exchanges.hyperliquid.walletAddress")
-            private_key = config.get_secret("exchanges.hyperliquid.privateKey")
+            # Get resilient exchange instance
+            exchange = exchange_manager.get_exchange()
 
-            if not all([api_key, wallet_address, private_key]):
-                missing = [
-                    k
-                    for k, v in {
-                        "apiKey": api_key,
-                        "walletAddress": wallet_address,
-                        "privateKey": private_key,
-                    }.items()
-                    if not v
-                ]
-                raise ValueError(
-                    f"Missing required Hyperliquid secrets: {', '.join(missing)}"
-                )
-
-            exchange = ccxt.hyperliquid(
-                {
-                    "apiKey": api_key,
-                    "walletAddress": wallet_address,
-                    "privateKey": private_key,
-                }
+            # Fetch balance with automatic retry and circuit breaker protection
+            exchange_status = exchange_manager.execute_with_retry(
+                exchange.fetch_balance
             )
-            exchange_status = exchange.fetch_balance()
 
             db_cnx = get_db_connection()
             cursor = db_cnx.cursor(dictionary=True)

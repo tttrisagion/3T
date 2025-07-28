@@ -18,6 +18,12 @@ services:
       - PYTHONPATH=/app
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318/v1/traces
       - OTEL_SERVICE_NAME=celery_worker
+    healthcheck:
+      test: ["CMD", "python", "-c", "from shared.exchange_manager import exchange_manager; exchange_manager.get_exchange()"]
+      interval: 300s
+      timeout: 30s
+      retries: 3
+      start_period: 60s
     depends_on:
       - redis
       - mariadb
