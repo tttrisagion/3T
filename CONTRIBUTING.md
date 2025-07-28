@@ -1,6 +1,10 @@
 # Contributing to 3T
 
-First off, thank you for considering contributing to 3T! It's people like you that make open source such a great community.
+First off, thank you for considering contributing to 3T! It's people like you that make open source such a great community. Please note that this project is released with a Contributor Code of Conduct. By participating in this project you agree to abide by its terms.
+
+## Code of Conduct
+
+This project and everyone participating in it is governed by the [3T Code of Conduct](CODE_OF_CONDUCT.md). By participating, you are expected to uphold this code. Please report unacceptable behavior to [INSERT CONTACT METHOD].
 
 ## Where do I go from here?
 

@@ -99,6 +99,12 @@ The future plans for the 3T project are updated here https://trisagion.gitbook.i
 
 Contributions to the 3T project are welcome. Please refer to the [contributing](https://github.com/tttrisagion/3T/blob/main/CONTRIBUTING.md) guidelines for more information.
 
+## Disclaimer
+
+This project is provided "as is" and "with all faults." The authors and contributors disclaim all warranties, express or implied, including any warranties of merchantability, fitness for a particular purpose, and non-infringement.
+
+In no event shall the authors or contributors be liable for any claim, damages, or other liability, whether in an action of contract, tort, or otherwise, arising from, out of, or in connection with the software or the use or other dealings in the software.
+
 ## License
 
 The 3T project is licensed under the [MIT License](https://github.com/tttrisagion/3T/blob/main/LICENSE).
