@@ -42,9 +42,9 @@ The system architecture is documented using the C4 model, and the diagrams can b
 
 ![strategy](docs/arch/level-3-strategy-runner.png)
 
-![balance-service](docs/arch/Balance Service Components.png)
+![balance-service](docs/arch/level-3-balance-service.png)
 
-![market-data-service](docs/arch/Market Data Service Components.png)
+![market-data-service](docs/arch/level-3-market-data-service.png)
 
 ![trade-lifecycle](docs/arch/dynamic-trade-lifecycle.png)
 
