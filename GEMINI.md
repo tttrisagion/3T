@@ -45,6 +45,26 @@ If you need to completely reset the database to re-run the `init.sql` script (fo
 2.  `docker volume rm 3t_mariadb_data`
 3.  `make install`
 
+### Database Migrations (Production)
+
+In a production environment, resetting the database is not a viable option as it would result in data loss. When the data model changes (e.g., adding new products, altering tables), migrations must be performed manually by executing SQL commands directly against the running database.
+
+**Example: Adding a New Product**
+
+1.  **Identify the running container:** Use `docker-compose ps` to find the name of the MariaDB container (e.g., `3t_mariadb`).
+2.  **Execute `INSERT` statements:** Use `docker exec` to apply the changes.
+    ```bash
+    # Add the new instrument
+    docker exec -i 3t_mariadb mysql -u root -p"$MARIADB_ROOT_PASSWORD" 3t < "INSERT INTO instruments (name) VALUES ('NEW_INSTRUMENT');"
+
+    # Add the new product
+    docker exec -i 3t_mariadb mysql -u root -p"$MARIADB_ROOT_PASSWORD" 3t < "INSERT INTO products (instrument_id, exchange_id, symbol, product_type, max_leverage) VALUES ((SELECT id from instruments where name = 'NEW_INSTRUMENT'), 1, 'NEW/USDC:USDC', 'PERP', 10);"
+    ```
+    *Note: You must have the `MARIADB_ROOT_PASSWORD` environment variable set for this command to work. The password can be found in `secrets.yml`.*
+
+This approach ensures that new data is added without affecting existing records. The `init.sql` file should also be updated to reflect the new schema for future environment setups.
+
+
 ### Pre-commit Hooks
 
 The repository is configured with a pre-commit hook that automatically runs `make test`. To enable this, you must have `pre-commit` installed and run the following command once:

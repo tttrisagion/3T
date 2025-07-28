@@ -75,7 +75,8 @@ INSERT INTO `exchanges` (`id`, `name`, `api_url`) VALUES (1, 'HyperLiquid', 'htt
 INSERT INTO `instruments` (`name`) VALUES
 ('BTC'), ('ETH'), ('SOL'), ('XRP'), ('MKR'), ('TRUMP'), ('HYPE'), ('SUI'),
 ('FARTCOIN'), ('DOGE'), ('KPEPE'), ('ENA'), ('ADA'), ('AVAX'), ('CRV'),
-('BERA'), ('GRASS'), ('TAO'), ('RENDER'), ('WLD'), ('AI16Z'), ('AIXBT'), ('PAXG');
+('BERA'), ('GRASS'), ('TAO'), ('RENDER'), ('WLD'), ('AI16Z'), ('AIXBT'), ('PAXG'),
+('BCH'), ('PENGU');
 
 INSERT INTO `products` (`instrument_id`, `exchange_id`, `symbol`, `product_type`, `max_leverage`) VALUES
 ((SELECT id from `instruments` where name = 'BTC'), 1, 'BTC/USDC:USDC', 'PERP', 40),
@@ -100,4 +101,6 @@ INSERT INTO `products` (`instrument_id`, `exchange_id`, `symbol`, `product_type`
 ((SELECT id from `instruments` where name = 'WLD'), 1, 'WLD/USDC:USDC', 'PERP', 10),
 ((SELECT id from `instruments` where name = 'AI16Z'), 1, 'AI16Z/USDC:USDC', 'PERP', 5),
 ((SELECT id from `instruments` where name = 'AIXBT'), 1, 'AIXBT/USDC:USDC', 'PERP', 5),
-((SELECT id from `instruments` where name = 'PAXG'), 1, 'PAXG/USDC:USDC', 'PERP', 5);
+((SELECT id from `instruments` where name = 'PAXG'), 1, 'PAXG/USDC:USDC', 'PERP', 5),
+((SELECT id from `instruments` where name = 'BCH'), 1, 'BCH/USDC:USDC', 'PERP', 10),
+((SELECT id from `instruments` where name = 'PENGU'), 1, 'PENGU/USDC:USDC', 'PERP', 3);
