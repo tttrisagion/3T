@@ -26,7 +26,7 @@ class TestExchangeManager:
         }.get(key)
 
         mock_exchange = Mock()
-        mock_exchange.fetch_time.return_value = int(time.time() * 1000)
+        mock_exchange.load_markets.return_value = {}
         mock_ccxt.hyperliquid.return_value = mock_exchange
 
         manager = ExchangeManager()
@@ -59,11 +59,11 @@ class TestExchangeManager:
 
         # First exchange fails health check
         failing_exchange = Mock()
-        failing_exchange.fetch_time.side_effect = Exception("Network error")
+        failing_exchange.load_markets.side_effect = Exception("Network error")
 
         # Second exchange succeeds
         healthy_exchange = Mock()
-        healthy_exchange.fetch_time.return_value = int(time.time() * 1000)
+        healthy_exchange.load_markets.return_value = {}
 
         mock_ccxt.hyperliquid.side_effect = [failing_exchange, healthy_exchange]
 
@@ -111,7 +111,7 @@ class TestExchangeManager:
         }.get(key)
 
         failing_exchange = Mock()
-        failing_exchange.fetch_time.side_effect = Exception("Network error")
+        failing_exchange.load_markets.side_effect = Exception("Network error")
         mock_ccxt.hyperliquid.return_value = failing_exchange
 
         manager = ExchangeManager()
@@ -119,9 +119,11 @@ class TestExchangeManager:
         manager.health_check_interval = 0  # Force health checks
 
         # Multiple failures should eventually open circuit breaker
-        for i in range(manager.circuit_breaker_threshold + 1):
+        # Need to call health check directly to trigger failures
+        for _i in range(manager.circuit_breaker_threshold + 1):
             try:
-                manager.get_exchange()
+                exchange = manager._create_exchange("hyperliquid")
+                manager._health_check(exchange, "hyperliquid")
             except Exception:
                 pass  # Expected to fail
 

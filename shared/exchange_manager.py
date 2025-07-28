@@ -170,8 +170,13 @@ class ExchangeManager:
         with tracer.start_as_current_span("exchange_health_check") as span:
             try:
                 start_time = time.time()
-                # Simple health check - fetch server time
-                exchange.fetch_time()
+                # Health check - try different methods based on exchange capabilities
+                if exchange_name == "hyperliquid":
+                    # For HyperLiquid, check markets to verify connection
+                    exchange.load_markets()
+                else:
+                    # For other exchanges, use server time
+                    exchange.fetch_time()
                 duration = time.time() - start_time
 
                 # Record successful request latency
@@ -206,7 +211,7 @@ class ExchangeManager:
                     # Try to close old connection gracefully
                     if hasattr(old_exchange, "close"):
                         old_exchange.close()
-                except:
+                except Exception:
                     pass  # Ignore errors when closing
                 del self._exchanges[exchange_name]
 
