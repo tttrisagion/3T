@@ -1,0 +1,57 @@
+@startuml Price Streaming Service Components
+!include <C4/C4_Component.puml>
+
+LAYOUT_WITH_LEGEND()
+LAYOUT_TOP_DOWN()
+
+title Component Diagram for Price Streaming Service
+
+Person(developer, "Developer", "Monitors real-time price feeds")
+System_Ext(hyperliquid, "HyperLiquid Exchange", "Provides real-time trade data via WebSocket")
+ContainerDb_Ext(redis, "Redis", "Streams for real-time events")
+ContainerDb_Ext(mariadb, "MariaDB", "Product and instrument configuration")
+
+Container_Boundary(price_producer, "Price Stream Producer") {
+    Component(websocket_client, "WebSocket Client", "Python/WebSocket", "Maintains persistent connection to HyperLiquid trade feeds")
+    Component(price_publisher, "Price Publisher", "Python/Redis", "Publishes formatted price updates to Redis stream")
+    Component(instrument_loader, "Instrument Loader", "Python/MySQL", "Loads supported trading instruments from database")
+    Component(connection_manager, "Connection Manager", "Python", "Manages WebSocket reconnection and error handling")
+    Component(hyperliquid_client, "HyperLiquid Client", "Python/Auth", "Handles authentication and client setup using secrets.yml")
+}
+
+Container_Boundary(price_consumer, "Price Stream Consumer") {
+    Component(stream_reader, "Stream Reader", "Python/Redis", "Reads price updates from Redis stream using consumer groups")
+    Component(message_processor, "Message Processor", "Python", "Processes and validates incoming price messages")
+    Component(downstream_notifier, "Downstream Notifier", "Python", "Forwards processed prices to trading strategies or analytics")
+}
+
+Container_Boundary(shared_libs, "Shared Libraries") {
+    Component(config_manager, "Config Manager", "Python/YAML", "Manages configuration from config.yml and secrets.yml")
+    Component(tracer, "OpenTelemetry Tracer", "Python/OTel", "Provides distributed tracing capabilities")
+}
+
+Rel(developer, price_producer, "Monitors via logs")
+Rel(developer, price_consumer, "Monitors price processing")
+
+Rel(hyperliquid_client, config_manager, "Uses credentials from")
+Rel(hyperliquid_client, hyperliquid, "Authenticates with")
+Rel(websocket_client, hyperliquid, "Subscribes to trade feeds via", "WebSocket")
+Rel(websocket_client, connection_manager, "Managed by")
+Rel(connection_manager, hyperliquid_client, "Uses for reconnection")
+
+Rel(instrument_loader, mariadb, "Queries supported instruments", "SQL")
+Rel(instrument_loader, config_manager, "Uses database config")
+Rel(websocket_client, instrument_loader, "Subscribes to instruments from")
+
+Rel(websocket_client, price_publisher, "Sends trade data to")
+Rel(price_publisher, redis, "Publishes to prices:updated stream", "XADD")
+
+Rel(stream_reader, redis, "Consumes from prices:updated stream", "XREADGROUP")
+Rel(stream_reader, message_processor, "Forwards messages to")
+Rel(message_processor, downstream_notifier, "Sends processed prices to")
+
+Rel(price_publisher, tracer, "Records spans")
+Rel(stream_reader, tracer, "Records spans")
+Rel(websocket_client, tracer, "Records connection events")
+
+@enduml

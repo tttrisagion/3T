@@ -10,3 +10,5 @@ mysql-connector-python
 ccxt
 pyyaml
 pytest
+eth-account
+hyperliquid-python-sdk

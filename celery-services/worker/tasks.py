@@ -3,15 +3,15 @@ import time
 from datetime import UTC, datetime
 
 import ccxt
-import mysql.connector
-import redis
 from celery.signals import worker_ready
 from eventlet.greenpool import GreenPool
 from opentelemetry import context as opentelemetry_context
 from opentelemetry.instrumentation.celery import CeleryInstrumentor
+from worker.trading_range import update_trading_range
 
 from shared.celery_app import app
 from shared.config import config
+from shared.database import get_db_connection, get_redis_connection
 from shared.opentelemetry_config import get_tracer
 
 # Get a tracer
@@ -29,28 +29,12 @@ app.conf.beat_schedule = {
         "task": "worker.tasks.schedule_market_data_fetching",
         "schedule": config.get("celery.schedules.schedule_market_data_fetching", 60.0),
     },
+    "update-trading-range": {
+        "task": "worker.trading_range.update_trading_range",
+        "schedule": 600.0,
+    },
 }
 app.conf.timezone = "UTC"
-
-
-def get_db_connection():
-    """Creates and returns a new database connection."""
-    return mysql.connector.connect(
-        host=config.get("database.host"),
-        user=config.get("database.user"),
-        password=config.get_secret("database.password"),
-        database=config.get("database.database"),
-    )
-
-
-def get_redis_connection():
-    """Creates and returns a new Redis connection."""
-    return redis.Redis(
-        host=config.get("redis.host"),
-        port=config.get("redis.port"),
-        db=config.get("redis.db"),
-        decode_responses=True,
-    )
 
 
 @worker_ready.connect
@@ -67,6 +51,7 @@ def initial_data_backfill(sender, **kwargs):
             # Use the same logic as the scheduler to fetch all configured timeframes
             # This ensures the system is fully populated on startup.
             schedule_market_data_fetching.delay(is_backfill=True)
+            update_trading_range.delay()
             span.add_event("Successfully triggered initial backfill task.")
             print("Initial market data backfill task dispatched.")
         except Exception as e:

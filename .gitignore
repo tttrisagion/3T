@@ -1,3 +1,5 @@
 secrets.yml
 **/__pycache__/
 .coverage
+tmp
+database/migrations/*

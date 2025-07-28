@@ -40,7 +40,7 @@ services:
       - redis
       - mariadb
 
-  components:
+  balance_consumer:
     build:
       context: .
       dockerfile: components/Dockerfile
@@ -53,10 +53,46 @@ services:
     environment:
       - PYTHONPATH=/app
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318/v1/traces
-      - OTEL_SERVICE_NAME=components
+      - OTEL_SERVICE_NAME=balance_consumer
     depends_on:
       - redis
       - celery_worker
+
+  price_stream_producer:
+    build:
+      context: .
+      dockerfile: components/Dockerfile
+    command: python src/price_stream_producer.py
+    volumes:
+      - ./components/src:/app/src
+      - ./shared:/app/shared
+      - ./config.yml:/app/config.yml
+      - ./secrets.yml:/app/secrets.yml
+    environment:
+      - PYTHONPATH=/app
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318/v1/traces
+      - OTEL_SERVICE_NAME=price_stream_producer
+    depends_on:
+      - redis
+      - mariadb
+
+  price_stream_consumer:
+    build:
+      context: .
+      dockerfile: components/Dockerfile
+    command: python src/price_stream_consumer.py
+    volumes:
+      - ./components/src:/app/src
+      - ./shared:/app/shared
+      - ./config.yml:/app/config.yml
+      - ./secrets.yml:/app/secrets.yml
+    environment:
+      - PYTHONPATH=/app
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318/v1/traces
+      - OTEL_SERVICE_NAME=price_stream_consumer
+    depends_on:
+      - redis
+      - price_stream_producer
 
   flower:
     build:

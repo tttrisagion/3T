@@ -31,8 +31,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Core Services
 - **Celery Workers** (`celery-services/`): Asynchronous task processing for market data fetching and balance updates
-- **Components** (`components/`): Real-time event consumers (e.g., balance update listeners)
-- **Shared** (`shared/`): Common utilities including config management, Celery app, and OpenTelemetry setup
+- **Components** (`components/`): Real-time services including:
+  - Balance update consumers (`example_balance_consumer.py`)
+  - Price streaming producer (`price_stream_producer.py`) - WebSocket connection to HyperLiquid
+  - Price streaming consumer (`price_stream_consumer.py`) - Example consumer for price updates
+- **Shared** (`shared/`): Common utilities including config management, Celery app, HyperLiquid client, and OpenTelemetry setup
 
 ### Infrastructure Services
 - **Redis**: Message broker for Celery and streams for real-time events
@@ -49,7 +52,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### Key Data Flow
 1. **Market Data**: Celery beat scheduler triggers market data fetching tasks that pull OHLCV data from exchanges and store in `market_data` table (MEMORY engine)
 2. **Balance Updates**: Scheduled balance fetch tasks update positions and publish events to Redis streams
-3. **Event Processing**: Component services consume Redis stream events for real-time processing
+3. **Real-time Price Streaming**: WebSocket connection to HyperLiquid streams live price updates to Redis for all supported instruments
+4. **Event Processing**: Component services consume Redis stream events for real-time processing
 
 ### Database Schema
 - `exchanges`: Exchange definitions (currently HyperLiquid)

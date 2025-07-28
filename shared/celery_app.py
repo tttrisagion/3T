@@ -4,5 +4,5 @@ app = Celery(
     "tasks",
     broker="redis://redis:6379/0",
     backend="redis://redis:6379/0",
-    include=["worker.tasks"],
+    include=["worker.tasks", "worker.trading_range"],
 )

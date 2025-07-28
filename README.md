@@ -38,7 +38,15 @@ The system architecture is documented using the C4 model, and the diagrams can b
 
 ![inference](docs/arch/level-3-inference.png)
 
+![price-streaming](docs/arch/level-3-price-streaming.png)
+
 ![strategy](docs/arch/level-3-strategy-runner.png)
+
+![balance-service](docs/arch/Balance Service Components.png)
+
+![market-data-service](docs/arch/Market Data Service Components.png)
+
+![trade-lifecycle](docs/arch/dynamic-trade-lifecycle.png)
 
 ## Getting Started
 

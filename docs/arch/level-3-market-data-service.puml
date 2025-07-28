@@ -9,6 +9,7 @@ title Component Diagram for Market Data Service
 Container_Boundary(celery_worker, "Celery Worker") {
     Component(schedule_market_data_task, "Schedule Market Data Task", "Celery Task", "Dispatcher that queries products table and launches individual fetch tasks.")
     Component(fetch_market_data_task, "Fetch Market Data Task", "Celery Task", "Worker task that fetches OHLCV data for a single symbol.")
+    Component(update_trading_range_task, "Update Trading Range Task", "Celery Task", "Calculates and stores the trading range for each symbol based on recent market data.")
     Component(config_loader, "Config Loader", "Python Module", "Loads and provides access to configuration and secrets.")
     Component(db_client, "Database Client", "Python Module", "Handles all communication with the MariaDB database.")
     Component(exchange_client, "Exchange Client", "Python Module (CCXT)", "Handles all communication with the HyperLiquid exchange API.")
@@ -22,13 +23,16 @@ Container_Boundary(celery_worker, "Celery Worker") {
     Rel(fetch_market_data_task, exchange_client, "Uses to fetch OHLCV data")
     Rel(fetch_market_data_task, data_processor, "Uses to format data")
     Rel(fetch_market_data_task, db_client, "Uses to store market data")
+
+    Rel(update_trading_range_task, db_client, "Reads market data and writes trading ranges")
 }
 
-System_Ext(celery_beat, "Celery Beat", "Schedules the schedule_market_data_task to run on configured schedule.")
-System_Db_Ext(mariadb, "MariaDB", "Stores products configuration and market_data OHLCV records.")
+System_Ext(celery_beat, "Celery Beat", "Schedules the schedule_market_data_task and update_trading_range_task to run on configured schedules.")
+ContainerDb_Ext(mariadb, "MariaDB", "Stores products configuration and market_data OHLCV records.")
 System_Ext(hyperliquid, "HyperLiquid Exchange", "Provides OHLCV market data for configured symbols.")
 
 Rel(celery_beat, schedule_market_data_task, "Triggers on configured schedule", "Celery Protocol")
+Rel(celery_beat, update_trading_range_task, "Triggers on configured schedule", "Celery Protocol")
 Rel(db_client, mariadb, "Reads products / Writes market_data", "SQL")
 Rel(exchange_client, hyperliquid, "Fetches OHLCV data from", "HTTPS")
 

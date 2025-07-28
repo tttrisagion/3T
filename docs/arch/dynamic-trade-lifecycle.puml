@@ -9,22 +9,24 @@ Person(risk_manager, "Risk Manager")
 System_Ext(hyperliquid_ws, "HyperLiquid WebSocket")
 System_Ext(hyperliquid_api, "HyperLiquid REST API")
 
-Container(streaming_provider, "Streaming Data Provider")
-Container(slicer, "Slice Service")
+Container(price_stream_producer, "Price Stream Producer")
+ContainerDb(redis_streams, "Redis Streams")
+Container(price_stream_consumer, "Price Stream Consumer")
 ContainerDb(db, "Database")
 Container(strategy_runner, "Strategy Runner")
 Container(inference_service, "Inference Service")
 Container(portfolio_service, "Portfolio Service")
 
-hyperliquid_ws -> streaming_provider: 1. New trade event pushed
-streaming_provider -> slicer: 2. Streams normalized trade data
-slicer -> db: 3. Writes completed 1-min bar
-db --> strategy_runner: 4. Reads new market data bar
-strategy_runner -> inference_service: 5. Requests prediction with features
-inference_service --> strategy_runner: 6. Returns profit/loss prediction
-strategy_runner -> portfolio_service: 7. Sends trade instruction (e.g., BUY 0.1 BTC)
-portfolio_service -> hyperliquid_api: 8. Places order on exchange
-hyperliquid_api --> portfolio_service: 9. Confirms order placement
-portfolio_service --> risk_manager: 10. (Async) Updates portfolio state for reporting
+hyperliquid_ws -> price_stream_producer: 1. Real-time trade event via WebSocket
+price_stream_producer -> redis_streams: 2. Publishes price update to prices:updated stream
+redis_streams --> price_stream_consumer: 3. Consumer reads price update
+price_stream_consumer -> strategy_runner: 4. Forwards real-time price to strategy
+strategy_runner -> db: 5. Reads historical market data for context
+strategy_runner -> inference_service: 6. Requests prediction with real-time + historical features
+inference_service --> strategy_runner: 7. Returns profit/loss prediction
+strategy_runner -> portfolio_service: 8. Sends trade instruction (e.g., BUY 0.1 BTC based on price trigger)
+portfolio_service -> hyperliquid_api: 9. Places order on exchange
+hyperliquid_api --> portfolio_service: 10. Confirms order placement
+portfolio_service --> risk_manager: 11. (Async) Updates portfolio state for reporting
 
 @enduml

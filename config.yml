@@ -10,6 +10,7 @@ redis:
   db: 0
   streams:
     balance_updates: "balance:updated"
+    price_updates: "prices:updated"
 
 celery:
   schedules:

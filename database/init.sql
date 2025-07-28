@@ -1,5 +1,5 @@
 -- Drop tables if they exist to ensure a clean slate on each startup.
-DROP TABLE IF EXISTS `positions`, `balance_history`, `products`, `instruments`, `exchanges`;
+DROP TABLE IF EXISTS `positions`, `balance_history`, `products`, `instruments`, `exchanges`, `trading_range`;
 
 -- Create the exchanges table
 CREATE TABLE `exchanges` (
@@ -68,6 +68,15 @@ CREATE TABLE `market_data` (
   KEY `idx_timeframe` (`timeframe`),
   KEY `idx_timestamp_symbol_timeframe` (`timestamp`,`symbol`,`timeframe`)
 ) ENGINE=MEMORY DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_.ci;
+
+-- Create the trading_range table
+CREATE TABLE `trading_range` (
+    `symbol` VARCHAR(20) NOT NULL,
+    `high_threshold` DECIMAL(18, 8),
+    `low_threshold` DECIMAL(18, 8),
+    `last_updated` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`symbol`)
+) ENGINE=InnoDB;
 
 -- Insert initial data
 INSERT INTO `exchanges` (`id`, `name`, `api_url`) VALUES (1, 'HyperLiquid', 'https://api.hyperliquid.xyz');

@@ -20,8 +20,8 @@ Container_Boundary(celery_worker, "Celery Worker") {
 }
 
 System_Ext(celery_beat, "Celery Beat", "Schedules the update_balance_task to run periodically.")
-System_Db_Ext(mariadb, "MariaDB", "Stores product, position, and balance data.")
-System_Db_Ext(redis_stream, "Redis Stream", "Receives 'balance:updated' events.")
+ContainerDb_Ext(mariadb, "MariaDB", "Stores product, position, and balance data.")
+ContainerDb_Ext(redis_stream, "Redis Stream", "Receives 'balance:updated' events.")
 System_Ext(hyperliquid, "HyperLiquid Exchange", "Provides balance and position data.")
 
 Rel(celery_beat, update_balance_task, "Triggers", "Celery Protocol")
