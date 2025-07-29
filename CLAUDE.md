@@ -92,7 +92,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Never commit actual secrets to the repository
 - Use `secrets.yml.example` as template for required secrets structure
 - Exchange API credentials stored in `secrets.yml` under `exchanges.hyperliquid.*`
-- For CI/CD: Use `secrets.test.yml` which contains safe mock credentials
+- For CI/CD: Copy `secrets.yml.example` which contains safe mock credentials
 - Always validate that secrets exist before attempting to use them
 
 ### OpenTelemetry Integration
