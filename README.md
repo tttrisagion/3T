@@ -21,16 +21,19 @@ Tactical Trend Trader (3T) is a sophisticated, service-oriented platform designe
 
 The 3T system is built on a microservices architecture, with each component containerized using Docker for portability and scalability. The primary components are:
 
-- **Celery Services**: A directory containing the Celery worker and beat services.
+- **Celery Services**: A directory containing the Celery worker and beat services for asynchronous task processing.
 - **Python Components**: A directory containing various Python services that are not part of the Celery cluster.
-- **Redis**: A high-performance in-memory data store used for message brokering and caching.
-- **Celery**: A distributed task queue that manages asynchronous tasks, such as order execution and data analysis.
-- **Flower**: A web-based tool for monitoring and administering Celery jobs and workers.
-- **Prometheus**: A monitoring and alerting toolkit that collects metrics from various services.
-- **Grafana**: A platform for visualizing and analyzing metrics, with pre-built dashboards for monitoring the 3T system.
-- **MariaDB**: A relational database used for persistent storage of trading data and configuration.
-- **Jaeger**: A distributed tracing system for monitoring and troubleshooting microservices-based distributed systems.
-- **OpenTelemetry Collector**: A component that receives, processes, and exports telemetry data to Jaeger.
+- **Redis**: A high-performance in-memory data store used for message brokering, caching, and real-time event streams.
+- **MariaDB**: A relational database used for persistent storage of trading data, positions, and configuration.
+
+### Observability & Monitoring Stack
+- **Elasticsearch**: Search and analytics engine providing persistent storage for trace data.
+- **Jaeger**: Distributed tracing system with Elasticsearch backend for monitoring microservices interactions.
+- **Kibana**: Web interface for exploring and visualizing trace data stored in Elasticsearch.
+- **OpenTelemetry Collector**: Receives, processes, and exports telemetry data from services to Jaeger.
+- **Prometheus**: Monitoring and alerting toolkit that collects metrics from various services.
+- **Grafana**: Platform for visualizing metrics with pre-built dashboards for monitoring the 3T system.
+- **Flower**: Web-based tool for monitoring and administering Celery jobs and workers.
 
 The system architecture is documented using the C4 model, and the diagrams can be found in the `docs/arch` directory. The diagrams are written in PlantUML and can be generated using the PlantUML extension for VS Code or other PlantUML-compatible tools.
 
@@ -80,24 +83,39 @@ To get started with the 3T system, you will need to have Docker and Docker Compo
 3. **Start the services:**
 
    ```bash
-   docker-compose up -d
+   make install
+   # or alternatively:
+   docker-compose up -d --build
    ```
 
-   This will start all the services in detached mode.
+   This will start all services in detached mode and automatically configure Kibana with Jaeger index patterns.
 
 4. **Access the dashboards:**
 
    - **Grafana**: http://localhost:3000/dashboards
-   - **Jaeger**: http://localhost:16686
-   - **Kibana**: http://localhost:5601/app/discover#/?_g=(filters:!(),refreshInterval:(pause:!f,value:5000),time:(from:now-15m,to:now))&_a=(columns:!(operationName,process.serviceName,duration,startTimeMillis),filters:!(),index:'jaeger-span',interval:auto,query:(language:kuery,query:''),sort:!(!(startTimeMillis,desc)))
-   - **Flower**: http://localhost:5555
+   - **Jaeger**: http://localhost:16686 (distributed tracing UI)
+   - **Kibana**: http://localhost:5601 (trace data exploration)
+   - **Flower**: http://localhost:5555 (Celery monitoring)
+   - **Prometheus**: http://localhost:9090 (metrics)
+   - **Elasticsearch**: http://localhost:9200 (API access)
+
+## Development
+
+For development commands, testing procedures, and detailed technical guidance, see [CLAUDE.md](CLAUDE.md). Key commands:
+
+- **Deploy code changes**: `docker-compose restart` (no rebuild needed)
+- **Run tests**: `make test`
+- **Stop and clean**: `make clean`
 
 ## Observability
 
-The 3T system is designed for high observability, with a suite of tools for monitoring and tracing.
+The 3T system is designed for high observability, with a comprehensive suite of tools for monitoring, tracing, and debugging.
 
-- **Metrics**: Prometheus scrapes metrics from Flower and other services, which are then visualized in Grafana.
-- **Distributed Tracing**: The system will be instrumented with OpenTelemetry for distributed tracing, providing insights into the flow of requests across services.
+- **Metrics**: Prometheus scrapes metrics from Flower and other services, visualized in Grafana dashboards.
+- **Distributed Tracing**: All services are instrumented with OpenTelemetry, sending traces through the OTEL Collector to Jaeger with persistent Elasticsearch storage.
+- **Trace Exploration**: Kibana provides a web interface for exploring trace data with automatically configured index patterns.  
+- **Real-time Monitoring**: Live trace data can be viewed in Kibana with auto-refresh capabilities to monitor system activity.
+- **Automated Setup**: Kibana index patterns are automatically created during deployment for immediate use.
 
 # Documentation
 
