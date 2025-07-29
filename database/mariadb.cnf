@@ -1,0 +1,8 @@
+[mysqld]
+# Increase heap table sizes to 1GB to handle large market_data table
+max_heap_table_size = 1073741824
+tmp_table_size = 1073741824
+
+# Additional settings for better performance with large tables
+max_allowed_packet = 64M
+innodb_buffer_pool_size = 256M

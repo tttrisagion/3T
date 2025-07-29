@@ -8,12 +8,17 @@ services:
     build:
       context: .
       dockerfile: celery-services/Dockerfile
-    command: celery -A worker.tasks worker -P eventlet --loglevel=info --autoscale=600,1
+    command: celery -A worker.tasks worker -P eventlet --loglevel=info --autoscale=600,10
     volumes:
       - ./celery-services/worker:/app/worker
       - ./shared:/app/shared
       - ./config.yml:/app/config.yml
       - ./secrets.yml:/app/secrets.yml
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
     environment:
       - PYTHONPATH=/app
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318/v1/traces
@@ -38,6 +43,11 @@ services:
       - ./shared:/app/shared
       - ./config.yml:/app/config.yml
       - ./secrets.yml:/app/secrets.yml
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
     environment:
       - PYTHONPATH=/app
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318/v1/traces
@@ -146,12 +156,56 @@ services:
     volumes:
       - mariadb_data:/var/lib/mysql
       - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./database/mariadb.cnf:/etc/mysql/mariadb.conf.d/99-custom.cnf
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.15
+    environment:
+      - discovery.type=single-node
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - xpack.security.enabled=false
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:7.17.15
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - xpack.security.enabled=false
+    ports:
+      - "5601:5601"
+    depends_on:
+      - elasticsearch
+
+  kibana-setup:
+    image: curlimages/curl:8.4.0
+    depends_on:
+      - kibana
+      - elasticsearch
+    volumes:
+      - ./setup/kibana:/setup
+    command: >
+      sh -c "
+        echo 'Waiting for services to be ready...' &&
+        sleep 30 &&
+        /setup/setup-index-patterns.sh
+      "
+    environment:
+      - KIBANA_URL=http://kibana:5601
+    restart: "no"
 
   jaeger:
     image: jaegertracing/all-in-one:1.53
+    environment:
+      - SPAN_STORAGE_TYPE=elasticsearch
+      - ES_SERVER_URLS=http://elasticsearch:9200
     ports:
       - "16686:16686"
       - "14268:14268"
+    depends_on:
+      - elasticsearch
 
   otel-collector:
     image: otel/opentelemetry-collector-contrib:0.88.0
@@ -166,3 +220,5 @@ services:
 
 volumes:
   mariadb_data:
+  jaeger_data:
+  elasticsearch_data:

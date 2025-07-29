@@ -13,8 +13,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### Docker Operations
 - Start all services: `make install` or `docker-compose up -d --build`
 - Stop and clean: `make clean` (stops containers, removes networks, and prunes Docker system)
+- **Deploy code changes: `docker-compose restart`** (Python files are mounted as volumes - no rebuild needed)
 - Restart services: `make restart`
-- Rebuild single service: `docker-compose up -d --build --no-deps <service_name>`
+- Rebuild single service: `docker-compose up -d --build --no-deps <service_name>` (only needed for requirements.txt changes)
+
+### Automated Setup
+- **Kibana Index Patterns**: Automatically created by `kibana-setup` service on deployment
+- **Setup Scripts**: Located in `setup/` directory for automated configuration
+- **Fresh Environment**: All necessary index patterns and configurations are created automatically
 
 ### Database Operations
 - Complete database reset (development only):
@@ -41,7 +47,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Redis**: Message broker for Celery and streams for real-time events
 - **MariaDB**: Persistent storage for trading data, positions, and balance history
 - **Prometheus + Grafana**: Metrics collection and visualization  
-- **Jaeger + OTEL Collector**: Distributed tracing
+- **Elasticsearch + Jaeger + OTEL Collector**: Distributed tracing with persistent storage
+- **Kibana**: Web interface for browsing Elasticsearch/Jaeger trace data
 - **Flower**: Celery monitoring dashboard
 
 ### Configuration Management
@@ -93,6 +100,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Service names configured via `OTEL_SERVICE_NAME` environment variable
 - Traces exported to OTEL collector on port 4318
 
+### Network Resilience
+- **ExchangeManager**: Singleton pattern prevents connection buildup issues
+  - Connection pooling and reuse across all exchange operations
+  - Health checks every 5 minutes with automatic connection recreation
+  - Circuit breaker opens after 5 failures, resets after 5 minutes
+  - Retry logic with exponential backoff (1s, 2s, 4s)
+- **NetworkMonitor**: Comprehensive monitoring and alerting
+  - Error classification and counting by type (timeout, connection_refused, etc.)
+  - Latency tracking with OpenTelemetry metrics
+  - Alert thresholds with cooldown periods
+- **HyperLiquid Compatibility**: Health checks use `load_markets()` instead of `fetch_time()`
+- **Usage**: All services use `exchange_manager.get_exchange()` and `exchange_manager.execute_with_retry()`
+
 ### Celery Best Practices
 - Name Beat schedules based on the action they perform (e.g., `update-balance`), not frequency
 - Frequencies should be configured in `config.yml`, not hardcoded
@@ -101,8 +121,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Service Access
 - Grafana dashboards: http://localhost:3000/dashboards
 - Jaeger tracing: http://localhost:16686
+- Kibana (Elasticsearch/Jaeger data): http://localhost:5601
 - Flower Celery monitoring: http://localhost:5555
 - Prometheus metrics: http://localhost:9090
+- Elasticsearch API: http://localhost:9200
 
 ## Task Scheduling
 - Celery Beat runs on configurable intervals (default 30 seconds) for balance updates and market data scheduling
@@ -126,4 +148,5 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### Development Notes
 - Volume mounts enable live code reloading without rebuilds
 - Some services have shared dependencies (e.g., flower needs celery-services requirements)
-- When modifying code, rebuild containers to see changes: `docker-compose up -d --build --no-deps <service_name>`
+- **When modifying Python code, just restart services: `docker-compose restart`**
+- Only rebuild if changing dependencies: `docker-compose up -d --build --no-deps <service_name>`

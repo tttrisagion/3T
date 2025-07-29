@@ -1,8 +1,10 @@
+import ctypes
 import os
 import time
 from datetime import UTC, datetime
 
 import ccxt
+import numpy as np
 from celery.signals import worker_ready
 from eventlet.greenpool import GreenPool
 from opentelemetry import context as opentelemetry_context
@@ -364,3 +366,98 @@ def fetch_and_store_balance() -> float | None:
             if db_cnx and db_cnx.is_connected():
                 cursor.close()
                 db_cnx.close()
+
+
+# --- Permutation Entropy C++ Library Loading ---
+
+
+def load_perm_entropy_library():
+    """Load the permutation entropy C++ library."""
+    try:
+        lib_path = os.path.join(
+            os.path.dirname(__file__), "bin", "libperm_entropy_cpu.so"
+        )
+        lib = ctypes.CDLL(lib_path)
+
+        func = lib.calculate_cpu_perm_entropy
+        func.argtypes = [
+            np.ctypeslib.ndpointer(dtype=np.float64, flags="C_CONTIGUOUS"),
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+        ]
+        func.restype = ctypes.c_double
+        print("✅ Successfully loaded permutation entropy library")
+        return func
+    except (OSError, AttributeError) as e:
+        print(f"⚠️ WARNING: Could not load permutation entropy library. Error: {e}")
+        return None
+
+
+# Load the library on module import
+calculate_cpu_entropy = load_perm_entropy_library()
+
+
+@app.task(name="worker.tasks.calculate_permutation_entropy")
+def calculate_permutation_entropy(data, order=3, delay=1, iterations=1000):
+    """
+    Celery task to calculate permutation entropy using the C++ library.
+
+    Args:
+        data: List of float values for entropy calculation
+        order: Order parameter for permutation entropy (default: 3)
+        delay: Delay parameter for permutation entropy (default: 1)
+        iterations: Number of iterations to amplify work (default: 1000)
+
+    Returns:
+        dict: Result containing entropy value and metadata
+    """
+    with tracer.start_as_current_span("calculate_permutation_entropy_task") as span:
+        span.set_attribute("task.name", "calculate_permutation_entropy")
+        span.set_attribute("data.length", len(data))
+        span.set_attribute("order", order)
+        span.set_attribute("delay", delay)
+        span.set_attribute("iterations", iterations)
+
+        try:
+            if not calculate_cpu_entropy:
+                error_msg = "Permutation entropy library not loaded"
+                span.set_attribute("error", True)
+                span.add_event(error_msg)
+                return {"error": error_msg, "result": None}
+
+            # Convert data to numpy array
+            x_np = np.array(data, dtype=np.float64)
+            n = len(x_np)
+
+            # Validate inputs
+            if n < order:
+                error_msg = f"Data length ({n}) must be >= order ({order})"
+                span.set_attribute("error", True)
+                span.add_event(error_msg)
+                return {"error": error_msg, "result": None}
+
+            # Calculate entropy with iterations to amplify work
+            result = 0
+            for i in range(iterations):
+                result = calculate_cpu_entropy(x_np, n, order, delay)
+                if i % 100 == 0:  # Log progress every 100 iterations
+                    span.add_event(f"Completed {i + 1}/{iterations} iterations")
+
+            span.set_attribute("result", result)
+            span.add_event(f"Successfully calculated permutation entropy: {result}")
+
+            return {
+                "result": result,
+                "engine": "cpu_native",
+                "order": order,
+                "delay": delay,
+                "iterations": iterations,
+                "data_length": n,
+            }
+
+        except Exception as e:
+            span.set_attribute("error", True)
+            span.record_exception(e)
+            print(f"Error in calculate_permutation_entropy task: {e}")
+            return {"error": str(e), "result": None}

@@ -19,6 +19,15 @@ Container_Boundary(celery_worker, "Celery Worker") {
     Rel(update_balance_task, event_publisher, "Uses to publish update events")
 }
 
+Container_Boundary(balance_consumer, "Balance Consumer") {
+    Component(stream_reader, "Stream Reader", "Python/Redis", "Reads balance updates from Redis stream using consumer groups")
+    Component(message_processor, "Message Processor", "Python", "Processes and validates incoming balance messages")
+    Component(logger, "Logger", "Python", "Logs balance information")
+
+    Rel(stream_reader, message_processor, "Forwards messages to")
+    Rel(message_processor, logger, "Sends processed balance to")
+}
+
 System_Ext(celery_beat, "Celery Beat", "Schedules the update_balance_task to run periodically.")
 ContainerDb_Ext(mariadb, "MariaDB", "Stores product, position, and balance data.")
 ContainerDb_Ext(redis_stream, "Redis Stream", "Receives 'balance:updated' events.")
@@ -28,5 +37,6 @@ Rel(celery_beat, update_balance_task, "Triggers", "Celery Protocol")
 Rel(db_client, mariadb, "Reads/Writes", "SQL")
 Rel(exchange_client, hyperliquid, "Fetches data from", "HTTPS")
 Rel(event_publisher, redis_stream, "Publishes to", "Redis Protocol")
+Rel(stream_reader, redis_stream, "Consumes from", "Redis Protocol")
 
 @enduml

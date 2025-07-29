@@ -11,7 +11,7 @@ System_Ext(hyperliquid, "HyperLiquid Exchange", "Provides real-time trade data v
 ContainerDb_Ext(redis, "Redis", "Streams for real-time events")
 ContainerDb_Ext(mariadb, "MariaDB", "Product and instrument configuration")
 
-Container_Boundary(price_producer, "Price Stream Producer") {
+Container_Boundary(price_stream_producer, "Price Stream Producer") {
     Component(websocket_client, "WebSocket Client", "Python/WebSocket", "Maintains persistent connection to HyperLiquid trade feeds")
     Component(price_publisher, "Price Publisher", "Python/Redis", "Publishes formatted price updates to Redis stream")
     Component(instrument_loader, "Instrument Loader", "Python/MySQL", "Loads supported trading instruments from database")
@@ -19,7 +19,7 @@ Container_Boundary(price_producer, "Price Stream Producer") {
     Component(hyperliquid_client, "HyperLiquid Client", "Python/Auth", "Handles authentication and client setup using secrets.yml")
 }
 
-Container_Boundary(price_consumer, "Price Stream Consumer") {
+Container_Boundary(price_stream_consumer, "Price Stream Consumer") {
     Component(stream_reader, "Stream Reader", "Python/Redis", "Reads price updates from Redis stream using consumer groups")
     Component(message_processor, "Message Processor", "Python", "Processes and validates incoming price messages")
     Component(downstream_notifier, "Downstream Notifier", "Python", "Forwards processed prices to trading strategies or analytics")

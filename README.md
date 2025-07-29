@@ -21,15 +21,25 @@ Tactical Trend Trader (3T) is a sophisticated, service-oriented platform designe
 
 The 3T system is built on a microservices architecture, with each component containerized using Docker for portability and scalability. The primary components are:
 
-- **Python Controllers**: The core logic of the trading bot, responsible for executing trading strategies.
+- **Celery Services**: A directory containing the Celery worker and beat services.
+- **Python Components**: A directory containing various Python services that are not part of the Celery cluster.
 - **Redis**: A high-performance in-memory data store used for message brokering and caching.
 - **Celery**: A distributed task queue that manages asynchronous tasks, such as order execution and data analysis.
 - **Flower**: A web-based tool for monitoring and administering Celery jobs and workers.
 - **Prometheus**: A monitoring and alerting toolkit that collects metrics from various services.
 - **Grafana**: A platform for visualizing and analyzing metrics, with pre-built dashboards for monitoring the 3T system.
 - **MariaDB**: A relational database used for persistent storage of trading data and configuration.
+- **Jaeger**: A distributed tracing system for monitoring and troubleshooting microservices-based distributed systems.
+- **OpenTelemetry Collector**: A component that receives, processes, and exports telemetry data to Jaeger.
 
 The system architecture is documented using the C4 model, and the diagrams can be found in the `docs/arch` directory. The diagrams are written in PlantUML and can be generated using the PlantUML extension for VS Code or other PlantUML-compatible tools.
+
+### Data Pipeline
+
+The system features two main data pipelines:
+
+1.  **Price Data**: The `price_stream_producer` service connects to the HyperLiquid exchange via WebSocket and streams real-time price data to a Redis stream. The `price_stream_consumer` service then consumes this data for further processing.
+2.  **Balance Data**: The `celery_worker` periodically fetches balance and position data from the exchange and publishes it to a Redis stream. The `balance_consumer` service consumes this data to log and monitor the system's financial status.
 
 
 ![context](docs/arch/level-1-context.png)
@@ -79,6 +89,7 @@ To get started with the 3T system, you will need to have Docker and Docker Compo
 
    - **Grafana**: http://localhost:3000/dashboards
    - **Jaeger**: http://localhost:16686
+   - **Kibana**: http://localhost:5601/app/discover#/?_g=(filters:!(),refreshInterval:(pause:!f,value:5000),time:(from:now-15m,to:now))&_a=(columns:!(operationName,process.serviceName,duration,startTimeMillis),filters:!(),index:'jaeger-span',interval:auto,query:(language:kuery,query:''),sort:!(!(startTimeMillis,desc)))
    - **Flower**: http://localhost:5555
 
 ## Observability
