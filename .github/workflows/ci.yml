@@ -23,7 +23,7 @@ jobs:
     
     - name: Create test secrets file
       run: |
-        cp secrets.test.yml secrets.yml
+        cp secrets.yml.example secrets.yml
     
     - name: Install dev dependencies
       run: |
