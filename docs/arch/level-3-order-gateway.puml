@@ -1,0 +1,42 @@
+@startuml Order Gateway Components
+!include <C4/C4_Component.puml>
+
+LAYOUT_WITH_LEGEND()
+LAYOUT_TOP_DOWN()
+
+title Component Diagram for Order Gateway Service
+
+Container_Boundary(order_gateway, "Order Gateway") {
+    Component(fastapi_app, "FastAPI Application", "FastAPI", "Web framework providing REST endpoints for order execution.")
+    Component(order_handler, "Order Handler", "Python Module", "Processes incoming order requests and coordinates execution.")
+    Component(deduplication_engine, "Deduplication Engine", "Python Module", "Generates request hashes and prevents duplicate orders using 30-second windows.")
+    Component(order_executor, "Order Executor", "Python Module", "Handles actual order submission to exchange with retry logic.")
+    Component(price_fetcher, "Price Fetcher", "Python Module", "Retrieves latest prices from Redis price streams.")
+    Component(database_client, "Database Client", "Python Module", "Manages order execution log and status updates.")
+    Component(config_loader, "Config Loader", "Python Module", "Loads application configuration and secrets.")
+    Component(exchange_manager, "Exchange Manager", "Python Module", "Manages exchange connections with retry and circuit breaker logic.")
+
+    Rel(fastapi_app, order_handler, "Routes requests to")
+    Rel(order_handler, deduplication_engine, "Uses for duplicate detection")
+    Rel(order_handler, database_client, "Uses to log orders and check status")
+    Rel(order_handler, order_executor, "Uses to execute trades")
+    Rel(order_executor, price_fetcher, "Uses to get current prices")
+    Rel(order_executor, exchange_manager, "Uses to send orders")
+    Rel(order_executor, database_client, "Updates order status via")
+    Rel(database_client, config_loader, "Gets DB config from")
+    Rel(exchange_manager, config_loader, "Gets exchange config from")
+}
+
+System_Ext(external_client, "External Client", "System or service that needs to execute trades.")
+ContainerDb_Ext(mariadb, "MariaDB", "Stores order execution log with duplicate detection hashes.")
+ContainerDb_Ext(redis_stream, "Redis Price Stream", "Provides real-time price data for order validation.")
+System_Ext(hyperliquid, "HyperLiquid Exchange", "Executes actual trades via REST API.")
+Container_Ext(otel_collector, "OpenTelemetry Collector", "Collects traces for observability.")
+
+Rel(external_client, fastapi_app, "Sends order requests to", "HTTPS/REST")
+Rel(database_client, mariadb, "Reads/Writes order logs", "SQL/TCP")
+Rel(price_fetcher, redis_stream, "Gets latest prices from", "Redis Protocol")
+Rel(exchange_manager, hyperliquid, "Executes orders via", "HTTPS/REST")
+Rel(fastapi_app, otel_collector, "Sends traces to", "gRPC")
+
+@enduml

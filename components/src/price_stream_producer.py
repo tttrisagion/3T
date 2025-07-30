@@ -100,9 +100,18 @@ def process_trade(data):
 def start_price_streaming():
     """
     Start the price streaming service by subscribing to all supported instruments.
+    Includes a heartbeat mechanism to detect stale connections.
     """
     with tracer.start_as_current_span("start_price_streaming") as span:
         print("Starting price streaming service...", flush=True)
+
+        last_message_time = time.time()
+        STALE_CONNECTION_THRESHOLD = 60  # seconds
+
+        def process_trade_wrapper(data):
+            nonlocal last_message_time
+            process_trade(data)
+            last_message_time = time.time()
 
         try:
             # Setup HyperLiquid client
@@ -122,7 +131,7 @@ def start_price_streaming():
             for instrument in instruments:
                 try:
                     info.subscribe(
-                        {"type": "trades", "coin": instrument}, process_trade
+                        {"type": "trades", "coin": instrument}, process_trade_wrapper
                     )
                     print(f"Subscribed to {instrument} trade feed", flush=True)
                     span.add_event(f"Subscribed to {instrument}")
@@ -133,16 +142,37 @@ def start_price_streaming():
             print("Price streaming service is running...", flush=True)
             span.add_event("Price streaming service started successfully")
 
-            # Keep the service running
+            # Keep the service running and check for stale connection
             while True:
+                if time.time() - last_message_time > STALE_CONNECTION_THRESHOLD:
+                    raise TimeoutError(
+                        "Stale WebSocket connection: No messages received for "
+                        f"{STALE_CONNECTION_THRESHOLD} seconds."
+                    )
                 time.sleep(1)
 
         except Exception as e:
             span.set_attribute("error", True)
             span.record_exception(e)
             print(f"Error in price streaming service: {e}", flush=True)
+            # Re-raise the exception to be caught by the retry loop
             raise
 
 
+def run_price_streamer_with_retry():
+    """
+    Run the price streaming service with a retry mechanism to handle connection drops.
+    """
+    while True:
+        try:
+            start_price_streaming()
+        except Exception as e:
+            print(
+                f"An unexpected error occurred: {e}. Restarting in 5 seconds...",
+                flush=True,
+            )
+            time.sleep(5)
+
+
 if __name__ == "__main__":
-    start_price_streaming()
+    run_price_streamer_with_retry()

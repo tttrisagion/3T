@@ -3,9 +3,11 @@ Network monitoring utilities for detecting and alerting on network issues.
 """
 
 import logging
+from collections.abc import Iterable
 from datetime import datetime
 
 from opentelemetry import metrics, trace
+from opentelemetry.metrics import Observation
 
 tracer = trace.get_tracer(__name__)
 
@@ -19,11 +21,6 @@ network_latency_histogram = meter.create_histogram(
     description="Network request duration in seconds",
     unit="s",
 )
-circuit_breaker_state_gauge = meter.create_gauge(
-    name="circuit_breaker_state",
-    description="Circuit breaker state (0=closed, 1=open)",
-    unit="1",
-)
 
 
 class NetworkMonitor:
@@ -36,6 +33,18 @@ class NetworkMonitor:
         self._error_counts = {}
         self._last_alert_time = {}
         self.alert_cooldown = 300  # 5 minutes between alerts
+        self._circuit_breaker_states = {}
+
+        meter.create_observable_gauge(
+            name="circuit_breaker_state",
+            description="Circuit breaker state (0=closed, 1=open)",
+            unit="1",
+            callbacks=[self._circuit_breaker_state_callback],
+        )
+
+    def _circuit_breaker_state_callback(self, options) -> Iterable[Observation]:
+        for service, state in self._circuit_breaker_states.items():
+            yield Observation(state, {"service": service})
 
     def record_network_error(
         self, service: str, error_type: str, error_message: str = ""
@@ -96,7 +105,7 @@ class NetworkMonitor:
             span.set_attribute("service", service)
             span.set_attribute("circuit_breaker.open", is_open)
 
-            circuit_breaker_state_gauge.set(1 if is_open else 0, {"service": service})
+            self._circuit_breaker_states[service] = 1 if is_open else 0
 
             if is_open:
                 self.logger.warning(

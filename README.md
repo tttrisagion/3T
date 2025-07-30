@@ -59,6 +59,10 @@ The system features two main data pipelines:
 
 ![market-data-service](docs/arch/level-3-market-data-service.png)
 
+![order-gateway](docs/arch/level-3-order-gateway.png)
+
+![exchange-observer](docs/arch/level-3-exchange-observer.png)
+
 ![trade-lifecycle](docs/arch/dynamic-trade-lifecycle.png)
 
 ## Getting Started

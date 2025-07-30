@@ -22,6 +22,14 @@ System_Boundary(trisagion_system, "Trisagion Trading System") {
         Container(price_consumer, "Price Stream Consumer", "Python/Redis", "Consumes price updates from Redis stream for downstream processing.")
     }
 
+    System_Boundary(trading_gateway, "Trading Gateway") {
+        Container(order_gateway, "Order Gateway", "FastAPI/Python", "Secure, idempotent order execution service with duplicate detection and retry logic.")
+    }
+
+    System_Boundary(monitoring_services, "External Monitoring") {
+        Container(exchange_observer, "Exchange Observer", "FastAPI/Python", "Standalone service that monitors HyperLiquid wallet positions and provides REST API access.")
+    }
+
     ContainerDb(redis, "Redis", "Redis", "Acts as a message broker for Celery and a key-value cache for market data state. Provides streams for balance and price updates.")
     ContainerDb(mariadb, "MariaDB", "MariaDB", "Stores product, position, balance, and market data (OHLCV).")
     
@@ -38,6 +46,8 @@ System_Boundary(trisagion_system, "Trisagion Trading System") {
 
     Rel(developer, celery_services, "Manages and develops")
     Rel(developer, streaming_components, "Manages and develops")
+    Rel(developer, trading_gateway, "Manages and develops")
+    Rel(developer, monitoring_services, "Manages and develops")
     Rel(developer, flower, "Monitors")
     Rel(developer, grafana, "Views dashboards on")
     Rel(developer, jaeger, "Views traces on")
@@ -58,6 +68,13 @@ System_Boundary(trisagion_system, "Trisagion Trading System") {
     Rel(price_consumer, redis, "Consumes price updates from", "XREADGROUP")
     Rel_Back(balance_consumer, celery_worker, "Is decoupled from by Redis")
     Rel_Back(price_consumer, price_producer, "Is decoupled from by Redis")
+
+    Rel(order_gateway, mariadb, "Logs order execution and checks for duplicates", "SQL/TCP")
+    Rel(order_gateway, redis, "Gets latest prices from", "Redis streams")
+    Rel(order_gateway, hyperliquid, "Executes orders via", "HTTPS")
+    Rel(order_gateway, otel_collector, "Sends traces to", "gRPC")
+
+    Rel(exchange_observer, hyperliquid, "Monitors wallet positions via", "HTTPS")
 
     Rel(flower, redis, "Monitors queue", "TCP/IP")
     Rel(flower, celery_worker, "Monitors workers", "Celery")

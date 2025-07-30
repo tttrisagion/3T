@@ -59,6 +59,7 @@ class ExchangeManager:
     def get_exchange(self, exchange_name: str = "hyperliquid") -> ccxt.Exchange:
         """
         Get a healthy exchange instance with automatic connection management.
+        Includes retry logic for transient network errors during health checks.
 
         Args:
             exchange_name: Name of the exchange (default: hyperliquid)
@@ -67,31 +68,55 @@ class ExchangeManager:
             ccxt.Exchange: Healthy exchange instance
 
         Raises:
-            Exception: If circuit breaker is open or all retries exhausted
+            Exception: If circuit breaker is open or all retries are exhausted
+            ValueError: If required secrets are missing
         """
         with tracer.start_as_current_span("get_exchange") as span:
             span.set_attribute("exchange.name", exchange_name)
 
-            with self._lock:
-                # Check circuit breaker
-                if self._is_circuit_breaker_open(exchange_name):
-                    span.set_attribute("circuit_breaker.state", "open")
-                    raise Exception(
-                        f"Circuit breaker open for {exchange_name} exchange"
+            last_exception = None
+            for attempt in range(self.max_retries):
+                try:
+                    with self._lock:
+                        # Check circuit breaker first
+                        if self._is_circuit_breaker_open(exchange_name):
+                            raise Exception(
+                                f"Circuit breaker open for {exchange_name} exchange"
+                            )
+
+                        # Get or create exchange instance
+                        exchange = self._get_or_create_exchange(exchange_name)
+
+                        # Health check if needed
+                        if self._needs_health_check(exchange_name):
+                            span.add_event("Performing health check")
+                            if not self._health_check(exchange, exchange_name):
+                                span.add_event(
+                                    "Health check failed, recreating exchange"
+                                )
+                                exchange = self._recreate_exchange(exchange_name)
+
+                        span.set_attribute("exchange.healthy", True)
+                        return exchange
+
+                except ValueError as e:
+                    # Do not retry on configuration errors
+                    raise e
+                except Exception as e:
+                    last_exception = e
+                    span.add_event(
+                        f"Attempt {attempt + 1}/{self.max_retries} to get exchange failed: {e}"
                     )
+                    if attempt < self.max_retries - 1:
+                        delay = 2**attempt
+                        span.add_event(f"Retrying in {delay} seconds...")
+                        time.sleep(delay)
+                    else:
+                        span.add_event("All retries failed.")
+                        break  # Exit loop after last attempt
 
-                # Get or create exchange instance
-                exchange = self._get_or_create_exchange(exchange_name)
-
-                # Health check if needed
-                if self._needs_health_check(exchange_name):
-                    span.add_event("Performing health check")
-                    if not self._health_check(exchange, exchange_name):
-                        span.add_event("Health check failed, recreating exchange")
-                        exchange = self._recreate_exchange(exchange_name)
-
-                span.set_attribute("exchange.healthy", True)
-                return exchange
+            # If all retries failed, raise the last captured exception
+            raise last_exception
 
     def _get_or_create_exchange(self, exchange_name: str) -> ccxt.Exchange:
         """Get existing exchange or create new one."""

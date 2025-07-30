@@ -3,3 +3,4 @@ secrets.yml
 .coverage
 tmp
 database/migrations/*
+3T-observer.json

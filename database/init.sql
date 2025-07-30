@@ -1,5 +1,5 @@
 -- Drop tables if they exist to ensure a clean slate on each startup.
-DROP TABLE IF EXISTS `positions`, `balance_history`, `products`, `instruments`, `exchanges`, `trading_range`;
+DROP TABLE IF EXISTS `order_execution_log`, `positions`, `balance_history`, `products`, `instruments`, `exchanges`, `trading_range`;
 
 -- Create the exchanges table
 CREATE TABLE `exchanges` (
@@ -76,6 +76,28 @@ CREATE TABLE `trading_range` (
     `low_threshold` DECIMAL(18, 8),
     `last_updated` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`symbol`)
+) ENGINE=InnoDB;
+
+-- Create the order_execution_log table for tracking order submissions
+CREATE TABLE `order_execution_log` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `client_order_id` VARCHAR(34) NOT NULL UNIQUE COMMENT 'HyperLiquid 128-bit hex string (0x + 32 hex chars)',
+  `request_hash` VARCHAR(64) NOT NULL COMMENT 'SHA256 hash of request payload for deduplication',
+  `product_id` VARCHAR(50) NOT NULL,
+  `side` ENUM('buy', 'sell') NOT NULL,
+  `size` DECIMAL(20, 10) NOT NULL,
+  `order_type` ENUM('market', 'limit') NOT NULL,
+  `price` DECIMAL(20, 10) NULL COMMENT 'For limit orders',
+  `status` ENUM('PENDING', 'CONFIRMED', 'FAILED') NOT NULL DEFAULT 'PENDING',
+  `exchange_order_id` VARCHAR(255) NULL COMMENT 'Order ID returned by exchange',
+  `error_message` TEXT NULL,
+  `retry_count` INT DEFAULT 0,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX `idx_client_order_id` (`client_order_id`),
+  INDEX `idx_request_hash` (`request_hash`),
+  INDEX `idx_status` (`status`),
+  INDEX `idx_created_at` (`created_at`)
 ) ENGINE=InnoDB;
 
 -- Insert initial data

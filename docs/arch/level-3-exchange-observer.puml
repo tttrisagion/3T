@@ -1,0 +1,37 @@
+@startuml Exchange Observer Components
+!include <C4/C4_Component.puml>
+
+LAYOUT_WITH_LEGEND()
+LAYOUT_TOP_DOWN()
+
+title Component Diagram for Exchange Observer Service
+
+Container_Boundary(exchange_observer, "Exchange Observer") {
+    Component(fastapi_app, "FastAPI Application", "FastAPI", "Web framework providing REST endpoints for position data access.")
+    Component(polling_service, "Polling Service", "Asyncio Task", "Continuously polls HyperLiquid for wallet position updates.")
+    Component(ccxt_client, "CCXT Client", "CCXT/HyperLiquid", "Handles communication with HyperLiquid exchange API.")
+    Component(data_cache, "In-Memory Cache", "Python Dict", "Stores latest position data for fast API responses.")
+    Component(file_manager, "File Manager", "Python Module", "Manages JSON file persistence for position data.")
+    Component(config_loader, "Config Loader", "Environment Variables", "Loads observer configuration from environment.")
+
+    Rel(polling_service, ccxt_client, "Uses to fetch position data")
+    Rel(polling_service, data_cache, "Updates with latest positions")
+    Rel(polling_service, file_manager, "Persists data via")
+    Rel(polling_service, config_loader, "Gets wallet addresses from")
+    Rel(fastapi_app, data_cache, "Serves position data from")
+    Rel(fastapi_app, file_manager, "Falls back to file data via")
+}
+
+System_Ext(external_client, "External Client", "System or service that needs to monitor positions.")
+System_Ext(hyperliquid, "HyperLiquid Exchange", "Provides wallet position and clearinghouse state data.")
+ContainerDb_Ext(local_filesystem, "Local Filesystem", "Stores JSON file with position snapshots.")
+
+Rel(external_client, fastapi_app, "Requests position data from", "HTTPS/REST")
+Rel(ccxt_client, hyperliquid, "Fetches clearinghouse state from", "HTTPS/REST")
+Rel(file_manager, local_filesystem, "Reads/Writes position snapshots", "File I/O")
+
+note right of polling_service : Polls every 5 seconds\nfor multiple wallet addresses
+note right of data_cache : Provides fast access\nto latest position data
+note right of file_manager : Persists data as\n3T-observer.json
+
+@enduml
