@@ -67,7 +67,7 @@ CREATE TABLE `market_data` (
   KEY `idx_symbol` (`symbol`),
   KEY `idx_timeframe` (`timeframe`),
   KEY `idx_timestamp_symbol_timeframe` (`timestamp`,`symbol`,`timeframe`)
-) ENGINE=MEMORY DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_.ci;
+) ENGINE=MEMORY;
 
 -- Create the trading_range table
 CREATE TABLE `trading_range` (
@@ -120,7 +120,7 @@ CREATE TABLE `runs` (
   KEY `idx_exit_run` (`exit_run`),
   KEY `idx_controller_seed` (`controller_seed`),
   KEY `idx_end_time` (`end_time`)
-) ENGINE=InnoDB AUTO_INCREMENT=107718 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB;
 
 -- Insert initial data
 INSERT INTO `exchanges` (`id`, `name`, `api_url`) VALUES (1, 'HyperLiquid', 'https://api.hyperliquid.xyz');
