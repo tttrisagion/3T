@@ -74,6 +74,24 @@ services:
       - redis
       - celery_worker
 
+  take-profit:
+    build:
+      context: .
+      dockerfile: components/Dockerfile
+    command: python src/take_profit.py
+    volumes:
+      - ./components/src:/app/src
+      - ./shared:/app/shared
+      - ./config.yml:/app/config.yml
+      - ./secrets.yml:/app/secrets.yml
+    environment:
+      - PYTHONPATH=/app
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318/v1/traces
+      - OTEL_SERVICE_NAME=take_profit
+    depends_on:
+      - redis
+      - mariadb
+
   price_stream_producer:
     build:
       context: .

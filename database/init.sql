@@ -122,6 +122,13 @@ CREATE TABLE `runs` (
   KEY `idx_end_time` (`end_time`)
 ) ENGINE=InnoDB;
 
+-- Create the take_profit_state table
+CREATE TABLE `take_profit_state` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `last_balance` DECIMAL(20, 10) NOT NULL,
+  `last_updated` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
 -- Insert initial data
 INSERT INTO `exchanges` (`id`, `name`, `api_url`) VALUES (1, 'HyperLiquid', 'https://api.hyperliquid.xyz');
 

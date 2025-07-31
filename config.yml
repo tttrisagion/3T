@@ -58,3 +58,7 @@ reconciliation_engine:
   
   # Order gateway request timeout in seconds
   order_timeout: 30
+
+# Take Profit Configuration
+take_profit:
+  threshold: 0.0369
