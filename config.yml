@@ -51,7 +51,7 @@ reconciliation_engine:
   order_gateway_url: "http://order-gateway:8002"
   
   # Position staleness timeout in seconds (how old positions can be before ignored)
-  position_staleness_timeout: 30  # 5 minutes
+  position_staleness_timeout: 60
   
   # Minimum trade value in USD to execute orders (avoids dust trades)
   minimum_trade_threshold: 11.0
