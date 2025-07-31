@@ -241,7 +241,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "select symbol,\nsum(position_direction) as 'position',\nsum(live_pnl) as 'total_pnl',count(*) as 'runs',\nsum(position_direction)/count(*) as 'size_per_run' \n\nfrom runs \n\nwhere exit_run=0 \nand end_time is null \n\ngroup by symbol \n\n\norder by 3 desc",
+          "rawSql": "select symbol,\nsum(position_direction) as 'position',\nsum(live_pnl) as 'total_pnl',count(*) as 'runs',\nsum(position_direction)/count(*) as 'size_per_run' \nfrom runs \nwhere exit_run=0 \nand end_time is null \nand live_pnl > 0\nAND update_time >= NOW() - INTERVAL 10 MINUTE\ngroup by symbol \nHAVING total_pnl > 0 AND ABS(position) >= 1\n\n\norder by 3 desc",
           "refId": "A",
           "sql": {
             "columns": [
@@ -801,6 +801,6 @@
   "timezone": "",
   "title": "3T Balance & Positions",
   "uid": "3t-balance-dashboard",
-  "version": 1,
+  "version": 2,
   "weekStart": ""
 }
