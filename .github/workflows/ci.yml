@@ -27,7 +27,7 @@ jobs:
     
     - name: Install dev dependencies
       run: |
-        pip install ruff pytest pytest-cov
+        pip install ruff pytest pytest-cov requests-mock redis
         pip install -r components/requirements.txt
         pip install -r celery-services/requirements.txt
     
