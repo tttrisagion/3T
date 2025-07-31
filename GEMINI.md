@@ -87,6 +87,17 @@ The system architecture is documented using C4 diagrams, which can be found in t
 
 - **C4 Diagram Best Practices:** C4 diagrams should not contain specific configuration values. For example, instead of "every 30 seconds," the diagram should say "on a configured schedule." This prevents the diagrams from becoming outdated when configuration changes.
 
+## Reconciliation Engine
+
+The reconciliation engine is a key component of the 3T system, responsible for ensuring that the actual portfolio state matches the desired state. It runs as a periodic task within the Celery worker.
+
+### Key Features:
+
+- **State Comparison:** The engine compares the desired positions, defined in the `runs` table, with the actual positions reported by the local database and external observer nodes.
+- **Consensus-Based Trading:** It requires consensus between multiple sources before executing trades, enhancing safety and reliability.
+- **Automated Rebalancing:** The engine automatically generates and executes orders to correct any discrepancies between the desired and actual portfolio states.
+- **Configurable:** The engine's behavior, including rebalance frequency and risk parameters, can be configured in `config.yml`.
+
 ## Troubleshooting
 
 When a service is inaccessible, always run `docker-compose ps` first to check if the container is running. If it is not running, attempt to start it before further troubleshooting.

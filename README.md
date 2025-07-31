@@ -43,6 +43,7 @@ The system features two main data pipelines:
 
 1.  **Price Data**: The `price_stream_producer` service connects to the HyperLiquid exchange via WebSocket and streams real-time price data to a Redis stream. The `price_stream_consumer` service then consumes this data for further processing.
 2.  **Balance Data**: The `celery_worker` periodically fetches balance and position data from the exchange and publishes it to a Redis stream. The `balance_consumer` service consumes this data to log and monitor the system's financial status.
+3.  **Portfolio Reconciliation**: The `reconciliation_engine` within the `celery_worker` periodically compares the desired portfolio state (defined in the `runs` table) with the actual state (from the local database and external observer nodes). It generates and executes corrective orders via the `order_gateway` to ensure the portfolio remains aligned with the target strategy.
 
 
 ![context](docs/arch/level-1-context.png)
@@ -62,6 +63,8 @@ The system features two main data pipelines:
 ![order-gateway](docs/arch/level-3-order-gateway.png)
 
 ![exchange-observer](docs/arch/level-3-exchange-observer.png)
+
+![reconciliation-service](docs/arch/level-3-reconciliation-service.png)
 
 ![trade-lifecycle](docs/arch/dynamic-trade-lifecycle.png)
 

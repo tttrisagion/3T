@@ -1,0 +1,31 @@
+@startuml Reconciliation Service Components
+!include <C4/C4_Component.puml>
+
+LAYOUT_WITH_LEGEND()
+LAYOUT_TOP_DOWN()
+
+title Component Diagram for Reconciliation Service
+
+Container(celery_worker, "Celery Worker", "Python/Celery", "Executes asynchronous portfolio reconciliation tasks.")
+
+ContainerDb(mariadb, "MariaDB", "MariaDB", "Stores trading runs, positions, and other trading data.")
+Container(order_gateway, "Order Gateway", "FastAPI/Python", "Executes trade orders.")
+Container(exchange_observer, "Exchange Observer", "FastAPI/Python", "Provides external view of account positions.")
+
+System_Boundary(reconciliation_service, "Reconciliation Service") {
+    Component(reconciliation_engine, "Reconciliation Engine", "Python", "Compares desired vs. actual positions and generates corrective orders.")
+    Component(state_calculator, "State Calculator", "Python", "Calculates desired portfolio state from the 'runs' table.")
+    Component(consensus_builder, "Consensus Builder", "Python", "Gathers and compares position data from MariaDB and Exchange Observers to form a consensus on the actual portfolio state.")
+    Component(order_generator, "Order Generator", "Python", "Creates market orders to align actual positions with desired positions.")
+}
+
+Rel(reconciliation_engine, state_calculator, "Uses")
+Rel(reconciliation_engine, consensus_builder, "Uses")
+Rel(reconciliation_engine, order_generator, "Uses")
+
+Rel(state_calculator, mariadb, "Reads active runs from 'runs' table", "SQL/TCP")
+Rel(consensus_builder, mariadb, "Reads current positions from 'positions' table", "SQL/TCP")
+Rel(consensus_builder, exchange_observer, "Fetches external positions from", "HTTP")
+Rel(order_generator, order_gateway, "Sends trade orders to", "HTTP")
+
+@enduml
