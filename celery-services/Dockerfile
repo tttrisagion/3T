@@ -15,7 +15,7 @@ RUN pip install -r requirements.txt
 
 # Copy C++ source files and build the library
 COPY ./celery-services/cpp/perm_entropy_cpu_lib.cpp /app/cpp/
-RUN mkdir -p /app/worker/bin && \
-    g++ -O3 -shared -fPIC -Wall -std=c++17 /app/cpp/perm_entropy_cpu_lib.cpp -o /app/worker/bin/libperm_entropy_cpu.so
+RUN g++ -O3 -shared -fPIC -Wall -std=c++17 /app/cpp/perm_entropy_cpu_lib.cpp -o /usr/local/lib/libperm_entropy_cpu.so && \
+    ldconfig
 
 COPY ./celery-services/worker /app/worker

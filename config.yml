@@ -28,3 +28,33 @@ market_data:
     default: 20
     "4h": 50
     "1m": 20
+
+# Reconciliation Engine Configuration
+reconciliation_engine:
+  # How often to run reconciliation checks (in seconds)
+  rebalance_frequency: 60.0 # in seconds
+  
+  # Risk position size - USD equivalent position size per run instance
+  risk_pos_size: 20.25
+  
+  # Symbols to manage 
+  symbols:
+    - "BTC/USDC:USDC"
+    - "BCH/USDC:USDC"
+    - "ENA/USDC:USDC"
+  
+  # Observer nodes for consensus validation
+  observer_nodes:
+    - "http://exchange-observer:8001/3T-observer.json"
+  
+  # Order gateway URL for trade execution
+  order_gateway_url: "http://order-gateway:8002"
+  
+  # Position staleness timeout in seconds (how old positions can be before ignored)
+  position_staleness_timeout: 30  # 5 minutes
+  
+  # Minimum trade value in USD to execute orders (avoids dust trades)
+  minimum_trade_threshold: 11.0
+  
+  # Order gateway request timeout in seconds
+  order_timeout: 30

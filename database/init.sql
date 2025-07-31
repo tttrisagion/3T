@@ -100,6 +100,28 @@ CREATE TABLE `order_execution_log` (
   INDEX `idx_created_at` (`created_at`)
 ) ENGINE=InnoDB;
 
+-- Create the runs table for reconciliation engine
+CREATE TABLE `runs` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `start_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `end_time` timestamp NULL DEFAULT NULL,
+  `start_balance` float NOT NULL,
+  `end_balance` float DEFAULT NULL,
+  `max_duration` int(11) NOT NULL,
+  `position_direction` int(11) NOT NULL DEFAULT 0,
+  `symbol` varchar(20) DEFAULT NULL,
+  `ann_params` longtext DEFAULT NULL,
+  `exit_run` tinyint(1) DEFAULT 0,
+  `controller_seed` float DEFAULT NULL,
+  `live_pnl` float DEFAULT NULL,
+  `update_time` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `pid` int(11) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_exit_run` (`exit_run`),
+  KEY `idx_controller_seed` (`controller_seed`),
+  KEY `idx_end_time` (`end_time`)
+) ENGINE=InnoDB AUTO_INCREMENT=107718 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 -- Insert initial data
 INSERT INTO `exchanges` (`id`, `name`, `api_url`) VALUES (1, 'HyperLiquid', 'https://api.hyperliquid.xyz');
 

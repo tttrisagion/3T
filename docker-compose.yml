@@ -264,7 +264,7 @@ services:
       - OBSERVER_ID=local-observer-1
       - WALLET_ADDRESSES=0x6F87795cF1B94f1572c161E0633751C9e226f955,0x77dEe11bbF0Ad1143Bf008a84AE776557e2ebADE
     ports:
-      - "8001:8000"
+      - "8001:8001"
     volumes:
       - ./exchange-observer/data:/app/data
 

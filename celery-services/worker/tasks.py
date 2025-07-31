@@ -9,6 +9,7 @@ from celery.signals import worker_ready
 from eventlet.greenpool import GreenPool
 from opentelemetry import context as opentelemetry_context
 from opentelemetry.instrumentation.celery import CeleryInstrumentor
+from worker.reconciliation_engine import reconcile_positions
 from worker.trading_range import update_trading_range
 
 from shared.celery_app import app
@@ -36,31 +37,41 @@ app.conf.beat_schedule = {
         "task": "worker.trading_range.update_trading_range",
         "schedule": 600.0,
     },
+    "reconcile-positions": {
+        "task": "worker.reconciliation_engine.reconcile_positions",
+        "schedule": config.get("reconciliation_engine.rebalance_frequency", 900.0),
+    },
 }
 app.conf.timezone = "UTC"
 
 
 @worker_ready.connect
-def initial_data_backfill(sender, **kwargs):
+def worker_startup(sender, **kwargs):
     """
-    Triggered once when a worker starts. Ensures the database has an initial
-    set of market data, solving the "empty MEMORY table" problem on restart.
+    Triggered once when a worker starts. Performs initial setup tasks including
+    market data backfill and portfolio reconciliation.
     """
-    with tracer.start_as_current_span("initial_data_backfill") as span:
-        print("WORKER READY: Starting initial market data backfill...")
-        span.add_event("Starting initial market data backfill")
+    with tracer.start_as_current_span("worker_startup") as span:
+        print("WORKER READY: Starting worker startup tasks...")
+        span.add_event("Starting worker startup tasks")
 
         try:
             # Use the same logic as the scheduler to fetch all configured timeframes
             # This ensures the system is fully populated on startup.
             schedule_market_data_fetching.delay(is_backfill=True)
             update_trading_range.delay()
-            span.add_event("Successfully triggered initial backfill task.")
-            print("Initial market data backfill task dispatched.")
+
+            # Trigger initial reconciliation to check positions on startup
+            reconcile_positions.delay()
+
+            span.add_event("Successfully triggered startup tasks.")
+            print(
+                "Worker startup tasks dispatched: market data backfill, trading range update, and reconciliation."
+            )
         except Exception as e:
             span.set_attribute("error", True)
             span.record_exception(e)
-            print(f"ERROR: Failed to dispatch initial backfill task: {e}")
+            print(f"ERROR: Failed to dispatch startup tasks: {e}")
 
 
 @app.task(name="worker.tasks.schedule_market_data_fetching")
@@ -374,9 +385,7 @@ def fetch_and_store_balance() -> float | None:
 def load_perm_entropy_library():
     """Load the permutation entropy C++ library."""
     try:
-        lib_path = os.path.join(
-            os.path.dirname(__file__), "bin", "libperm_entropy_cpu.so"
-        )
+        lib_path = "libperm_entropy_cpu.so"
         lib = ctypes.CDLL(lib_path)
 
         func = lib.calculate_cpu_perm_entropy

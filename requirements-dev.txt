@@ -1,2 +1,9 @@
-pre-commit
+requests-mock
+black
 ruff
+pytest
+pytest-cov
+pre-commit
+mypy
+types-redis
+types-requests

@@ -36,7 +36,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 3T is a microservices-based automated trading platform with the following key components:
 
 ### Core Services
-- **Celery Workers** (`celery-services/`): Asynchronous task processing for market data fetching and balance updates
+- **Celery Workers** (`celery-services/`): Asynchronous task processing for market data fetching, balance updates, and portfolio reconciliation
+  - **Reconciliation Engine** (`reconciliation_engine.py`): The brain of the trading system that continuously compares desired vs actual positions and generates reconciliation orders
 - **Components** (`components/`): Real-time services including:
   - Balance update consumers (`example_balance_consumer.py`)
   - Price streaming producer (`price_stream_producer.py`) - WebSocket connection to HyperLiquid
@@ -61,6 +62,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 2. **Balance Updates**: Scheduled balance fetch tasks update positions and publish events to Redis streams
 3. **Real-time Price Streaming**: WebSocket connection to HyperLiquid streams live price updates to Redis for all supported instruments
 4. **Event Processing**: Component services consume Redis stream events for real-time processing
+5. **Portfolio Reconciliation**: Reconciliation engine compares desired positions (from `runs` table) with actual positions (consensus between local DB and observer nodes) and generates corrective trades via Order Gateway
 
 ### Database Schema
 - `exchanges`: Exchange definitions (currently HyperLiquid)
@@ -69,6 +71,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `positions`: Current trading positions
 - `balance_history`: Account balance over time
 - `market_data`: OHLCV candlestick data (MEMORY table for performance)
+- `runs`: Trading run definitions with position directions and PnL for reconciliation engine
 
 ## Development Guidelines
 
@@ -130,6 +133,38 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Celery Beat runs on configurable intervals (default 30 seconds) for balance updates and market data scheduling
 - Market data fetching uses stateful Redis tracking to avoid duplicate fetches
 - Concurrency controlled via `market_data.concurrency_limit` config (default: 10)
+- **Reconciliation Engine**: Runs every 15 minutes (configurable) to reconcile desired vs actual positions
+
+## Reconciliation Engine
+
+### Overview
+The reconciliation engine is the brain of the trading system that continuously compares the desired portfolio state with the actual state and generates corrective orders to eliminate any gaps. It operates without explicit locking, relying on idempotent execution and state consensus for safety.
+
+### Key Components
+- **Desired State Calculation**: Reads active runs from the `runs` table to determine target positions based on `position_direction`, `live_pnl`, and `risk_pos_size`
+- **Actual State Consensus**: Compares positions between local database and external observer nodes to establish consensus before taking action
+- **Reconciliation Logic**: Implements extensively tested logic for all position scenarios (long/short/flat transitions)
+- **Order Execution**: Sends market orders to the Order Gateway for actual trade execution
+
+### Configuration (`config.yml`)
+```yaml
+reconciliation_engine:
+  rebalance_frequency: 900.0  # 15 minutes between reconciliation cycles
+  risk_pos_size: 20.25        # USD equivalent position size per run instance
+  symbols:                    # Symbols to manage
+    - "BTC/USDC:USDC"
+    - "BCH/USDC:USDC"  
+    - "ENA/USDC:USDC"
+  observer_nodes:             # Observer nodes for consensus validation
+    - "http://localhost:8001/3T-observer.json"
+  order_gateway_url: "http://localhost:8002"
+```
+
+### Safety Features
+- **Consensus Requirement**: Only trades when at least 2 observers agree on current position
+- **No-Lock Design**: Uses state consensus instead of locking for thread safety
+- **Minimum Trade Threshold**: Only executes trades above $20 USD equivalent to avoid micro-adjustments
+- **Idempotent Operations**: Safe to run multiple times without adverse effects
 
 ## Troubleshooting
 
