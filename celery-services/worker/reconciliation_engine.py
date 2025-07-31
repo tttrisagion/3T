@@ -60,6 +60,7 @@ def get_desired_state(symbol: str) -> float:
                   AND end_time IS NULL
                   AND live_pnl > 0
                   AND symbol = %s
+                  AND update_time >= NOW() - INTERVAL 10 MINUTE
                 HAVING total_pnl > 0 AND ABS(position) >= 1
                 """
 
