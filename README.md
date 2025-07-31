@@ -89,6 +89,8 @@ To get started with the 3T system, you will need to have Docker and Docker Compo
 
 3. **Start the services:**
 
+Note: Your system must have docker and docker-compose available. The docker service must be running and you may need elevated sudo permissions. It is also reccomended to prepare your environment with `pip install -r requirements-dev.txt` before proceeding further.
+
    ```bash
    make install
    # or alternatively:
