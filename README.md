@@ -45,6 +45,24 @@ The system features two main data pipelines:
 2.  **Balance Data**: The `celery_worker` periodically fetches balance and position data from the exchange and publishes it to a Redis stream. The `balance_consumer` service consumes this data to log and monitor the system's financial status.
 3.  **Portfolio Reconciliation**: The `reconciliation_engine` within the `celery_worker` periodically compares the desired portfolio state (defined in the `runs` table) with the actual state (from the local database and external observer nodes). It generates and executes corrective orders via the `order_gateway` to ensure the portfolio remains aligned with the target strategy.
 
+### Networking
+
+#### Proxy Configuration
+
+To enhance reliability and bypass potential IP-based restrictions from exchanges, the system supports routing traffic through a proxy. This is particularly useful for overcoming DDOS protection measures.
+
+-   **Automatic Mode Selection**: The system automatically detects the proxy configuration in `config.yml`.
+    -   **With Proxy**: It uses a polling-based price producer (`price_poll_producer.py`) that sends requests via the proxy.
+    -   **Without Proxy**: It falls back to the default real-time WebSocket streaming (`price_stream_producer.py`).
+-   **Configuration**: To enable the proxy, add the following to your `config.yml`:
+    ```yaml
+    exchanges:
+      hyperliquid:
+        proxy: "http://your-proxy-url:8080/"  # URL of the CORS proxy
+        origin: "https://your-origin.com"      # Origin header for CORS
+    ```
+-   **CORS Proxy Service**: The `docker-compose.yml` file includes a `cors-proxy` service (`redocly/cors-anywhere`) to facilitate this. For local development, you can use the default, but for production, you should configure it with a proper whitelist.
+
 
 ![context](docs/arch/level-1-context.png)
 

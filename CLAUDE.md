@@ -109,12 +109,32 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   - Health checks every 5 minutes with automatic connection recreation
   - Circuit breaker opens after 5 failures, resets after 5 minutes
   - Retry logic with exponential backoff (1s, 2s, 4s)
+  - **Proxy Support**: Configure proxy and origin headers for bypassing IP restrictions
 - **NetworkMonitor**: Comprehensive monitoring and alerting
   - Error classification and counting by type (timeout, connection_refused, etc.)
   - Latency tracking with OpenTelemetry metrics
   - Alert thresholds with cooldown periods
 - **HyperLiquid Compatibility**: Health checks use `load_markets()` instead of `fetch_time()`
 - **Usage**: All services use `exchange_manager.get_exchange()` and `exchange_manager.execute_with_retry()`
+
+### Proxy Configuration
+- **Purpose**: Bypass IP restrictions and DDOS protection on exchange APIs
+- **Configuration** (in `config.yml`):
+  ```yaml
+  exchanges:
+    hyperliquid:
+      proxy: "http://3tsgp01.trisagion.xyz:8080/"  # CORS proxy URL (set to null to disable)
+      origin: "https://trisagion.finance"           # Origin header for CORS
+      poll_interval: 1.0   # Polling interval for price updates (seconds)
+      poll_batch_size: 10  # Number of symbols per batch
+  ```
+- **Automatic Mode Selection**:
+  - **With Proxy**: Automatically uses polling-based price producer (REST API)
+  - **Without Proxy**: Automatically uses WebSocket streaming for real-time prices
+- **Components**:
+  - **cors-proxy**: Docker service running CORS Anywhere (optional for local proxy)
+  - **price_producer_selector**: Automatically selects WebSocket or polling mode based on proxy configuration
+- **Testing**: Run `python components/tests/test_proxy_connection.py` to verify proxy setup
 
 ### Celery Best Practices
 - Name Beat schedules based on the action they perform (e.g., `update-balance`), not frequency

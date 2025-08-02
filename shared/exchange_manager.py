@@ -152,21 +152,34 @@ class ExchangeManager:
                         f"Missing HyperLiquid secrets: {', '.join(missing)}"
                     )
 
-                exchange = ccxt.hyperliquid(
-                    {
-                        "apiKey": api_key,
-                        "walletAddress": wallet_address,
-                        "privateKey": private_key,
-                        "timeout": self.connection_timeout
-                        * 1000,  # CCXT uses milliseconds
-                        "enableRateLimit": True,
-                        "rateLimit": 100,  # Be conservative with rate limiting
-                        "options": {
-                            "defaultType": "swap",  # For perpetual futures
-                            "createMarketBuyOrderRequiresPrice": False,
-                        },
-                    }
-                )
+                # Get proxy configuration
+                proxy = config.get("exchanges.hyperliquid.proxy")
+                origin = config.get("exchanges.hyperliquid.origin")
+
+                exchange_config = {
+                    "apiKey": api_key,
+                    "walletAddress": wallet_address,
+                    "privateKey": private_key,
+                    "timeout": self.connection_timeout * 1000,  # CCXT uses milliseconds
+                    "enableRateLimit": True,
+                    "rateLimit": 100,  # Be conservative with rate limiting
+                    "options": {
+                        "defaultType": "swap",  # For perpetual futures
+                        "createMarketBuyOrderRequiresPrice": False,
+                    },
+                }
+
+                # Add proxy configuration if specified
+                if proxy:
+                    exchange_config["proxy"] = proxy
+                    span.add_event(f"Using proxy: {proxy}")
+
+                # Add origin if specified
+                if origin:
+                    exchange_config["origin"] = origin
+                    span.add_event(f"Using origin: {origin}")
+
+                exchange = ccxt.hyperliquid(exchange_config)
 
                 span.add_event("Created HyperLiquid exchange instance")
                 return exchange
