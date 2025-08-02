@@ -96,7 +96,7 @@ services:
     build:
       context: .
       dockerfile: components/Dockerfile
-    command: python src/price_stream_producer.py
+    command: python src/price_poll_producer.py
     volumes:
       - ./components/src:/app/src
       - ./shared:/app/shared
@@ -104,6 +104,7 @@ services:
       - ./secrets.yml:/app/secrets.yml
     environment:
       - PYTHONPATH=/app
+      - PYTHONUNBUFFERED=1
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318/v1/traces
       - OTEL_SERVICE_NAME=price_stream_producer
     depends_on:
@@ -285,6 +286,22 @@ services:
       - "8001:8001"
     volumes:
       - ./exchange-observer/data:/app/data
+
+  # CORS proxy for bypassing IP restrictions on exchange APIs
+  cors-proxy:
+    image: redocly/cors-anywhere
+    container_name: 3t_cors_proxy
+    restart: unless-stopped
+    environment:
+      - CORSANYWHERE_WHITELIST=https://trisagion.finance
+    ports:
+      - "8080:8080"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+
 
 volumes:
   mariadb_data:

@@ -4,7 +4,12 @@ WORKDIR /app
 
 COPY ./components/requirements.txt .
 
-RUN pip install -r requirements.txt
+# Install dependencies
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install --no-cache-dir -r requirements.txt
+
+# Install curl for debugging
+RUN apt-get update && apt-get install -y curl
 
 COPY ./components/src /app/src
 COPY ./components/tests /app/tests

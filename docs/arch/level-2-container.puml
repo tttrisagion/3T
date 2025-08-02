@@ -18,8 +18,9 @@ System_Boundary(trisagion_system, "Trisagion Trading System") {
     
     System_Boundary(streaming_components, "Real-time Components") {
         Container(balance_consumer, "Balance Consumer", "Python/Redis", "Consumes balance update events from Redis stream and logs them.")
-        Container(price_producer, "Price Stream Producer", "Python/WebSocket", "Streams real-time prices from HyperLiquid to Redis via WebSocket connection.")
+        Container(price_producer, "Price Poll Producer", "Python/HTTP", "Polls real-time prices from HyperLiquid to Redis via HTTP.")
         Container(price_consumer, "Price Stream Consumer", "Python/Redis", "Consumes price updates from Redis stream for downstream processing.")
+        Container(cors_proxy, "CORS Proxy", "CORS Anywhere", "Bypasses IP restrictions and DDOS protection on exchange APIs.")
     }
 
     System_Boundary(trading_gateway, "Trading Gateway") {
@@ -62,7 +63,8 @@ System_Boundary(trisagion_system, "Trisagion Trading System") {
     Rel(celery_worker, order_gateway, "Sends reconciliation orders to", "HTTP")
     Rel(celery_worker, exchange_observer, "Gets position consensus from", "HTTP")
     
-    Rel(price_producer, hyperliquid, "Streams real-time prices via", "WebSocket")
+    Rel(price_producer, cors_proxy, "Routes requests through", "HTTPS")
+    Rel(cors_proxy, hyperliquid, "Forwards requests to", "HTTPS")
     Rel(price_producer, redis, "Publishes price updates to", "XADD")
     Rel(price_producer, mariadb, "Reads supported instruments from", "SQL/TCP")
     
