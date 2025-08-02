@@ -17,6 +17,16 @@ celery:
     update_balance: 30.0
     schedule_market_data_fetching: 30.0 # Runs every minute to check for needed updates
 
+# Exchange configuration
+exchanges:
+  hyperliquid:
+    # Optional proxy configuration for bypassing IP restrictions
+    proxy: "http://3tsgp01.trisagion.xyz:8080/"
+    origin: "https://trisagion.finance"
+    # Polling configuration for non-websocket price updates
+    poll_interval: 1.0  # seconds between price polls
+    poll_batch_size: 10  # number of symbols to fetch per batch
+
 # Exchange and product configuration can be managed here
 # or dynamically from the database.
 market_data:
