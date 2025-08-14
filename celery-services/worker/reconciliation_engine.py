@@ -8,7 +8,7 @@ state consensus for safety.
 """
 
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import requests
 from opentelemetry import trace
@@ -150,6 +150,70 @@ def get_current_price(symbol: str) -> float | None:
         return None
 
 
+def get_observer_state(symbol: str) -> tuple[float | None, str | None]:
+    """
+    Get position from external observer node and perform safety checks.
+
+    Args:
+        symbol: The trading symbol (e.g., 'BTC/USDC:USDC')
+
+    Returns:
+        Tuple of (position_size, error_message)
+        - position_size: Position size, or None if validation fails.
+        - error_message: A string describing the error, or None if successful.
+    """
+    observer_nodes = config.get(
+        "reconciliation_engine.observer_nodes",
+        ["http://localhost:8001/3T-observer.json"],
+    )
+    wallet_address = config.get_secret("exchanges.hyperliquid.walletAddress")
+    max_heartbeat_age = timedelta(minutes=5)
+
+    if not wallet_address:
+        return None, "No wallet address configured"
+
+    for observer_url in observer_nodes:
+        try:
+            response = requests.get(observer_url, timeout=5)
+            response.raise_for_status()
+            observer_data = response.json()
+
+            # Check heartbeat
+            timestamp_str = observer_data.get("timestamp")
+            if not timestamp_str:
+                return None, f"Observer {observer_url} has no timestamp"
+
+            timestamp = datetime.fromisoformat(timestamp_str)
+            if datetime.now(timezone.utc) - timestamp > max_heartbeat_age:
+                return None, f"Observer {observer_url} data is stale"
+
+            # Check for wallet presence
+            positions = observer_data.get("positions", {})
+            if wallet_address not in positions:
+                return None, f"Wallet {wallet_address} not found in observer {observer_url}"
+
+            # Extract position
+            wallet_data = positions.get(wallet_address, {})
+            asset_positions = wallet_data.get("assetPositions", [])
+            base_symbol = get_base_symbol(symbol)
+
+            for asset_pos in asset_positions:
+                position_data = asset_pos.get("position", {})
+                if position_data.get("coin") == base_symbol:
+                    return float(position_data.get("szi", 0)), None
+
+            # If no position found, it's a flat position
+            return 0.0, None
+
+        except requests.RequestException as e:
+            print(f"Could not connect to observer {observer_url}: {e}")
+            continue  # Try next observer
+        except (ValueError, KeyError) as e:
+            return None, f"Invalid data from observer {observer_url}: {e}"
+
+    return None, "All observers failed"
+
+
 def get_actual_state(symbol: str) -> tuple[float | None, bool]:
     """
     Get the actual position state using consensus between local positions table
@@ -170,16 +234,16 @@ def get_actual_state(symbol: str) -> tuple[float | None, bool]:
             )
 
             # Get position from observer node
-            observer_position, observer_available = get_observer_position(symbol)
+            observer_position, error_message = get_observer_state(symbol)
+
+            if error_message:
+                span.add_event("Observer validation failed", {"error": error_message})
+                print(f"Observer validation failed for {symbol}: {error_message}")
+                return None, False
+
             span.set_attribute(
                 "observer_position", observer_position if observer_position else 0.0
             )
-            span.set_attribute("observer_available", observer_available)
-
-            # Require successful observer validation for consensus
-            if not observer_available:
-                span.add_event("Observer nodes unavailable - cannot achieve consensus")
-                return None, False
 
             # Check for consensus (identical positions)
             # Convert None to 0.0 for comparison (no position = 0 position)
@@ -268,62 +332,7 @@ def get_local_position(symbol: str) -> float | None:
         return None
 
 
-def get_observer_position(symbol: str) -> tuple[float | None, bool]:
-    """
-    Get position from external observer node.
-    Args:
-        symbol: The trading symbol (e.g., 'BTC/USDC:USDC')
-    Returns:
-        Tuple of (position_size, observer_available)
-        - position_size: Position size or None if observer unavailable
-        - observer_available: True if observer responded successfully, False if all failed
-    """
-    try:
-        observer_nodes = config.get(
-            "reconciliation_engine.observer_nodes",
-            ["http://localhost:8001/3T-observer.json"],
-        )
-        wallet_address = config.get_secret("exchanges.hyperliquid.walletAddress")
 
-        if not wallet_address:
-            print("No wallet address configured")
-            return None, False
-
-        # Extract base symbol for observer lookup (observer uses coin field like 'BTC')
-        base_symbol = get_base_symbol(symbol)
-
-        for observer_url in observer_nodes:
-            try:
-                response = requests.get(observer_url, timeout=5)
-                response.raise_for_status()
-
-                observer_data = response.json()
-                positions = observer_data.get("positions", {})
-                wallet_data = positions.get(wallet_address, {})
-                asset_positions = wallet_data.get("assetPositions", [])
-
-                # Find position for this base symbol
-                for asset_pos in asset_positions:
-                    position_data = asset_pos.get("position", {})
-                    coin = position_data.get("coin")
-
-                    if coin == base_symbol:
-                        szi = float(position_data.get("szi", 0))
-                        return szi, True
-
-                # If no position found, return 0 (flat position) with successful observer
-                return 0.0, True
-
-            except requests.RequestException as e:
-                print(f"Error getting position from observer {observer_url}: {e}")
-                continue
-
-        # All observers failed - return None with failed status
-        return None, False
-
-    except Exception as e:
-        print(f"Error getting observer position for {symbol}: {e}")
-        return None, False
 
 
 def calculate_reconciliation_action(

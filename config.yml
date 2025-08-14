@@ -21,7 +21,9 @@ celery:
 exchanges:
   hyperliquid:
     # Optional proxy configuration for bypassing IP restrictions
-    proxy: "http://3tsgp01.trisagion.xyz:8080/"
+    proxy:
+        - "http://3tsgp01.trisagion.xyz:8080/"
+        - "http://cors-proxy:8080/"
     origin: "https://trisagion.finance"
     # Polling configuration for non-websocket price updates
     poll_interval: 1.0  # seconds between price polls
@@ -50,11 +52,12 @@ reconciliation_engine:
   # Symbols to manage 
   symbols:
     - "BTC/USDC:USDC"
-    - "BCH/USDC:USDC"
-    - "ENA/USDC:USDC"
+    - "ETH/USDC:USDC"
+    - "HYPE/USDC:USDC"
   
   # Observer nodes for consensus validation
   observer_nodes:
+    - "http://3tsgp01.trisagion.xyz:8001/3T-observer.json"
     - "http://exchange-observer:8001/3T-observer.json"
   
   # Order gateway URL for trade execution

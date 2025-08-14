@@ -46,13 +46,14 @@ class ExchangeManager:
         self._failure_count = {}
         self._last_failure_time = {}
         self._lock = threading.Lock()
+        self._proxy_index = {}
 
         # Configuration
-        self.health_check_interval = 300  # 5 minutes
-        self.connection_timeout = 30
+        self.health_check_interval = 30  # 5 minutes
+        self.connection_timeout = 10
         self.max_retries = 3
         self.circuit_breaker_threshold = 5
-        self.circuit_breaker_reset_time = 300  # 5 minutes
+        self.circuit_breaker_reset_time = 30  # 5 minutes
 
         self._initialized = True
 
@@ -153,7 +154,11 @@ class ExchangeManager:
                     )
 
                 # Get proxy configuration
-                proxy = config.get("exchanges.hyperliquid.proxy")
+                proxy_config = config.get("exchanges.hyperliquid.proxy")
+                proxy = None
+                if isinstance(proxy_config, list) and proxy_config:
+                    proxy_index = self._proxy_index.get(exchange_name, 0)
+                    proxy = proxy_config[proxy_index % len(proxy_config)]
                 origin = config.get("exchanges.hyperliquid.origin")
 
                 exchange_config = {
@@ -285,6 +290,9 @@ class ExchangeManager:
             self._failure_count.get(exchange_name, 0) + 1
         )
         self._last_failure_time[exchange_name] = datetime.now()
+
+        # Increment proxy index on failure
+        self._proxy_index[exchange_name] = self._proxy_index.get(exchange_name, 0) + 1
 
         if self._failure_count[exchange_name] >= self.circuit_breaker_threshold:
             was_closed = not self._circuit_breaker_state.get(exchange_name, False)

@@ -14,6 +14,7 @@ services:
       - ./shared:/app/shared
       - ./config.yml:/app/config.yml
       - ./secrets.yml:/app/secrets.yml
+      - ./exchange-observer/data:/app/data
     logging:
       driver: "json-file"
       options:
@@ -281,7 +282,7 @@ services:
     restart: unless-stopped
     environment:
       - OBSERVER_ID=local-observer-1
-      - WALLET_ADDRESSES=0x6F87795cF1B94f1572c161E0633751C9e226f955,0x77dEe11bbF0Ad1143Bf008a84AE776557e2ebADE
+      - WALLET_ADDRESSES=0x6F87795cF1B94f1572c161E0633751C9e226f955,0x77dEe11bbF0Ad1143Bf008a84AE776557e2ebADE,0x30f1C7b7f904D7eA3460F7C359ecd6Fe93B96d12
     ports:
       - "8001:8001"
     volumes:

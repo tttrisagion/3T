@@ -24,53 +24,55 @@ positions_cache = {}
 
 async def poll_positions_periodically():
     """Periodically polls for position data and updates the JSON file."""
-    exchange = ccxt.hyperliquid()
-    try:
-        os.makedirs(os.path.dirname(OUTPUT_FILE), exist_ok=True)
+    os.makedirs(os.path.dirname(OUTPUT_FILE), exist_ok=True)
 
-        while True:
-            try:
-                all_positions = {}
+    while True:
+        exchange = None  # Initialize exchange to None
+        try:
+            # Create the exchange instance inside the loop
+            exchange = ccxt.hyperliquid()
+            all_positions = {}
 
-                async def fetch_and_store(address, positions):
-                    try:
-                        payload = {"type": "clearinghouseState", "user": address}
-                        state = await exchange.public_post_info(payload)
-                        if state:
-                            positions[address] = state
-                    except Exception as e:
-                        print(f"Error fetching state for {address}: {e}")
-
-                tasks = [
-                    fetch_and_store(address, all_positions)
-                    for address in WALLET_ADDRESSES
-                ]
-                await asyncio.gather(*tasks)
-
-                timestamp = datetime.datetime.now(datetime.UTC).isoformat()
-
-                output_data = {
-                    "observer_id": OBSERVER_ID,
-                    "timestamp": timestamp,
-                    "positions": all_positions,
-                }
-
-                global positions_cache
-                positions_cache = output_data
-
+            async def fetch_and_store(address, positions):
                 try:
-                    with open(OUTPUT_FILE, "w") as f:
-                        json.dump(output_data, f, indent=4)
-                except OSError as e:
-                    print(f"Error writing to {OUTPUT_FILE}: {e}")
+                    payload = {"type": "clearinghouseState", "user": address}
+                    state = await exchange.public_post_info(payload)
+                    if state:
+                        positions[address] = state
+                except Exception as e:
+                    print(f"Error fetching state for {address}: {e}")
 
-            except Exception as e:
-                print(f"An error occurred in the polling loop: {e}")
+            tasks = [
+                fetch_and_store(address, all_positions)
+                for address in WALLET_ADDRESSES
+            ]
+            await asyncio.gather(*tasks)
 
-            await asyncio.sleep(POLL_INTERVAL_SECONDS)
-    finally:
-        await exchange.close()
-        print("Exchange connection closed.")
+            timestamp = datetime.datetime.now(datetime.UTC).isoformat()
+
+            output_data = {
+                "observer_id": OBSERVER_ID,
+                "timestamp": timestamp,
+                "positions": all_positions,
+            }
+
+            global positions_cache
+            positions_cache = output_data
+
+            try:
+                with open(OUTPUT_FILE, "w") as f:
+                    json.dump(output_data, f, indent=4)
+            except OSError as e:
+                print(f"Error writing to {OUTPUT_FILE}: {e}")
+
+        except Exception as e:
+            print(f"An error occurred in the polling loop: {e}")
+        finally:
+            # Always try to close the connection if it was created
+            if exchange:
+                await exchange.close()
+        
+        await asyncio.sleep(POLL_INTERVAL_SECONDS)
 
 
 @asynccontextmanager

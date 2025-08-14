@@ -117,7 +117,15 @@ Note: Your system must have docker and docker-compose available. The docker serv
 
    This will start all services in detached mode and automatically configure Kibana with Jaeger index patterns.
 
-4. **Access the dashboards:**
+4. **Initialize the database:**
+
+   After starting the services for the first time, you need to manually initialize the database schema.
+
+   ```bash
+   docker-compose exec -T mariadb mysql -u root -psecret 3t < database/init.sql
+   ```
+
+5. **Access the dashboards:**
 
    - **Grafana**: http://localhost:3000/dashboards
    - **Jaeger**: http://localhost:16686 (distributed tracing UI)

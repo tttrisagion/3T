@@ -41,17 +41,10 @@ class PricePollProducer:
 
         print("Polling producer: Polling configured.")
 
-        # Get exchange instance with timeout handling
-        try:
-            print("Polling producer: Attempting to get exchange instance...")
-            self.exchange = exchange_manager.get_exchange("hyperliquid")
-            print("Polling producer: Exchange manager initialized.")
-        except Exception as e:
-            print(f"Polling producer: Failed to initialize exchange: {e}")
-            print("This might be due to proxy connection issues.")
-            raise
+        # Exchange will be fetched in the run loop to ensure failover resilience.
+        print("Polling producer: Exchange manager will be initialized in the run loop.")
 
-    def fetch_latest_prices(self, symbols):
+    def fetch_latest_prices(self, exchange, symbols):
         """
         Fetch latest prices for given symbols using REST API.
         Uses fetch_tickers() to get all prices in one call for better performance.
@@ -66,7 +59,7 @@ class PricePollProducer:
                 # Fetch all tickers at once for much better performance
                 print(f"Fetching tickers for {len(symbols)} symbols...")
                 tickers = exchange_manager.execute_with_retry(
-                    self.exchange.fetch_tickers, symbols
+                    exchange.fetch_tickers, symbols
                 )
 
                 for symbol in symbols:
@@ -158,11 +151,14 @@ class PricePollProducer:
 
         while True:
             try:
+                # Get a fresh exchange instance to ensure proxy failover works
+                exchange = exchange_manager.get_exchange("hyperliquid")
+
                 with tracer.start_as_current_span("poll_cycle"):
                     start_time = time.time()
 
                     # Fetch latest prices
-                    prices = self.fetch_latest_prices(symbols)
+                    prices = self.fetch_latest_prices(exchange, symbols)
 
                     # Publish to Redis
                     if prices:

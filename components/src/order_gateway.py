@@ -21,8 +21,12 @@ from shared.database import get_db_connection
 from shared.exchange_manager import ExchangeManager
 from shared.opentelemetry_config import get_tracer
 
+from shared.opentelemetry_config import get_tracer
+
 # Setup OpenTelemetry
 tracer = get_tracer("order-gateway")
+
+exchange_manager = ExchangeManager()
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -263,11 +267,10 @@ def send_to_exchange(order_details: dict, client_order_id: str) -> dict:
         )
 
         # Get exchange instance
-        exchange_manager = ExchangeManager()
         exchange = exchange_manager.get_exchange("hyperliquid")
 
         # Prepare order parameters for CCXT
-        order_params = {"clientOrderId": client_order_id}
+        order_params = {"clientOrderId": client_order_id, "loadMarkets": False}
 
         # Execute the market order with retry logic
         def place_order():
@@ -351,6 +354,21 @@ def send_to_exchange(order_details: dict, client_order_id: str) -> dict:
                 "error_message": str(e),
                 "retry_possible": True,
             }
+
+
+@app.on_event("startup")
+async def startup_event():
+    """Load markets on startup to handle connection issues early."""
+    try:
+        logger.info("Loading exchange markets on startup...")
+        exchange = exchange_manager.get_exchange("hyperliquid")
+        exchange.load_markets()
+        logger.info("Exchange markets loaded successfully.")
+    except Exception as e:
+        logger.error(f"Failed to load exchange markets on startup: {e}")
+        # Depending on the desired behavior, you might want to exit the application
+        # if it can't connect to the exchange on startup.
+        # For now, we'll just log the error and continue.
 
 
 @app.post("/execute_order", response_model=OrderResponse)
