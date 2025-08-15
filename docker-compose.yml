@@ -303,6 +303,23 @@ services:
         max-size: "10m"
         max-file: "5"
 
+  health-monitor:
+    build:
+      context: .
+      dockerfile: health-monitor/Dockerfile
+    depends_on:
+      - mariadb
+      - exchange-observer
+    volumes:
+      - ./health-monitor:/app
+      - ./shared:/app/shared
+      - ./config.yml:/app/config.yml
+      - ./secrets.yml:/app/secrets.yml
+      - ./exchange-observer/data:/app/data
+    restart: unless-stopped
+
+
+
 
 volumes:
   mariadb_data:
