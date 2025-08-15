@@ -9,6 +9,7 @@ import os
 # Import the functions to test
 import sys
 import unittest
+from datetime import UTC, datetime
 from unittest.mock import Mock, patch
 
 import requests_mock
@@ -22,7 +23,7 @@ from reconciliation_engine import (
     get_current_price,
     get_desired_state,
     get_local_position,
-    get_observer_position,
+    get_observer_state,
     reconcile_positions,
     send_order_to_gateway,
 )
@@ -121,7 +122,7 @@ class TestReconciliationEngine(unittest.TestCase):
         self.assertEqual(result, 0.00012)
 
     @patch("reconciliation_engine.config")
-    def test_get_observer_position(self, mock_config):
+    def test_get_observer_state(self, mock_config):
         """Test observer position retrieval"""
         # Mock configuration
         mock_config.get.return_value = [
@@ -131,25 +132,27 @@ class TestReconciliationEngine(unittest.TestCase):
 
         # Mock observer response
         observer_data = {
+            "timestamp": datetime.now(UTC).isoformat(),
             "positions": {
                 self.test_wallet_address: {
                     "assetPositions": [{"position": {"coin": "BTC", "szi": "0.00012"}}]
                 }
-            }
+            },
         }
 
         with requests_mock.Mocker() as m:
             m.get("http://localhost:8001/3T-observer.json", json=observer_data)
 
-            result = get_observer_position("BTC/USDC:USDC")
-            self.assertEqual(result, (0.00012, True))
+            result, error = get_observer_state("BTC/USDC:USDC")
+            self.assertEqual(result, 0.00012)
+            self.assertIsNone(error)
 
     @patch("reconciliation_engine.get_local_position")
-    @patch("reconciliation_engine.get_observer_position")
+    @patch("reconciliation_engine.get_observer_state")
     def test_get_actual_state_consensus(self, mock_observer, mock_local):
         """Test consensus mechanism when positions agree"""
         mock_local.return_value = 0.00012
-        mock_observer.return_value = (0.00012, True)  # Include observer_available flag
+        mock_observer.return_value = (0.00012, None)
 
         position, has_consensus = get_actual_state("BTC/USDC:USDC")
 
@@ -157,14 +160,11 @@ class TestReconciliationEngine(unittest.TestCase):
         self.assertEqual(position, 0.00012)
 
     @patch("reconciliation_engine.get_local_position")
-    @patch("reconciliation_engine.get_observer_position")
+    @patch("reconciliation_engine.get_observer_state")
     def test_get_actual_state_no_consensus(self, mock_observer, mock_local):
         """Test consensus mechanism when positions disagree"""
         mock_local.return_value = 0.00012
-        mock_observer.return_value = (
-            0.00015,
-            True,
-        )  # Different position with observer available
+        mock_observer.return_value = (0.00015, None)
 
         position, has_consensus = get_actual_state("BTC/USDC:USDC")
 

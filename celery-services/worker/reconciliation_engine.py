@@ -8,7 +8,7 @@ state consensus for safety.
 """
 
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import requests
 from opentelemetry import trace
@@ -184,13 +184,16 @@ def get_observer_state(symbol: str) -> tuple[float | None, str | None]:
                 return None, f"Observer {observer_url} has no timestamp"
 
             timestamp = datetime.fromisoformat(timestamp_str)
-            if datetime.now(timezone.utc) - timestamp > max_heartbeat_age:
+            if datetime.now(UTC) - timestamp > max_heartbeat_age:
                 return None, f"Observer {observer_url} data is stale"
 
             # Check for wallet presence
             positions = observer_data.get("positions", {})
             if wallet_address not in positions:
-                return None, f"Wallet {wallet_address} not found in observer {observer_url}"
+                return (
+                    None,
+                    f"Wallet {wallet_address} not found in observer {observer_url}",
+                )
 
             # Extract position
             wallet_data = positions.get(wallet_address, {})
@@ -330,9 +333,6 @@ def get_local_position(symbol: str) -> float | None:
     except Exception as e:
         print(f"Error getting local position for {symbol}: {e}")
         return None
-
-
-
 
 
 def calculate_reconciliation_action(

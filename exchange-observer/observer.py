@@ -33,7 +33,7 @@ async def poll_positions_periodically():
             exchange = ccxt.hyperliquid()
             all_positions = {}
 
-            async def fetch_and_store(address, positions):
+            async def fetch_and_store(exchange, address, positions):
                 try:
                     payload = {"type": "clearinghouseState", "user": address}
                     state = await exchange.public_post_info(payload)
@@ -43,7 +43,7 @@ async def poll_positions_periodically():
                     print(f"Error fetching state for {address}: {e}")
 
             tasks = [
-                fetch_and_store(address, all_positions)
+                fetch_and_store(exchange, address, all_positions)
                 for address in WALLET_ADDRESSES
             ]
             await asyncio.gather(*tasks)
@@ -71,7 +71,7 @@ async def poll_positions_periodically():
             # Always try to close the connection if it was created
             if exchange:
                 await exchange.close()
-        
+
         await asyncio.sleep(POLL_INTERVAL_SECONDS)
 
 

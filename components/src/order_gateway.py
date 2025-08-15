@@ -21,8 +21,6 @@ from shared.database import get_db_connection
 from shared.exchange_manager import ExchangeManager
 from shared.opentelemetry_config import get_tracer
 
-from shared.opentelemetry_config import get_tracer
-
 # Setup OpenTelemetry
 tracer = get_tracer("order-gateway")
 
