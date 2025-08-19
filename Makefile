@@ -6,7 +6,7 @@ install:
 test:
 	python3 -m ruff check --fix || true
 	python3 -m ruff format
-	python3 -m pytest -v
+	DISABLE_OTEL_EXPORTER=true python3 -m pytest -v
 
 render-diagrams:
 	@echo "Rendering PlantUML diagrams..."

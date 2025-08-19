@@ -1,51 +1,13 @@
-
+import json
 import os
+import sys
 import time
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 import mysql.connector
 import requests
-import yaml
 
-# Add the shared directory to the Python path
-import sys
-sys.path.append(os.path.join(os.path.dirname(__file__), "shared"))
-
-from shared.config import config
-
-
-def get_db_connection():
-    """Establish a connection to the MariaDB database."""
-    return mysql.connector.connect(
-        host=config.get("database.host"),
-        user=config.get("database.user"),
-        password=config.get_secret("database.password"),
-        database=config.get("database.database"),
-    )
-
-
-def get_tables_with_timestamp(cursor):
-    """Get a list of all tables that have a 'timestamp' column."""
-    cursor.execute("SHOW TABLES")
-    tables = [table[0] for table in cursor.fetchall()]
-    tables_with_timestamp = []
-    for table in tables:
-        cursor.execute(f"SHOW COLUMNS FROM `{table}`")
-        columns = [column[0] for column in cursor.fetchall()]
-        if "timestamp" in columns:
-            tables_with_timestamp.append(table)
-    return tables_with_timestamp
-
-
-from datetime import datetime, timedelta, timezone
-
-import mysql.connector
-import requests
-import yaml
-
-# Add the shared directory to the Python path
-import sys
-sys.path.append(os.path.join(os.path.dirname(__file__), "shared"))
+sys.path.append(os.path.join(os.path.dirname(__file__), "..", "shared"))
 
 from shared.config import config
 
@@ -80,15 +42,16 @@ def check_database_freshness(cursor, tables, threshold):
         latest_timestamp = cursor.fetchone()[0]
         if latest_timestamp:
             if isinstance(latest_timestamp, int):
-                latest_timestamp = datetime.fromtimestamp(latest_timestamp / 1000, tz=timezone.utc)
+                latest_timestamp = datetime.fromtimestamp(
+                    latest_timestamp / 1000, tz=UTC
+                )
             else:
-                latest_timestamp = latest_timestamp.replace(tzinfo=timezone.utc)
-            if datetime.now(timezone.utc) - latest_timestamp > timedelta(seconds=threshold):
+                latest_timestamp = latest_timestamp.replace(tzinfo=UTC)
+            if datetime.now(UTC) - latest_timestamp > timedelta(seconds=threshold):
                 print(f"- Table '{table}' is stale. Last update: {latest_timestamp}")
                 return False
     return True
 
-import json
 
 def check_observer_nodes_freshness(threshold):
     """Check the freshness of all configured observer nodes."""
@@ -102,8 +65,10 @@ def check_observer_nodes_freshness(threshold):
             latest_timestamp_str = data.get("timestamp")
             if latest_timestamp_str:
                 latest_timestamp = datetime.fromisoformat(latest_timestamp_str)
-                if datetime.now(timezone.utc) - latest_timestamp > timedelta(seconds=threshold):
-                    print(f"- Observer node '{url}' is stale. Last update: {latest_timestamp}")
+                if datetime.now(UTC) - latest_timestamp > timedelta(seconds=threshold):
+                    print(
+                        f"- Observer node '{url}' is stale. Last update: {latest_timestamp}"
+                    )
                     all_healthy = False
             else:
                 print(f"- Observer node '{url}' is missing the 'timestamp' field.")
@@ -115,6 +80,7 @@ def check_observer_nodes_freshness(threshold):
             print(f"- Observer node '{url}' returned invalid JSON: {e}")
             all_healthy = False
     return all_healthy
+
 
 def main():
     """Main monitoring loop."""
@@ -131,7 +97,9 @@ def main():
             with get_db_connection() as conn:
                 cursor = conn.cursor()
                 tables_with_timestamp = get_tables_with_timestamp(cursor)
-                if not check_database_freshness(cursor, tables_with_timestamp, polling_threshold):
+                if not check_database_freshness(
+                    cursor, tables_with_timestamp, polling_threshold
+                ):
                     healthy = False
 
             # Check observer nodes freshness

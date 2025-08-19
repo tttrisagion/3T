@@ -313,7 +313,7 @@ def get_local_position(symbol: str) -> float | None:
             staleness_timeout = config.get(
                 "reconciliation_engine.position_staleness_timeout", 300
             )
-            cutoff_time = datetime.utcnow() - timedelta(seconds=staleness_timeout)
+            cutoff_time = datetime.now(UTC) - timedelta(seconds=staleness_timeout)
             query = """
             SELECT position_size FROM positions
             WHERE product_id = %s

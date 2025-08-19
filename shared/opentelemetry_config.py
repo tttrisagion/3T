@@ -21,9 +21,12 @@ def get_tracer(service_name):
     )
 
     # Configure a span processor to export spans to the OTLP collector
-    exporter = OTLPSpanExporter(endpoint=os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT"))
-    processor = BatchSpanProcessor(exporter)
-    provider.add_span_processor(processor)
+    if os.environ.get("DISABLE_OTEL_EXPORTER") != "true":
+        exporter = OTLPSpanExporter(
+            endpoint=os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT")
+        )
+        processor = BatchSpanProcessor(exporter)
+        provider.add_span_processor(processor)
 
     # Set the tracer provider
     trace.set_tracer_provider(provider)

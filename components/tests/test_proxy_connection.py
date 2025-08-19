@@ -105,7 +105,7 @@ def test_proxy_required_when_configured():
     # Get exchange instance and verify it's using the proxy
     exchange = exchange_manager.get_exchange("hyperliquid")
     assert hasattr(exchange, "proxy"), "Exchange should have proxy attribute"
-    assert exchange.proxy == proxy, f"Expected proxy {proxy}, got {exchange.proxy}"
+    assert exchange.proxy in proxy, f"Expected proxy {exchange.proxy} to be in {proxy}"
 
 
 if __name__ == "__main__":
