@@ -65,79 +65,99 @@ def listen_for_balance_updates():
     Connects to the Redis Stream and processes balance updates to check for take-profit conditions.
     """
     config = Config()
-    redis_cnx = get_redis_connection()
-    db_cnx = get_db_connection()
+    redis_cnx = None
+    db_cnx = None
 
-    threshold = config.get("take_profit.threshold")
-
-    try:
-        redis_cnx.ping()
-        print("Successfully connected to Redis.", flush=True)
-    except Exception as e:
-        print(f"Failed to connect to Redis: {e}", flush=True)
-        return
-
-    stream_name = config.get("redis.streams.balance_updates")
-    group_name = "take_profit_consumers"
-    consumer_name = os.environ.get("HOSTNAME", "take-profit-consumer-1")
-
-    try:
-        redis_cnx.xgroup_create(stream_name, group_name, id="0", mkstream=True)
-    except redis.exceptions.ResponseError as e:
-        if "BUSYGROUP" not in str(e):
-            print(f"Error creating consumer group: {e}", flush=True)
-            raise
-
-    print("Listening for balance updates...", flush=True)
     while True:
         try:
-            response = redis_cnx.xreadgroup(
-                groupname=group_name,
-                consumername=consumer_name,
-                streams={stream_name: ">"},
-                count=1,
-                block=0,
-            )
+            if redis_cnx is None:
+                redis_cnx = get_redis_connection()
+                redis_cnx.ping()
+                print("Successfully connected to Redis.", flush=True)
 
-            if not response:
-                continue
+            if db_cnx is None or not db_cnx.is_connected():
+                db_cnx = get_db_connection()
+                print("Successfully connected to the database.", flush=True)
 
-            for _stream, messages in response:
-                for message_id, event_data in messages:
-                    if "account_value" in event_data:
-                        current_balance = float(event_data["account_value"])
-                        print(f"Received balance update: {current_balance}", flush=True)
+            threshold = config.get("take_profit.threshold")
+            stream_name = config.get("redis.streams.balance_updates")
+            group_name = "take_profit_consumers"
+            consumer_name = os.environ.get("HOSTNAME", "take-profit-consumer-1")
 
-                        last_balance = get_last_balance(db_cnx)
+            try:
+                redis_cnx.xgroup_create(stream_name, group_name, id="0", mkstream=True)
+            except redis.exceptions.ResponseError as e:
+                if "BUSYGROUP" not in str(e):
+                    print(f"Error creating consumer group: {e}", flush=True)
+                    raise
 
-                        if last_balance is None:
-                            print("First run. Setting initial balance.", flush=True)
-                            update_last_balance(db_cnx, current_balance)
-                        else:
-                            profit = current_balance - last_balance
-                            if last_balance > 0:
-                                profit_percentage = profit / last_balance
+            print("Listening for balance updates...", flush=True)
+            while True:
+                try:
+                    response = redis_cnx.xreadgroup(
+                        groupname=group_name,
+                        consumername=consumer_name,
+                        streams={stream_name: ">"},
+                        count=1,
+                        block=0,
+                    )
+
+                    if not response:
+                        continue
+
+                    for _stream, messages in response:
+                        for message_id, event_data in messages:
+                            if "account_value" in event_data:
+                                current_balance = float(event_data["account_value"])
                                 print(
-                                    f"Profit percentage: {profit_percentage:.4f}",
+                                    f"Received balance update: {current_balance}",
                                     flush=True,
                                 )
 
-                                if profit_percentage >= threshold:
+                                last_balance = get_last_balance(db_cnx)
+
+                                if last_balance is None:
                                     print(
-                                        f"TAKE PROFIT: Threshold of {threshold} reached!",
+                                        "First run. Setting initial balance.",
                                         flush=True,
                                     )
-                                    trigger_take_profit(db_cnx)
                                     update_last_balance(db_cnx, current_balance)
+                                else:
+                                    profit = current_balance - last_balance
+                                    if last_balance > 0:
+                                        profit_percentage = profit / last_balance
+                                        print(
+                                            f"Profit percentage: {profit_percentage:.4f}",
+                                            flush=True,
+                                        )
 
-                    redis_cnx.xack(stream_name, group_name, message_id)
+                                        if profit_percentage >= threshold:
+                                            print(
+                                                f"TAKE PROFIT: Threshold of {threshold} reached!",
+                                                flush=True,
+                                            )
+                                            trigger_take_profit(db_cnx)
+                                            update_last_balance(db_cnx, current_balance)
+
+                            redis_cnx.xack(stream_name, group_name, message_id)
+
+                except redis.exceptions.ConnectionError as e:
+                    print(f"Redis connection error: {e}", flush=True)
+                    redis_cnx = None
+                    break  # Break inner loop to reconnect
+
+                except Exception as e:
+                    print(f"An error occurred: {e}", flush=True)
+                    if not db_cnx.is_connected():
+                        print("Database connection lost. Reconnecting...", flush=True)
+                        db_cnx = None
+                        break  # Break inner loop to reconnect
+                    time.sleep(5)
 
         except Exception as e:
-            print(f"An error occurred: {e}", flush=True)
-            # Reconnect if connection is lost
-            if not db_cnx.is_connected():
-                print("Database connection lost. Reconnecting...", flush=True)
-                db_cnx = get_db_connection()
+            print(f"An error occurred in the main loop: {e}", flush=True)
+            redis_cnx = None
+            db_cnx = None
             time.sleep(5)
 
 
