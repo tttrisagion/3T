@@ -79,4 +79,4 @@ take_profit:
 # Health Monitor Configuration (in seconds)
 health_monitor:
   polling_interval: 0.5
-  polling_threshold: 60.0
+  polling_threshold: 90.0
