@@ -216,22 +216,21 @@ def get_latest_price_from_stream(symbol: str) -> float:
     try:
         from shared.database import get_redis_connection
 
-        redis_conn = get_redis_connection()
+        with get_redis_connection() as redis_conn:
+            # Get latest price from the unified price stream
+            stream_key = config.get("redis.streams.price_updates")  # "prices:updated"
 
-        # Get latest price from the unified price stream
-        stream_key = config.get("redis.streams.price_updates")  # "prices:updated"
+            # Search through recent entries to find the latest price for this symbol
+            latest_entries = redis_conn.xrevrange(stream_key, count=500)
 
-        # Search through recent entries to find the latest price for this symbol
-        latest_entries = redis_conn.xrevrange(stream_key, count=500)
+            for _, fields in latest_entries:
+                if fields.get("symbol") == symbol:
+                    price = float(fields.get("price", 0))
+                    logger.info(f"Got latest price for {symbol}: {price}")
+                    return price
 
-        for _, fields in latest_entries:
-            if fields.get("symbol") == symbol:
-                price = float(fields.get("price", 0))
-                logger.info(f"Got latest price for {symbol}: {price}")
-                return price
-
-        logger.warning(f"No price data found for {symbol} in recent stream entries")
-        return None
+            logger.warning(f"No price data found for {symbol} in recent stream entries")
+            return None
     except Exception as e:
         logger.error(f"Failed to get price from stream for {symbol}: {e}")
         return None
