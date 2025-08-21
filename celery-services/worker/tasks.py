@@ -91,87 +91,86 @@ def schedule_market_data_fetching(is_backfill=False):
     with tracer.start_as_current_span(span_name) as span:
         span.set_attribute("is_backfill", is_backfill)
         db_cnx = None
-        redis_cnx = None
         failed_jobs = []
         try:
             db_cnx = get_db_connection()
-            redis_cnx = get_redis_connection()
-            cursor = db_cnx.cursor(dictionary=True)
+            with get_redis_connection() as redis_cnx:
+                cursor = db_cnx.cursor(dictionary=True)
 
-            cursor.execute("SELECT symbol FROM products")
-            products = cursor.fetchall()
-            timeframes = config.get("market_data.timeframes", ["1m"])
-            span.set_attribute("products.count", len(products))
-            span.set_attribute("timeframes.configured", timeframes)
+                cursor.execute("SELECT symbol FROM products")
+                products = cursor.fetchall()
+                timeframes = config.get("market_data.timeframes", ["1m"])
+                span.set_attribute("products.count", len(products))
+                span.set_attribute("timeframes.configured", timeframes)
 
-            lookback_config = config.get("market_data.lookback_bars", {})
-            default_lookback = lookback_config.get("default", 20)
+                lookback_config = config.get("market_data.lookback_bars", {})
+                default_lookback = lookback_config.get("default", 20)
 
-            jobs_to_run = []
-            for product in products:
-                for timeframe in timeframes:
-                    symbol = product["symbol"]
-                    lookback = lookback_config.get(timeframe, default_lookback)
+                jobs_to_run = []
+                for product in products:
+                    for timeframe in timeframes:
+                        symbol = product["symbol"]
+                        lookback = lookback_config.get(timeframe, default_lookback)
 
-                    if is_backfill:
-                        jobs_to_run.append((symbol, timeframe, lookback))
-                        continue
+                        if is_backfill:
+                            jobs_to_run.append((symbol, timeframe, lookback))
+                            continue
 
-                    # Stateful check
-                    last_fetch_key = f"last_fetch:{symbol}:{timeframe}"
+                        # Stateful check
+                        last_fetch_key = f"last_fetch:{symbol}:{timeframe}"
+                        try:
+                            last_fetched_ts = int(redis_cnx.get(last_fetch_key) or 0)
+                        except (ValueError, TypeError):
+                            last_fetched_ts = 0
+
+                        # Calculate the timestamp of the most recent, completed bar
+                        now_utc = datetime.now(UTC)
+                        timeframe_seconds = ccxt.Exchange.parse_timeframe(timeframe)
+                        latest_bar_ts = (
+                            (int(now_utc.timestamp()) // timeframe_seconds)
+                            * timeframe_seconds
+                            * 1000
+                        )
+
+                        if latest_bar_ts > last_fetched_ts:
+                            jobs_to_run.append((symbol, timeframe, lookback))
+
+                if not jobs_to_run:
+                    span.add_event("No new market data to fetch at this time.")
+                    return
+
+                span.add_event(f"Found {len(jobs_to_run)} new data points to fetch.")
+                concurrency_limit = config.get("market_data.concurrency_limit", 10)
+                pool = GreenPool(size=concurrency_limit)
+
+                threads = [
+                    (
+                        job,
+                        pool.spawn(
+                            traced_fetch_and_store_ohlcv,
+                            job[0],
+                            job[1],
+                            job[2],
+                            parent_context,
+                        ),
+                    )
+                    for job in jobs_to_run
+                ]
+
+                for job, gt in threads:
                     try:
-                        last_fetched_ts = int(redis_cnx.get(last_fetch_key) or 0)
-                    except (ValueError, TypeError):
-                        last_fetched_ts = 0
+                        gt.wait()
+                    except Exception as e:
+                        failed_jobs.append((job, e))
 
-                    # Calculate the timestamp of the most recent, completed bar
-                    now_utc = datetime.now(UTC)
-                    timeframe_seconds = ccxt.Exchange.parse_timeframe(timeframe)
-                    latest_bar_ts = (
-                        (int(now_utc.timestamp()) // timeframe_seconds)
-                        * timeframe_seconds
-                        * 1000
+                if failed_jobs:
+                    raise Exception(
+                        f"{len(failed_jobs)}/{len(jobs_to_run)} market data fetches failed."
                     )
 
-                    if latest_bar_ts > last_fetched_ts:
-                        jobs_to_run.append((symbol, timeframe, lookback))
-
-            if not jobs_to_run:
-                span.add_event("No new market data to fetch at this time.")
-                return
-
-            span.add_event(f"Found {len(jobs_to_run)} new data points to fetch.")
-            concurrency_limit = config.get("market_data.concurrency_limit", 10)
-            pool = GreenPool(size=concurrency_limit)
-
-            threads = [
-                (
-                    job,
-                    pool.spawn(
-                        traced_fetch_and_store_ohlcv,
-                        job[0],
-                        job[1],
-                        job[2],
-                        parent_context,
-                    ),
+                span.add_event(
+                    f"Successfully completed {len(jobs_to_run) - len(failed_jobs)} jobs."
                 )
-                for job in jobs_to_run
-            ]
-
-            for job, gt in threads:
-                try:
-                    gt.wait()
-                except Exception as e:
-                    failed_jobs.append((job, e))
-
-            if failed_jobs:
-                raise Exception(
-                    f"{len(failed_jobs)}/{len(jobs_to_run)} market data fetches failed."
-                )
-
-            span.add_event(
-                f"Successfully completed {len(jobs_to_run) - len(failed_jobs)} jobs."
-            )
 
         except Exception as e:
             span.set_attribute("error", True)
@@ -204,15 +203,15 @@ def traced_fetch_and_store_ohlcv(
                 fetch_and_store_ohlcv(symbol, timeframe, lookback)
 
                 # On success, update Redis with the timestamp of the latest bar
-                redis_cnx = get_redis_connection()
-                timeframe_seconds = ccxt.Exchange.parse_timeframe(timeframe)
-                latest_bar_ts = (
-                    (int(datetime.now(UTC).timestamp()) // timeframe_seconds)
-                    * timeframe_seconds
-                    * 1000
-                )
-                last_fetch_key = f"last_fetch:{symbol}:{timeframe}"
-                redis_cnx.set(last_fetch_key, latest_bar_ts)
+                with get_redis_connection() as redis_cnx:
+                    timeframe_seconds = ccxt.Exchange.parse_timeframe(timeframe)
+                    latest_bar_ts = (
+                        (int(datetime.now(UTC).timestamp()) // timeframe_seconds)
+                        * timeframe_seconds
+                        * 1000
+                    )
+                    last_fetch_key = f"last_fetch:{symbol}:{timeframe}"
+                    redis_cnx.set(last_fetch_key, latest_bar_ts)
 
                 span.set_attribute("otel.status_code", "OK")
                 span.add_event("Fetch successful and Redis updated")
@@ -300,12 +299,12 @@ def update_balance():
 def publish_balance_update_event(account_value: float):
     with tracer.start_as_current_span("publish_balance_update_event") as span:
         try:
-            r = get_redis_connection()
-            stream_name = config.get("redis.streams.balance_updates")
-            event_data = {"account_value": account_value}
-            r.xadd(stream_name, event_data)
-            span.set_attribute("redis.stream.name", stream_name)
-            span.set_attribute("redis.event.account_value", account_value)
+            with get_redis_connection() as r:
+                stream_name = config.get("redis.streams.balance_updates")
+                event_data = {"account_value": account_value}
+                r.xadd(stream_name, event_data)
+                span.set_attribute("redis.stream.name", stream_name)
+                span.set_attribute("redis.event.account_value", account_value)
         except Exception as e:
             span.set_attribute("error", True)
             span.record_exception(e)
