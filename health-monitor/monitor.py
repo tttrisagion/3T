@@ -56,6 +56,7 @@ def check_database_freshness(cursor, tables, threshold):
 def check_observer_nodes_freshness(threshold):
     """Check the freshness of all configured observer nodes."""
     observer_nodes = config.get("reconciliation_engine.observer_nodes", [])
+    print(f"Checking observer nodes: {observer_nodes}")
     all_healthy = True
     for url in observer_nodes:
         try:
@@ -97,6 +98,7 @@ def main():
             with get_db_connection() as conn:
                 cursor = conn.cursor()
                 tables_with_timestamp = get_tables_with_timestamp(cursor)
+                print(f"Checking tables: {tables_with_timestamp}")
                 if not check_database_freshness(
                     cursor, tables_with_timestamp, polling_threshold
                 ):

@@ -1,3 +1,5 @@
+import contextlib
+
 import mysql.connector
 import redis
 
@@ -14,11 +16,16 @@ def get_db_connection():
     )
 
 
+@contextlib.contextmanager
 def get_redis_connection():
-    """Creates and returns a new Redis connection."""
-    return redis.Redis(
+    """Creates and returns a new Redis connection as a context manager."""
+    r = redis.Redis(
         host=config.get("redis.host"),
         port=config.get("redis.port"),
         db=config.get("redis.db"),
         decode_responses=True,
     )
+    try:
+        yield r
+    finally:
+        r.close()

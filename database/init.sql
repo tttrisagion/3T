@@ -69,6 +69,13 @@ CREATE TABLE `market_data` (
   KEY `idx_timestamp_symbol_timeframe` (`timestamp`,`symbol`,`timeframe`)
 ) ENGINE=MEMORY;
 
+CREATE TABLE `stream_data` (
+  `timestamp` bigint(20) NOT NULL,
+  `symbol` varchar(20) NOT NULL,
+  `last_px` decimal(18,8) DEFAULT NULL,
+  PRIMARY KEY (`timestamp`,`symbol`)
+) ENGINE=MEMORY;
+
 -- Create the trading_range table
 CREATE TABLE `trading_range` (
     `symbol` VARCHAR(20) NOT NULL,
