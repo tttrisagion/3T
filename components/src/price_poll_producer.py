@@ -84,7 +84,7 @@ class PricePollProducer:
                 for symbol in symbols[:5]:  # Limit to first 5 symbols for fallback
                     try:
                         ticker = exchange_manager.execute_with_retry(
-                            self.exchange.fetch_ticker, symbol
+                            exchange.fetch_ticker, symbol
                         )
 
                         if ticker and "last" in ticker and ticker["last"] is not None:
@@ -177,7 +177,8 @@ class PricePollProducer:
 
             except Exception as e:
                 print(f"Error in polling loop: {e}")
-                tracer.get_current_span().record_exception(e)
+                with tracer.start_as_current_span("polling_error") as error_span:
+                    error_span.record_exception(e)
                 # Wait before retrying
                 await asyncio.sleep(self.poll_interval)
 

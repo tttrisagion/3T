@@ -110,26 +110,31 @@ class TestExchangeManager:
             "exchanges.hyperliquid.privateKey": "test_private_key",
         }.get(key)
 
-        failing_exchange = Mock()
-        failing_exchange.load_markets.side_effect = Exception("Network error")
-        mock_ccxt.hyperliquid.return_value = failing_exchange
-
         manager = ExchangeManager()
-        manager.circuit_breaker_threshold = 2  # Lower threshold for testing
-        manager.health_check_interval = 0  # Force health checks
+        manager.circuit_breaker_threshold = 3  # Lower threshold for testing
+        manager.circuit_breaker_reset_time = 3600  # 1 hour - prevent reset during test
 
-        # Multiple failures should eventually open circuit breaker
-        # Need to call health check directly to trigger failures
-        for _i in range(manager.circuit_breaker_threshold + 1):
-            try:
-                exchange = manager._create_exchange("hyperliquid")
-                manager._health_check(exchange, "hyperliquid")
-            except Exception:
-                pass  # Expected to fail
+        # Initially circuit breaker should be closed
+        assert not manager._is_circuit_breaker_open("hyperliquid")
 
-        # Now circuit breaker should be open
-        with pytest.raises(Exception, match="Circuit breaker open"):
-            manager.get_exchange()
+        # Record failures directly to test the circuit breaker logic
+        for i in range(manager.circuit_breaker_threshold):
+            manager._record_failure("hyperliquid")
+            # Circuit breaker should open when threshold is reached
+            if i < manager.circuit_breaker_threshold - 1:
+                assert not manager._is_circuit_breaker_open("hyperliquid")
+            else:
+                assert manager._is_circuit_breaker_open("hyperliquid")
+
+        # Verify failure count
+        assert (
+            manager._failure_count["hyperliquid"] == manager.circuit_breaker_threshold
+        )
+
+        # Reset should close circuit breaker
+        manager._reset_failure_count("hyperliquid")
+        assert not manager._is_circuit_breaker_open("hyperliquid")
+        assert manager._failure_count["hyperliquid"] == 0
 
     def test_singleton_pattern(self):
         manager1 = ExchangeManager()

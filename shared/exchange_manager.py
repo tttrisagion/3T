@@ -79,11 +79,26 @@ class ExchangeManager:
             for attempt in range(self.max_retries):
                 try:
                     with self._lock:
-                        # Check circuit breaker first
+                        # If circuit breaker is open, try proxy rotation before giving up
                         if self._is_circuit_breaker_open(exchange_name):
-                            raise Exception(
-                                f"Circuit breaker open for {exchange_name} exchange"
+                            span.add_event(
+                                f"Circuit breaker open, attempting proxy rotation on attempt {attempt + 1}"
                             )
+                            # Force recreation with next proxy (modulus handled in _create_exchange)
+                            self._proxy_index[exchange_name] = (
+                                self._proxy_index.get(exchange_name, 0) + 1
+                            )
+                            if exchange_name in self._exchanges:
+                                del self._exchanges[exchange_name]
+                            # Allow one retry attempt with new proxy
+                            if attempt == 0:
+                                span.add_event(
+                                    "Allowing circuit breaker reset attempt with new proxy"
+                                )
+                            else:
+                                raise Exception(
+                                    f"Circuit breaker open for {exchange_name} exchange after proxy rotation attempt"
+                                )
 
                         # Get or create exchange instance
                         exchange = self._get_or_create_exchange(exchange_name)
@@ -291,7 +306,7 @@ class ExchangeManager:
         )
         self._last_failure_time[exchange_name] = datetime.now()
 
-        # Increment proxy index on failure
+        # Increment proxy index on failure (modulus handled in _create_exchange)
         self._proxy_index[exchange_name] = self._proxy_index.get(exchange_name, 0) + 1
 
         if self._failure_count[exchange_name] >= self.circuit_breaker_threshold:
@@ -319,6 +334,8 @@ class ExchangeManager:
     def execute_with_retry(self, operation, *args, **kwargs):
         """
         Execute an exchange operation with automatic retry and exponential backoff.
+        If an operation fails due to a likely connection issue, it will force
+        a reconnection attempt, which will cycle through available proxies.
 
         Args:
             operation: Function to execute (e.g., exchange.fetchOHLCV)
@@ -331,6 +348,18 @@ class ExchangeManager:
             Exception: If all retries are exhausted
         """
         with tracer.start_as_current_span("execute_with_retry") as span:
+            last_exception = None
+
+            # Try to extract exchange information if operation is a bound method
+            exchange = None
+            exchange_name = None
+            operation_name = None
+
+            if hasattr(operation, "__self__") and hasattr(operation.__self__, "id"):
+                exchange = operation.__self__
+                exchange_name = exchange.id
+                operation_name = operation.__name__
+
             span.set_attribute(
                 "operation.name",
                 operation.__name__
@@ -339,18 +368,34 @@ class ExchangeManager:
             )
             span.set_attribute("retry.max_attempts", self.max_retries)
 
-            last_exception = None
-
             for attempt in range(self.max_retries):
                 try:
                     span.set_attribute("retry.attempt", attempt + 1)
-                    result = operation(*args, **kwargs)
+
+                    # On subsequent retries, get a fresh exchange instance if we have exchange info.
+                    # This will trigger health checks and proxy rotation if needed.
+                    if attempt > 0 and exchange_name and operation_name:
+                        fresh_exchange = self.get_exchange(exchange_name)
+                        current_operation = getattr(fresh_exchange, operation_name)
+                    else:
+                        # On the first attempt, or if we don't have exchange info, use the provided operation directly.
+                        current_operation = operation
+
+                    result = current_operation(*args, **kwargs)
                     span.set_attribute("retry.success", True)
+                    # If successful and we have exchange info, reset the failure count for this exchange
+                    if exchange_name:
+                        self._reset_failure_count(exchange_name)
                     return result
 
                 except Exception as e:
                     last_exception = e
                     span.add_event(f"Attempt {attempt + 1} failed: {str(e)}")
+                    span.record_exception(e)
+
+                    # Record a failure if we have exchange info. This is crucial as it increments the proxy index.
+                    if exchange_name:
+                        self._record_failure(exchange_name)
 
                     if attempt < self.max_retries - 1:
                         # Exponential backoff: 1s, 2s, 4s
@@ -359,7 +404,6 @@ class ExchangeManager:
                         time.sleep(delay)
                     else:
                         span.set_attribute("retry.success", False)
-                        span.record_exception(e)
 
             raise last_exception
 

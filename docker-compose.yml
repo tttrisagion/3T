@@ -111,6 +111,7 @@ services:
     depends_on:
       - redis
       - mariadb
+      - otel-collector
 
   price_stream_consumer:
     build:
@@ -129,6 +130,7 @@ services:
     depends_on:
       - redis
       - price_stream_producer
+      - otel-collector
 
   flower:
     build:
