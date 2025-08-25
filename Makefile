@@ -1,7 +1,7 @@
 .PHONY: install test clean restart render-diagrams
 
 install:
-	docker-compose up -d --build
+	docker compose up -d --build
 
 test:
 	python3 -m ruff check --fix || true
@@ -13,8 +13,8 @@ render-diagrams:
 	@./render_diagrams.sh
 
 clean:
-	docker-compose down
+	docker compose down
 	docker system prune -f
 
 restart:
-	docker-compose restart
+	docker compose restart

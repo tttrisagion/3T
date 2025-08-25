@@ -28,10 +28,13 @@ def get_tables_with_timestamp(cursor):
     tables = [table[0] for table in cursor.fetchall()]
     tables_with_timestamp = []
     for table in tables:
-        cursor.execute(f"SHOW COLUMNS FROM `{table}`")
-        columns = [column[0] for column in cursor.fetchall()]
-        if "timestamp" in columns:
-            tables_with_timestamp.append(table)
+        if table.startswith("metrics"):
+            continue
+        else:
+            cursor.execute(f"SHOW COLUMNS FROM `{table}`")
+            columns = [column[0] for column in cursor.fetchall()]
+            if "timestamp" in columns:
+                tables_with_timestamp.append(table)
     return tables_with_timestamp
 
 
