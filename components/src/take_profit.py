@@ -4,6 +4,7 @@ import time
 
 import redis
 
+from shared.celery_app import app
 from shared.config import Config
 from shared.database import get_db_connection
 
@@ -50,7 +51,7 @@ def update_last_balance(db_cnx, balance):
 
 
 def trigger_take_profit(db_cnx):
-    """Sets exit_run = 1 for all active runs."""
+    """Sets exit_run = 1 for all active runs and triggers immediate reconciliation."""
     cursor = db_cnx.cursor()
     cursor.execute("UPDATE runs SET exit_run = 1 WHERE exit_run = 0")
     db_cnx.commit()
@@ -58,6 +59,13 @@ def trigger_take_profit(db_cnx):
     print(
         "TAKE PROFIT TRIGGERED: All active runs have been flagged to exit.", flush=True
     )
+
+    # Trigger the reconciliation task
+    try:
+        app.send_task("worker.reconciliation_engine.reconcile_positions")
+        print("Successfully triggered reconciliation task.", flush=True)
+    except Exception as e:
+        print(f"Error triggering reconciliation task: {e}", flush=True)
 
 
 def listen_for_balance_updates():
