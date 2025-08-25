@@ -100,7 +100,7 @@ def listen_for_balance_updates():
                     raise
 
             print("Listening for balance updates...", flush=True)
-            print(f"Target profit pct: {threshold:.4f}", flush=True )
+            print(f"Target profit pct: {threshold:.4f}", flush=True)
             while True:
                 try:
                     response = redis_cnx.xreadgroup(
