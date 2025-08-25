@@ -45,7 +45,7 @@ market_data:
 # Reconciliation Engine Configuration
 reconciliation_engine:
   # How often to run reconciliation checks (in seconds)
-  rebalance_frequency: 60.0 # in seconds
+  rebalance_frequency: 900.0 # in seconds
   
   # Risk position size - USD equivalent position size per run instance
   risk_pos_size: 20.25
@@ -54,7 +54,8 @@ reconciliation_engine:
   symbols:
     - "BTC/USDC:USDC"
     - "ETH/USDC:USDC"
-    - "HYPE/USDC:USDC"
+    - "SOL/USDC:USDC"
+    - "E/USDC:USDC"
   
   # Observer nodes for consensus validation
   observer_nodes:
@@ -76,7 +77,7 @@ reconciliation_engine:
 
 # Take Profit Configuration
 take_profit:
-  threshold: 0.0369
+  threshold: 0.0161803398875
 
 # Health Monitor Configuration (in seconds)
 health_monitor:
