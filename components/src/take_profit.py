@@ -68,7 +68,7 @@ def trigger_take_profit(db_cnx):
             print("Successfully triggered reconciliation task.", flush=True)
         except Exception as e:
             print(f"Error triggering reconciliation task: {e}", flush=True)
-        time.sleep( 120 * i )
+        time.sleep(120 * i)
 
 
 def listen_for_balance_updates():
