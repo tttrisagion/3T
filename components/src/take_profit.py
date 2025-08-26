@@ -61,14 +61,14 @@ def trigger_take_profit(db_cnx):
     )
 
     # Trigger the reconciliation task
-    for i in range(0, 3):
+    for i in range(1, 4):
         # Double check that there was no edge case / race condition causing imbalance
         try:
             app.send_task("worker.reconciliation_engine.reconcile_positions")
             print("Successfully triggered reconciliation task.", flush=True)
         except Exception as e:
             print(f"Error triggering reconciliation task: {e}", flush=True)
-        time.sleep( 60 )
+        time.sleep( 120 * i )
 
 
 def listen_for_balance_updates():
