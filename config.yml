@@ -56,6 +56,7 @@ reconciliation_engine:
     - "ETH/USDC:USDC"
     - "SOL/USDC:USDC"
     - "HYPE/USDC:USDC"
+    - "XRP/USDC:USDC"
   
   # Observer nodes for consensus validation
   observer_nodes:
