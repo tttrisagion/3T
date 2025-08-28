@@ -56,7 +56,7 @@ quote-style = "double"
 indent-style = "space"
 
 [tool.pytest.ini_options]
-testpaths = ["components/tests", "celery-services/tests"]
+testpaths = ["components/tests", "celery-services/tests", "shared/tests"]
 python_files = "test_*.py"
 python_classes = "Test*"
 python_functions = "test_*"
