@@ -122,6 +122,7 @@ def listen_for_balance_updates():
                             if "account_value" in event_data:
                                 current_balance = float(event_data["account_value"])
                                 print(
+                                    int(time.time()),
                                     f"Received balance update: {current_balance}",
                                     flush=True,
                                 )
@@ -139,6 +140,7 @@ def listen_for_balance_updates():
                                     if last_balance > 0:
                                         profit_percentage = profit / last_balance
                                         print(
+                                            int(time.time()),
                                             f"Profit percentage: {profit_percentage:.4f}",
                                             flush=True,
                                         )

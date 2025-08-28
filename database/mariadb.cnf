@@ -6,4 +6,4 @@ tmp_table_size = 1073741824
 # Additional settings for better performance with large tables
 max_allowed_packet = 64M
 innodb_buffer_pool_size = 8G
-max_connections        = 4096
+max_connections        = 16384

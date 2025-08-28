@@ -15,6 +15,8 @@ render-diagrams:
 clean:
 	docker compose down
 	docker system prune -f
+	docker volume rm 3t_mariadb_data
+	docker volume prune
 
 restart:
 	docker compose restart

@@ -14,7 +14,7 @@ redis:
 
 celery:
   schedules:
-    update_balance: 30.0
+    update_balance: 15.0
     schedule_market_data_fetching: 30.0 # Runs every minute to check for needed updates
 
 # Exchange configuration
@@ -57,6 +57,8 @@ reconciliation_engine:
     - "SOL/USDC:USDC"
     - "HYPE/USDC:USDC"
     - "XRP/USDC:USDC"
+    - "PAXG/USDC:USDC"
+    - "ENA/USDC:USDC"
   
   # Observer nodes for consensus validation
   observer_nodes:

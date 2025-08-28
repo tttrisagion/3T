@@ -122,7 +122,7 @@ CREATE TABLE `runs` (
   `controller_seed` float DEFAULT NULL,
   `live_pnl` float DEFAULT NULL,
   `update_time` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  `pid` int(11), DEFAULT NULL,
+  `pid` int(11) DEFAULT NULL,
   `host` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `idx_exit_run` (`exit_run`),
