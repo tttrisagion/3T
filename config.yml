@@ -47,8 +47,9 @@ reconciliation_engine:
   # How often to run reconciliation checks (in seconds)
   rebalance_frequency: 900.0 # in seconds
   
-  # Risk position size - USD equivalent position size per run instance
-  risk_pos_size: 20.25
+  # Risk position size as a percentage of total balance (e.g., 0.0025 for 0.25%)
+  risk_pos_percentage: 0.015
+  #risk_pos_percentage: 0.0025
   
   # Symbols to manage 
   symbols:
