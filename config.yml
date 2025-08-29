@@ -48,8 +48,7 @@ reconciliation_engine:
   rebalance_frequency: 900.0 # in seconds
   
   # Risk position size as a percentage of total balance (e.g., 0.0025 for 0.25%)
-  risk_pos_percentage: 0.015
-  #risk_pos_percentage: 0.0025
+  risk_pos_percentage: 0.0025
   
   # Symbols to manage 
   symbols:
