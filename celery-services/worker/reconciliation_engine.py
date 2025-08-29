@@ -41,7 +41,7 @@ def get_latest_balance() -> float | None:
 
         if messages:
             latest_message = messages[0][1]
-            balance = float(latest_message.get(b"total_balance", 0.0))
+            balance = float(latest_message.get(b"account_value", 0.0))
             return balance
         return None
     except (redis.exceptions.RedisError, ValueError) as e:
