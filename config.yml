@@ -47,8 +47,11 @@ reconciliation_engine:
   # How often to run reconciliation checks (in seconds)
   rebalance_frequency: 900.0 # in seconds
   
-  # Risk position size as a percentage of total balance (e.g., 0.0025 for 0.25%)
-  risk_pos_percentage: 0.0025
+  # Risk position size as a percentage of total balance (golden ratio based)
+  risk_pos_percentage: 0.0016180339887
+  
+  # Kelly Strategy Configuration
+  kelly_threshold: 0.5  # 50% - maximum Kelly performance scaling threshold
   
   # Symbols to manage 
   symbols:

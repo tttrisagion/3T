@@ -50,14 +50,33 @@ def update_last_balance(db_cnx, balance):
     cursor.close()
 
 
+def get_next_height(db_cnx):
+    """Get the next height value for grouping runs by take profit events."""
+    cursor = db_cnx.cursor()
+    cursor.execute("SELECT MAX(height) FROM runs")
+    result = cursor.fetchone()
+    cursor.close()
+
+    max_height = result[0] if result and result[0] is not None else 0
+    return max_height + 1
+
+
 def trigger_take_profit(db_cnx):
     """Sets exit_run = 1 for all active runs and triggers immediate reconciliation."""
     cursor = db_cnx.cursor()
-    cursor.execute("UPDATE runs SET exit_run = 1 WHERE exit_run = 0")
+
+    # Get the next height value
+    next_height = get_next_height(db_cnx)
+
+    # Update all active runs with exit_run = 1 and assign height
+    cursor.execute(
+        "UPDATE runs SET exit_run = 1, height = %s WHERE exit_run = 0", (next_height,)
+    )
     db_cnx.commit()
     cursor.close()
     print(
-        "TAKE PROFIT TRIGGERED: All active runs have been flagged to exit.", flush=True
+        f"TAKE PROFIT TRIGGERED: All active runs have been flagged to exit with height {next_height}.",
+        flush=True,
     )
 
     # Trigger the reconciliation task
