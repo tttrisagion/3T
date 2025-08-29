@@ -43,12 +43,18 @@ class TestReconciliationEngine(unittest.TestCase):
         self.assertEqual(get_base_symbol("BTC"), "BTC")  # Already base symbol
 
     @patch("reconciliation_engine.get_db_connection")
+    @patch("reconciliation_engine.get_latest_balance")
     @patch("reconciliation_engine.config")
     @patch("reconciliation_engine.get_current_price")
-    def test_get_desired_state_with_active_runs(self, mock_price, mock_config, mock_db):
+    def test_get_desired_state_with_active_runs(
+        self, mock_price, mock_config, mock_balance, mock_db
+    ):
         """Test desired state calculation with active runs"""
         # Mock configuration
-        mock_config.get.return_value = 20.25  # risk_pos_size
+        mock_config.get.return_value = 0.0025  # risk_pos_percentage
+
+        # Mock latest balance
+        mock_balance.return_value = 100000.0  # $100,000 balance
 
         # Mock current price
         mock_price.return_value = 118000.0  # BTC price
@@ -57,11 +63,11 @@ class TestReconciliationEngine(unittest.TestCase):
         mock_cursor = Mock()
         mock_cursor.fetchone.return_value = (
             "BTC",
-            2.0,
+            2.0,  # position_direction
             100.0,
             5,
             0.4,
-        )  # position_direction = 2.0
+        )
         mock_conn = Mock()
         mock_conn.cursor.return_value = mock_cursor
         mock_conn.__enter__ = Mock(return_value=mock_conn)
@@ -70,8 +76,9 @@ class TestReconciliationEngine(unittest.TestCase):
 
         result = get_desired_state("BTC/USDC:USDC")
 
-        # Expected: 2.0 * 20.25 / 118000.0 = 0.00081
-        expected = 2.0 * 20.25 / 118000.0
+        # Expected risk_pos_size = 100000.0 * 0.0025 = 250.0
+        # Expected target_position = 2.0 * 250.0 / 118000.0 = 0.004237
+        expected = 0.004237
         self.assertAlmostEqual(result, expected, places=6)
 
     @patch("reconciliation_engine.get_db_connection")

@@ -10,6 +10,7 @@ state consensus for safety.
 import os
 from datetime import UTC, datetime, timedelta
 
+import redis
 import requests
 from opentelemetry import trace
 
@@ -20,6 +21,32 @@ from shared.opentelemetry_config import get_tracer
 
 # Get a tracer
 tracer = get_tracer(os.environ.get("OTEL_SERVICE_NAME", "celery-worker"))
+
+
+def get_latest_balance() -> float | None:
+    """
+    Get the latest total balance from the Redis stream.
+    Returns:
+        Latest total balance, or None if not available.
+    """
+    try:
+        redis_host = config.get("redis.host", "redis")
+        redis_port = config.get("redis.port", 6379)
+        redis_db = config.get("redis.db", 0)
+        stream_name = config.get("redis.streams.balance_updates", "balance:updated")
+
+        r = redis.Redis(host=redis_host, port=redis_port, db=redis_db)
+        # Get the last entry in the stream
+        messages = r.xrevrange(stream_name, count=1)
+
+        if messages:
+            latest_message = messages[0][1]
+            balance = float(latest_message.get(b"account_value", 0.0))
+            return balance
+        return None
+    except (redis.exceptions.RedisError, ValueError) as e:
+        print(f"Error getting latest balance from Redis: {e}")
+        return None
 
 
 def get_base_symbol(symbol: str) -> str:
@@ -68,9 +95,30 @@ def get_desired_state(symbol: str) -> float:
                 result = cursor.fetchone()
 
                 if result and result[1] is not None:  # position column
-                    risk_pos_size = config.get(
-                        "reconciliation_engine.risk_pos_size", 20.25
+                    # Get risk position size from balance percentage
+                    risk_pos_percentage = config.get(
+                        "reconciliation_engine.risk_pos_percentage", 0.0025
                     )
+                    latest_balance = get_latest_balance()
+
+                    if latest_balance:
+                        risk_pos_size = latest_balance * risk_pos_percentage
+                        span.add_event(
+                            "Calculated risk_pos_size from balance",
+                            {
+                                "latest_balance": latest_balance,
+                                "risk_pos_percentage": risk_pos_percentage,
+                                "risk_pos_size": risk_pos_size,
+                            },
+                        )
+                    else:
+                        # Fallback to a default value if balance is not available
+                        risk_pos_size = 20.25
+                        span.add_event(
+                            "Failed to get latest balance, using fallback",
+                            {"fallback_risk_pos_size": risk_pos_size},
+                        )
+
                     position_direction = float(result[1])  # position from query
 
                     # Get current price for position sizing

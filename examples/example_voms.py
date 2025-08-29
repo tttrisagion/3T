@@ -2,6 +2,7 @@
 
 from shared.voms import VOMS
 
+
 def run_voms_test():
     """Demonstrates the usage of the VOMS class."""
     print("--- Initializing VOMS ---")
@@ -14,10 +15,10 @@ def run_voms_test():
     print("--- Scenario 1: Open Long Position ---")
     print("Updating price to 100...")
     voms.update_price(100)
-    
+
     print("Adding a trade: size = 10 (long)")
     voms.add_trade(size=10)
-    
+
     metrics = voms.get_metrics()
     print("VOMS Metrics:", metrics)
     print("\n")
@@ -26,7 +27,7 @@ def run_voms_test():
     print("--- Scenario 2: Price Increases ---")
     print("Updating price to 110...")
     voms.update_price(110)
-    
+
     metrics = voms.get_metrics()
     print("VOMS Metrics:", metrics)
     print("\n")
@@ -85,6 +86,7 @@ def run_voms_test():
     print("VOMS Metrics:", metrics)
     print(voms)
     print("\n")
+
 
 if __name__ == "__main__":
     run_voms_test()

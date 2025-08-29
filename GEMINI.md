@@ -96,6 +96,7 @@ The reconciliation engine is a key component of the 3T system, responsible for e
 - **State Comparison:** The engine compares the desired positions, defined in the `runs` table, with the actual positions reported by the local database and external observer nodes.
 - **Consensus-Based Trading:** It requires consensus between multiple sources before executing trades, enhancing safety and reliability.
 - **Automated Rebalancing:** The engine automatically generates and executes orders to correct any discrepancies between the desired and actual portfolio states.
+- **Dynamic Position Sizing:** The engine adjusts position sizes based on a configurable percentage of the latest account balance, allowing risk to scale with portfolio health. This is controlled by the `risk_pos_percentage` in `config.yml`.
 - **Configurable:** The engine's behavior, including rebalance frequency and risk parameters, can be configured in `config.yml`.
 
 ## Troubleshooting
