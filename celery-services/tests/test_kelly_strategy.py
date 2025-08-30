@@ -92,17 +92,11 @@ class TestKellyStrategy:
     @patch("worker.reconciliation_engine._calculate_kelly_metrics")
     @patch("worker.reconciliation_engine.config")
     @patch("worker.reconciliation_engine.tracer")
-    def test_calculate_kelly_position_size_no_historical_data(
+    def test_calculate_kelly_position_size_no_data(
         self, mock_tracer, mock_config, mock_kelly_metrics
     ):
-        """Test sizing when there is no historical Kelly data."""
-        # Mock metrics: current is positive, historical is None
-        mock_kelly_metrics.side_effect = [
-            (0.6, 2.0, 0.3),  # Current
-            (None, None, None),  # Historical
-        ]
-        mock_config.get.return_value = {}  # Default config
-
+        """Test sizing when there is no Kelly data."""
+        mock_kelly_metrics.return_value = (None, None, None)
         mock_span = MagicMock()
         mock_tracer.start_as_current_span.return_value.__enter__.return_value = (
             mock_span
@@ -110,25 +104,19 @@ class TestKellyStrategy:
 
         base_size = 100.0
         adjusted_size = calculate_kelly_position_size(base_size)
-
-        # Should use current Kelly score as fallback
-        expected = base_size + (base_size * 0.3)  # 130
-        assert adjusted_size == expected
+        assert adjusted_size == base_size
 
     @patch("worker.reconciliation_engine._calculate_kelly_metrics")
     @patch("worker.reconciliation_engine.config")
     @patch("worker.reconciliation_engine.tracer")
-    def test_calculate_kelly_position_size_no_current_data(
+    def test_calculate_kelly_position_size_historical_zero(
         self, mock_tracer, mock_config, mock_kelly_metrics
     ):
-        """Test sizing when there is no current Kelly data."""
-        # Mock metrics: current is None, historical is positive
+        """Test sizing when historical Kelly is zero."""
         mock_kelly_metrics.side_effect = [
-            (None, None, None),  # Current
-            (0.5, 2.0, 0.25),  # Historical
+            (0.6, 2.0, 0.3),  # Current
+            (0.0, 0.0, 0.0),  # Historical
         ]
-        mock_config.get.return_value = {}
-
         mock_span = MagicMock()
         mock_tracer.start_as_current_span.return_value.__enter__.return_value = (
             mock_span
@@ -136,8 +124,6 @@ class TestKellyStrategy:
 
         base_size = 100.0
         adjusted_size = calculate_kelly_position_size(base_size)
-
-        # Should return base size as it cannot compare
         assert adjusted_size == base_size
 
     @patch("worker.reconciliation_engine._calculate_kelly_metrics")
@@ -146,30 +132,22 @@ class TestKellyStrategy:
     def test_calculate_kelly_position_size_positive_performance(
         self, mock_tracer, mock_config, mock_kelly_metrics
     ):
-        """Test sizing when current performance is better than historical."""
-        # Mock metrics: current > historical
+        """Test sizing with positive relative performance."""
         mock_kelly_metrics.side_effect = [
-            (0.7, 2.5, 0.5),  # Current (Kelly 50%)
-            (0.6, 2.0, 0.3),  # Historical (Kelly 30%)
+            (0.8, 3.0, -0.04),  # Current
+            (0.7, 2.0, -0.08),  # Historical
         ]
-        mock_config.get.return_value = {
-            "kelly_max_increase": 1.0,
-            "kelly_max_decrease": -0.5,
-        }
-
+        mock_config.get.return_value = {"kelly_threshold": 0.5}
         mock_span = MagicMock()
         mock_tracer.start_as_current_span.return_value.__enter__.return_value = (
             mock_span
         )
 
         base_size = 100.0
+        # kelly_performance = 1 - (-0.04 / -0.08) = 1 - 0.5 = 0.5
+        # expected_size = 100 + (100 * 0.5) = 150
         adjusted_size = calculate_kelly_position_size(base_size)
-
-        # performance_ratio = 0.5 / 0.3 = 1.666...
-        # kelly_performance = 1.666... - 1 = 0.666...
-        # multiplier = 1 + 0.666... = 1.666...
-        expected = base_size * (1 + (0.5 / 0.3 - 1))
-        assert abs(adjusted_size - expected) < 1e-9
+        assert abs(adjusted_size - 150.0) < 1e-9
 
     @patch("worker.reconciliation_engine._calculate_kelly_metrics")
     @patch("worker.reconciliation_engine.config")
@@ -177,88 +155,67 @@ class TestKellyStrategy:
     def test_calculate_kelly_position_size_negative_performance(
         self, mock_tracer, mock_config, mock_kelly_metrics
     ):
-        """Test sizing when current performance is worse than historical."""
-        # Mock metrics: current < historical
+        """Test sizing with negative relative performance."""
         mock_kelly_metrics.side_effect = [
-            (0.5, 1.5, 0.1),  # Current (Kelly 10%)
-            (0.6, 2.0, 0.3),  # Historical (Kelly 30%)
+            (0.6, 1.5, -0.12),  # Current
+            (0.7, 2.0, -0.08),  # Historical
         ]
-        mock_config.get.return_value = {
-            "kelly_max_increase": 1.0,
-            "kelly_max_decrease": -0.5,
-        }
-
+        mock_config.get.return_value = {"kelly_threshold": 0.5}
         mock_span = MagicMock()
         mock_tracer.start_as_current_span.return_value.__enter__.return_value = (
             mock_span
         )
 
         base_size = 100.0
+        # kelly_performance = 1 - (-0.12 / -0.08) = 1 - 1.5 = -0.5
+        # expected_size = 100 + (100 * -0.5) = 50
         adjusted_size = calculate_kelly_position_size(base_size)
-
-        # performance_ratio = 0.1 / 0.3 = 0.333...
-        # kelly_performance = 0.333... - 1 = -0.666...
-        # Capped at -0.5
-        # multiplier = 1 - 0.5 = 0.5
-        expected = base_size * 0.5
-        assert abs(adjusted_size - expected) < 1e-9
+        assert abs(adjusted_size - 50.0) < 1e-9
 
     @patch("worker.reconciliation_engine._calculate_kelly_metrics")
     @patch("worker.reconciliation_engine.config")
     @patch("worker.reconciliation_engine.tracer")
-    def test_calculate_kelly_position_size_max_increase_cap(
+    def test_calculate_kelly_position_size_threshold_cap(
         self, mock_tracer, mock_config, mock_kelly_metrics
     ):
-        """Test that position size increase is capped."""
-        # Mock metrics: current >> historical
+        """Test sizing is capped by the threshold."""
         mock_kelly_metrics.side_effect = [
-            (0.8, 4.0, 0.7),  # Current (Kelly 70%)
-            (0.5, 2.0, 0.2),  # Historical (Kelly 20%)
+            (0.9, 4.0, -0.02),  # Current
+            (0.7, 2.0, -0.08),  # Historical
         ]
-        # Ratio = 3.5, performance = 2.5, capped at 1.0
-        mock_config.get.return_value = {
-            "kelly_max_increase": 1.0,
-            "kelly_max_decrease": -0.5,
-        }
-
+        mock_config.get.return_value = {"kelly_threshold": 0.5}
         mock_span = MagicMock()
         mock_tracer.start_as_current_span.return_value.__enter__.return_value = (
             mock_span
         )
 
         base_size = 100.0
+        # kelly_performance = 1 - (-0.02 / -0.08) = 1 - 0.25 = 0.75
+        # Capped at 0.5
+        # expected_size = 100 + (100 * 0.5) = 150
         adjusted_size = calculate_kelly_position_size(base_size)
-
-        # Capped at 100% increase (multiplier of 2)
-        expected = base_size * 2.0
-        assert abs(adjusted_size - expected) < 1e-9
+        assert abs(adjusted_size - 150.0) < 1e-9
 
     @patch("worker.reconciliation_engine._calculate_kelly_metrics")
     @patch("worker.reconciliation_engine.config")
     @patch("worker.reconciliation_engine.tracer")
-    def test_calculate_kelly_position_size_max_decrease_floor(
+    def test_calculate_kelly_position_size_negative_floor(
         self, mock_tracer, mock_config, mock_kelly_metrics
     ):
-        """Test that position size decrease is floored."""
-        # Mock metrics: current << historical
+        """Test that position size is floored at zero."""
         mock_kelly_metrics.side_effect = [
-            (0.4, 1.2, 0.05),  # Current (Kelly 5%)
-            (0.7, 3.0, 0.5),  # Historical (Kelly 50%)
+            (0.5, 1.0, -0.24),  # Current
+            (0.7, 2.0, -0.08),  # Historical
         ]
-        # Ratio = 0.1, performance = -0.9, floored at -0.8
-        mock_config.get.return_value = {
-            "kelly_max_increase": 1.0,
-            "kelly_max_decrease": -0.8,
-        }
-
+        mock_config.get.return_value = {"kelly_threshold": 0.5}
         mock_span = MagicMock()
         mock_tracer.start_as_current_span.return_value.__enter__.return_value = (
             mock_span
         )
 
         base_size = 100.0
+        # kelly_performance = 1 - (-0.24 / -0.08) = 1 - 3.0 = -2.0
+        # Floored at -1.0
+        # expected_size = 100 + (100 * -1.0) = 0
         adjusted_size = calculate_kelly_position_size(base_size)
-
-        # Floored at 80% decrease (multiplier of 0.2)
-        expected = base_size * 0.2
-        assert abs(adjusted_size - expected) < 1e-9
+        assert abs(adjusted_size - 0.0) < 1e-9

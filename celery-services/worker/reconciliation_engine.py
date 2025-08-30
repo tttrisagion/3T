@@ -140,66 +140,46 @@ def calculate_kelly_position_size(base_risk_pos_size: float) -> float:
                 }
             )
 
-            # If no historical data, we can't compare. Use current, or default to base size.
-            if kelly_historical is None or kelly_historical <= 0:
-                if kelly_current and kelly_current > 0:
-                    # No benchmark, but current performance is positive. Use it directly.
-                    kelly_performance = kelly_current
-                    span.add_event(
-                        "Using current Kelly score due to no historical baseline.",
-                        {"kelly_performance_adjustment": kelly_performance},
-                    )
-                else:
-                    # No data at all, or current is negative. Neutral position size.
-                    span.add_event("No valid Kelly data - using base size")
-                    return base_risk_pos_size
-            # If no current data, but we have historical, use a neutral multiplier.
-            elif kelly_current is None or kelly_current <= 0:
+            if kelly_current is None or kelly_historical is None:
+                span.add_event("No valid Kelly data - using base size")
+                return base_risk_pos_size
+
+            if kelly_historical == 0:
                 span.add_event(
-                    "Current performance is negative or has insufficient data. Using neutral multiplier."
+                    "Historical Kelly is zero, cannot compute performance ratio. Using base size."
                 )
                 return base_risk_pos_size
-            else:
-                # 3. Calculate performance multiplier
-                performance_ratio = kelly_current / kelly_historical
-                # The adjustment is how much better/worse we are than the baseline
-                kelly_performance = performance_ratio - 1
 
-                span.add_event(
-                    "Calculated Kelly performance adjustment",
-                    {
-                        "performance_ratio": performance_ratio,
-                        "kelly_performance_adjustment": kelly_performance,
-                    },
-                )
+            # Calculate performance based on the original formula
+            kelly_performance = 1 - (kelly_current / kelly_historical)
+            span.add_event(
+                "Calculated Kelly performance",
+                {"kelly_performance": kelly_performance},
+            )
 
             # Get configuration for thresholding
             reconciliation_config = config.get("reconciliation_engine", {})
-            kelly_max_increase = reconciliation_config.get(
-                "kelly_max_increase", 1.0
-            )  # Cap increase to 100%
-            kelly_max_decrease = reconciliation_config.get(
-                "kelly_max_decrease", -0.5
-            )  # Cap decrease to -50%
+            kelly_threshold = reconciliation_config.get("kelly_threshold", 0.5)
 
-            # 4. Apply threshold cap/floor
-            if kelly_performance > kelly_max_increase:
-                kelly_performance = kelly_max_increase
-                span.add_event("Capping performance adjustment at max increase")
-            elif kelly_performance < kelly_max_decrease:
-                kelly_performance = kelly_max_decrease
-                span.add_event("Flooring performance adjustment at max decrease")
+            # Apply threshold cap
+            if kelly_performance > kelly_threshold:
+                kelly_performance = kelly_threshold
+                span.add_event("Capping Kelly performance at threshold")
 
-            # 5. Calculate adjusted position size
-            # Multiplier is 1 + adjustment. E.g., 20% better -> 1.2x size
-            kelly_multiplier = 1 + kelly_performance
-            kelly_risk_pos_size = base_risk_pos_size * kelly_multiplier
+            # Add safety cap to prevent position flipping
+            if kelly_performance < -1.0:
+                kelly_performance = -1.0
+                span.add_event("Flooring Kelly performance at -1.0 to prevent flip")
+
+            # Calculate adjusted position size
+            kelly_risk_pos_size = base_risk_pos_size + (
+                base_risk_pos_size * kelly_performance
+            )
 
             span.add_event(
                 "Kelly position size calculated",
                 {
                     "kelly_performance_adjustment": kelly_performance,
-                    "kelly_multiplier": kelly_multiplier,
                     "final_kelly_risk_pos_size": kelly_risk_pos_size,
                 },
             )
