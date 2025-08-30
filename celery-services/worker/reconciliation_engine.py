@@ -47,7 +47,7 @@ def _calculate_kelly_metrics(
                 FROM runs
                 WHERE {condition}
                   AND live_pnl IS NOT NULL
-                  AND exit_run = 1
+                  AND live_pnl <> 0
                 """
 
                 cursor.execute(query)
