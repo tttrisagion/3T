@@ -23,23 +23,29 @@ from shared.opentelemetry_config import get_tracer
 tracer = get_tracer(os.environ.get("OTEL_SERVICE_NAME", "celery-worker"))
 
 
-def calculate_kelly_metrics() -> tuple[float | None, float | None, float | None]:
+def _calculate_kelly_metrics(
+    condition: str,
+) -> tuple[float | None, float | None, float | None]:
     """
-    Calculate Kelly criterion metrics from completed runs.
+    Calculate Kelly criterion metrics for runs matching a specific condition.
+    Args:
+        condition: A SQL WHERE clause condition (e.g., 'height IS NULL').
     Returns:
         Tuple of (win_rate, reward_ratio, kelly_percentage)
-        Returns (None, None, None) if insufficient data
+        Returns (None, None, None) if insufficient data.
     """
-    with tracer.start_as_current_span("calculate_kelly_metrics") as span:
+    with tracer.start_as_current_span(
+        f"calculate_kelly_metrics_for_{condition}"
+    ) as span:
+        span.set_attribute("sql_condition", condition)
         try:
             with get_db_connection() as conn:
                 cursor = conn.cursor()
 
-                # Get completed runs with height assigned (finished take profit cycles)
-                query = """
+                query = f"""
                 SELECT live_pnl
-                FROM runs 
-                WHERE height IS NOT NULL 
+                FROM runs
+                WHERE {condition}
                   AND live_pnl IS NOT NULL
                   AND exit_run = 1
                 """
@@ -49,8 +55,11 @@ def calculate_kelly_metrics() -> tuple[float | None, float | None, float | None]
 
                 if not results or len(results) < 10:  # Need minimum sample size
                     span.add_event(
-                        "Insufficient historical data",
-                        {"sample_size": len(results) if results else 0},
+                        "Insufficient data for Kelly calculation",
+                        {
+                            "condition": condition,
+                            "sample_size": len(results) if results else 0,
+                        },
                     )
                     return None, None, None
 
@@ -118,41 +127,80 @@ def calculate_kelly_position_size(base_risk_pos_size: float) -> float:
         span.set_attribute("base_risk_pos_size", base_risk_pos_size)
 
         try:
-            # Get Kelly metrics
-            win_rate, reward_ratio, kelly_percentage = calculate_kelly_metrics()
+            # 1. Get Kelly metric for current (null height) runs
+            _, _, kelly_current = _calculate_kelly_metrics("height IS NULL")
 
-            if kelly_percentage is None:
-                span.add_event("No Kelly data available - using base size")
-                return base_risk_pos_size
+            # 2. Get Kelly metric for historical (non-null height) runs
+            _, _, kelly_historical = _calculate_kelly_metrics("height IS NOT NULL")
 
-            # Get configuration
-            kelly_threshold = config.get("reconciliation_engine.kelly_threshold", 0.5)
-
-            # Calculate Kelly performance scaling
-            # kelly_performance = 1 - (kelly_top_height / kelly_benchmark)
-            # For now, using kelly_percentage as performance metric
-            kelly_performance = kelly_percentage
-
-            # Apply threshold cap
-            if kelly_performance > kelly_threshold:
-                kelly_performance = kelly_threshold
-
-            # Ensure non-negative scaling
-            if kelly_performance < 0:
-                kelly_performance = 0
-
-            # Calculate adjusted position size
-            kelly_risk_pos_size = base_risk_pos_size + (
-                base_risk_pos_size * kelly_performance
+            span.set_attributes(
+                {
+                    "kelly_current": kelly_current if kelly_current else 0,
+                    "kelly_historical": kelly_historical if kelly_historical else 0,
+                }
             )
+
+            # If no historical data, we can't compare. Use current, or default to base size.
+            if kelly_historical is None or kelly_historical <= 0:
+                if kelly_current and kelly_current > 0:
+                    # No benchmark, but current performance is positive. Use it directly.
+                    kelly_performance = kelly_current
+                    span.add_event(
+                        "Using current Kelly score due to no historical baseline.",
+                        {"kelly_performance_adjustment": kelly_performance},
+                    )
+                else:
+                    # No data at all, or current is negative. Neutral position size.
+                    span.add_event("No valid Kelly data - using base size")
+                    return base_risk_pos_size
+            # If no current data, but we have historical, use a neutral multiplier.
+            elif kelly_current is None or kelly_current <= 0:
+                span.add_event(
+                    "Current performance is negative or has insufficient data. Using neutral multiplier."
+                )
+                return base_risk_pos_size
+            else:
+                # 3. Calculate performance multiplier
+                performance_ratio = kelly_current / kelly_historical
+                # The adjustment is how much better/worse we are than the baseline
+                kelly_performance = performance_ratio - 1
+
+                span.add_event(
+                    "Calculated Kelly performance adjustment",
+                    {
+                        "performance_ratio": performance_ratio,
+                        "kelly_performance_adjustment": kelly_performance,
+                    },
+                )
+
+            # Get configuration for thresholding
+            reconciliation_config = config.get("reconciliation_engine", {})
+            kelly_max_increase = reconciliation_config.get(
+                "kelly_max_increase", 1.0
+            )  # Cap increase to 100%
+            kelly_max_decrease = reconciliation_config.get(
+                "kelly_max_decrease", -0.5
+            )  # Cap decrease to -50%
+
+            # 4. Apply threshold cap/floor
+            if kelly_performance > kelly_max_increase:
+                kelly_performance = kelly_max_increase
+                span.add_event("Capping performance adjustment at max increase")
+            elif kelly_performance < kelly_max_decrease:
+                kelly_performance = kelly_max_decrease
+                span.add_event("Flooring performance adjustment at max decrease")
+
+            # 5. Calculate adjusted position size
+            # Multiplier is 1 + adjustment. E.g., 20% better -> 1.2x size
+            kelly_multiplier = 1 + kelly_performance
+            kelly_risk_pos_size = base_risk_pos_size * kelly_multiplier
 
             span.add_event(
                 "Kelly position size calculated",
                 {
-                    "kelly_percentage": kelly_percentage,
-                    "kelly_threshold": kelly_threshold,
-                    "kelly_performance": kelly_performance,
-                    "kelly_risk_pos_size": kelly_risk_pos_size,
+                    "kelly_performance_adjustment": kelly_performance,
+                    "kelly_multiplier": kelly_multiplier,
+                    "final_kelly_risk_pos_size": kelly_risk_pos_size,
                 },
             )
 

@@ -50,8 +50,9 @@ reconciliation_engine:
   # Risk position size as a percentage of total balance (golden ratio based)
   risk_pos_percentage: 0.0016180339887
   
-  # Kelly Strategy Configuration
-  kelly_threshold: 0.5  # 50% - maximum Kelly performance scaling threshold
+  # Kelly Strategy: Caps for performance-based size adjustments
+  kelly_max_increase: 1.0  # Max 100% increase
+  kelly_max_decrease: -0.5 # Max 50% decrease
   
   # Symbols to manage 
   symbols:
