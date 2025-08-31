@@ -63,29 +63,6 @@ To enhance reliability and bypass potential IP-based restrictions from exchanges
     ```
 -   **CORS Proxy Service**: The `docker-compose.yml` file includes a `cors-proxy` service (`redocly/cors-anywhere`) to facilitate this. For local development, you can use the default, but for production, you should configure it with a proper whitelist.
 
-
-![context](docs/arch/level-1-context.png)
-
-![container](docs/arch/level-2-container.png)
-
-![inference](docs/arch/level-3-inference.png)
-
-![price-streaming](docs/arch/level-3-price-streaming.png)
-
-![strategy](docs/arch/level-3-strategy-runner.png)
-
-![balance-service](docs/arch/level-3-balance-service.png)
-
-![market-data-service](docs/arch/level-3-market-data-service.png)
-
-![order-gateway](docs/arch/level-3-order-gateway.png)
-
-![exchange-observer](docs/arch/level-3-exchange-observer.png)
-
-![reconciliation-service](docs/arch/level-3-reconciliation-service.png)
-
-![trade-lifecycle](docs/arch/dynamic-trade-lifecycle.png)
-
 ## Getting Started
 
 To get started with the 3T system, you will need to have Docker and Docker Compose installed on your system.
@@ -134,6 +111,10 @@ Note: Your system must have docker and docker-compose available. The docker serv
    - **Prometheus**: http://localhost:9090 (metrics)
    - **Elasticsearch**: http://localhost:9200 (API access)
 
+# Documentation
+
+For technical documentation please see https://trisagion.gitbook.io/trisagion-docs/technology
+
 ## Development
 
 For development commands, testing procedures, and detailed technical guidance, see [CLAUDE.md](CLAUDE.md). Key commands:
@@ -142,7 +123,10 @@ For development commands, testing procedures, and detailed technical guidance, s
 - **Run tests**: `make test`
 - **Stop and clean**: `make clean`
 
-## Observability
+![context](docs/arch/level-1-context.png)
+*See full set of C4 diagrams in [docs/arch](docs/arch)*
+
+### Observability
 
 The 3T system is designed for high observability, with a comprehensive suite of tools for monitoring, tracing, and debugging.
 
@@ -151,10 +135,6 @@ The 3T system is designed for high observability, with a comprehensive suite of 
 - **Trace Exploration**: Kibana provides a web interface for exploring trace data with automatically configured index patterns.  
 - **Real-time Monitoring**: Live trace data can be viewed in Kibana with auto-refresh capabilities to monitor system activity.
 - **Automated Setup**: Kibana index patterns are automatically created during deployment for immediate use.
-
-# Documentation
-
-For technical documentation please see https://trisagion.gitbook.io/trisagion-docs/technology
 
 ## Roadmap
 
