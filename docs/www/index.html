@@ -414,9 +414,9 @@
                 
                 const label = addressLabels[address];
                 const addressHtml = `<small>${address}</small>`;
-                const titleHtml = label ? `${label} - ${addressHtml}` : addressHtml;
+                const titleHtml = label ? `${label} ${addressHtml}` : addressHtml;
 
-                addressContainer.innerHTML = `<h3>${titleHtml}</h3><div class="summary-grid"></div>`;
+                addressContainer.innerHTML = `<h4>${titleHtml}</h4><div class="summary-grid"></div>`;
                 container.appendChild(addressContainer);
             }
 
