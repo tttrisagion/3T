@@ -24,7 +24,7 @@ tracer = get_tracer(os.environ.get("OTEL_SERVICE_NAME", "celery-worker"))
 
 
 def _calculate_kelly_metrics(
-        condition: str, symbol: str
+    condition: str, symbol: str
 ) -> tuple[float | None, float | None, float | None]:
     """
     Calculate Kelly criterion metrics for runs matching a specific condition.
@@ -132,7 +132,9 @@ def calculate_kelly_position_size(base_risk_pos_size: float, symbol: str) -> flo
             _, _, kelly_current = _calculate_kelly_metrics("height IS NULL", symbol)
 
             # 2. Get Kelly metric for historical (non-null height) runs
-            _, _, kelly_historical = _calculate_kelly_metrics("height IS NOT NULL", symbol)
+            _, _, kelly_historical = _calculate_kelly_metrics(
+                "height IS NOT NULL", symbol
+            )
 
             span.set_attributes(
                 {
@@ -170,7 +172,9 @@ def calculate_kelly_position_size(base_risk_pos_size: float, symbol: str) -> flo
             # Add safety cap to prevent position flipping
             if kelly_performance < -1.0:
                 kelly_performance = -0.98
-                span.add_event("Flooring Kelly performance at -0.98 to prevent flip but allow pass through sampling")
+                span.add_event(
+                    "Flooring Kelly performance at -0.98 to prevent flip but allow pass through sampling"
+                )
 
             # Calculate adjusted position size
             kelly_risk_pos_size = base_risk_pos_size + (
@@ -276,8 +280,7 @@ def get_desired_state(symbol: str) -> float:
                         base_risk_pos_size = latest_balance * risk_pos_percentage
                         # Apply Kelly criterion for position sizing
                         risk_pos_size = calculate_kelly_position_size(
-                            base_risk_pos_size,
-                            symbol 
+                            base_risk_pos_size, symbol
                         )
                         span.add_event(
                             "Calculated Kelly-adjusted risk_pos_size from balance",
@@ -292,8 +295,7 @@ def get_desired_state(symbol: str) -> float:
                         # Fallback to a default value if balance is not available
                         base_risk_pos_size = 20.25
                         risk_pos_size = calculate_kelly_position_size(
-                            base_risk_pos_size,
-                            symbol
+                            base_risk_pos_size, symbol
                         )
                         span.add_event(
                             "Failed to get latest balance, using Kelly-adjusted fallback",

@@ -35,7 +35,7 @@ class TestKellyStrategy:
         )
 
         win_rate, reward_ratio, kelly_percentage = _calculate_kelly_metrics(
-            "height IS NOT NULL"
+            "height IS NOT NULL", "TEST/USDC:USDC"
         )
 
         # Should return None values due to insufficient data
@@ -76,7 +76,7 @@ class TestKellyStrategy:
         )
 
         win_rate, reward_ratio, kelly_percentage = _calculate_kelly_metrics(
-            "height IS NOT NULL"
+            "height IS NOT NULL", "TEST/USDC:USDC"
         )
 
         # Should return calculated values
@@ -103,7 +103,7 @@ class TestKellyStrategy:
         )
 
         base_size = 100.0
-        adjusted_size = calculate_kelly_position_size(base_size)
+        adjusted_size = calculate_kelly_position_size(base_size, "TEST/USDC:USDC")
         assert adjusted_size == base_size
 
     @patch("worker.reconciliation_engine._calculate_kelly_metrics")
@@ -123,7 +123,7 @@ class TestKellyStrategy:
         )
 
         base_size = 100.0
-        adjusted_size = calculate_kelly_position_size(base_size)
+        adjusted_size = calculate_kelly_position_size(base_size, "TEST/USDC:USDC")
         assert adjusted_size == base_size
 
     @patch("worker.reconciliation_engine._calculate_kelly_metrics")
@@ -146,7 +146,7 @@ class TestKellyStrategy:
         base_size = 100.0
         # kelly_performance = 1 - (-0.04 / -0.08) = 1 - 0.5 = 0.5
         # expected_size = 100 + (100 * 0.5) = 150
-        adjusted_size = calculate_kelly_position_size(base_size)
+        adjusted_size = calculate_kelly_position_size(base_size, "TEST/USDC:USDC")
         assert abs(adjusted_size - 150.0) < 1e-9
 
     @patch("worker.reconciliation_engine._calculate_kelly_metrics")
@@ -169,7 +169,7 @@ class TestKellyStrategy:
         base_size = 100.0
         # kelly_performance = 1 - (-0.12 / -0.08) = 1 - 1.5 = -0.5
         # expected_size = 100 + (100 * -0.5) = 50
-        adjusted_size = calculate_kelly_position_size(base_size)
+        adjusted_size = calculate_kelly_position_size(base_size, "TEST/USDC:USDC")
         assert abs(adjusted_size - 50.0) < 1e-9
 
     @patch("worker.reconciliation_engine._calculate_kelly_metrics")
@@ -193,7 +193,7 @@ class TestKellyStrategy:
         # kelly_performance = 1 - (-0.02 / -0.08) = 1 - 0.25 = 0.75
         # Capped at 0.5
         # expected_size = 100 + (100 * 0.5) = 150
-        adjusted_size = calculate_kelly_position_size(base_size)
+        adjusted_size = calculate_kelly_position_size(base_size, "TEST/USDC:USDC")
         assert abs(adjusted_size - 150.0) < 1e-9
 
     @patch("worker.reconciliation_engine._calculate_kelly_metrics")
@@ -215,7 +215,7 @@ class TestKellyStrategy:
 
         base_size = 100.0
         # kelly_performance = 1 - (-0.24 / -0.08) = 1 - 3.0 = -2.0
-        # Floored at -1.0
-        # expected_size = 100 + (100 * -1.0) = 0
-        adjusted_size = calculate_kelly_position_size(base_size)
-        assert abs(adjusted_size - 0.0) < 1e-9
+        # Floored at -0.98 to prevent flip
+        # expected_size = 100 + (100 * -0.98) = 2.0
+        adjusted_size = calculate_kelly_position_size(base_size, "TEST/USDC:USDC")
+        assert abs(adjusted_size - 2.0) < 1e-9
