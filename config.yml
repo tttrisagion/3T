@@ -45,13 +45,13 @@ market_data:
 # Reconciliation Engine Configuration
 reconciliation_engine:
   # How often to run reconciliation checks (in seconds)
-  rebalance_frequency: 900.0 # in seconds
+  rebalance_frequency: 60.0 # in seconds
   
   # Risk position size as a percentage of total balance (golden ratio based)
-  risk_pos_percentage: 0.0016180339887
+  risk_pos_percentage: 0.00016180339887
   
   # Kelly Strategy Configuration
-  kelly_threshold: 0.5  # 50% - maximum Kelly performance scaling threshold
+  kelly_threshold: 10.0  # 50% - maximum Kelly performance scaling threshold
   
   # Symbols to manage 
   symbols:
@@ -83,7 +83,7 @@ reconciliation_engine:
 
 # Take Profit Configuration
 take_profit:
-  threshold: 0.0161803398875
+  threshold: 0.00161803398875
 
 # Health Monitor Configuration (in seconds)
 health_monitor:
