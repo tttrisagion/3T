@@ -23,6 +23,181 @@ from shared.opentelemetry_config import get_tracer
 tracer = get_tracer(os.environ.get("OTEL_SERVICE_NAME", "celery-worker"))
 
 
+def _calculate_kelly_metrics(
+    condition: str, symbol: str
+) -> tuple[float | None, float | None, float | None]:
+    """
+    Calculate Kelly criterion metrics for runs matching a specific condition.
+    Args:
+        condition: A SQL WHERE clause condition (e.g., 'height IS NULL').
+    Returns:
+        Tuple of (win_rate, reward_ratio, kelly_percentage)
+        Returns (None, None, None) if insufficient data.
+    """
+    with tracer.start_as_current_span(
+        f"calculate_kelly_metrics_for_{condition}"
+    ) as span:
+        span.set_attribute("sql_condition", condition)
+        try:
+            with get_db_connection() as conn:
+                cursor = conn.cursor()
+
+                query = f"""
+                SELECT live_pnl
+                FROM runs
+                WHERE {condition}
+                  AND live_pnl IS NOT NULL
+                  AND live_pnl <> 0
+                  AND symbol = '{symbol}'
+                """
+
+                cursor.execute(query)
+                results = cursor.fetchall()
+
+                if not results or len(results) < 10:  # Need minimum sample size
+                    span.add_event(
+                        "Insufficient data for Kelly calculation",
+                        {
+                            "condition": condition,
+                            "sample_size": len(results) if results else 0,
+                        },
+                    )
+                    return None, None, None
+
+                # Separate wins and losses
+                wins = [float(pnl[0]) for pnl in results if float(pnl[0]) > 0]
+                losses = [abs(float(pnl[0])) for pnl in results if float(pnl[0]) < 0]
+
+                if len(wins) == 0 or len(losses) == 0:
+                    span.add_event(
+                        "No wins or no losses found",
+                        {"wins": len(wins), "losses": len(losses)},
+                    )
+                    return None, None, None
+
+                # Calculate metrics
+                total_trades = len(results)
+                win_rate = len(wins) / total_trades
+                avg_win = sum(wins) / len(wins)
+                avg_loss = sum(losses) / len(losses)
+
+                # Avoid division by zero
+                if avg_loss == 0:
+                    span.add_event(
+                        "Average loss is zero - cannot calculate reward ratio"
+                    )
+                    return None, None, None
+
+                reward_ratio = avg_win / avg_loss
+
+                # Kelly formula: win_rate - ((1 - win_rate) / reward_ratio)
+                kelly_percentage = win_rate - ((1 - win_rate) / reward_ratio)
+
+                span.add_event(
+                    "Kelly metrics calculated",
+                    {
+                        "total_trades": total_trades,
+                        "wins": len(wins),
+                        "losses": len(losses),
+                        "win_rate": win_rate,
+                        "avg_win": avg_win,
+                        "avg_loss": avg_loss,
+                        "reward_ratio": reward_ratio,
+                        "kelly_percentage": kelly_percentage,
+                    },
+                )
+
+                return win_rate, reward_ratio, kelly_percentage
+
+        except Exception as e:
+            span.record_exception(e)
+            span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
+            print(f"Error calculating Kelly metrics: {e}")
+            return None, None, None
+
+
+def calculate_kelly_position_size(base_risk_pos_size: float, symbol: str) -> float:
+    """
+    Calculate Kelly-adjusted position size based on performance metrics.
+    Args:
+        base_risk_pos_size: Base position size before Kelly adjustment
+    Returns:
+        Kelly-adjusted position size
+    """
+    with tracer.start_as_current_span("calculate_kelly_position_size") as span:
+        span.set_attribute("base_risk_pos_size", base_risk_pos_size)
+
+        try:
+            # 1. Get Kelly metric for current (null height) runs
+            _, _, kelly_current = _calculate_kelly_metrics("height IS NULL", symbol)
+
+            # 2. Get Kelly metric for historical (non-null height) runs
+            _, _, kelly_historical = _calculate_kelly_metrics(
+                "height IS NOT NULL", symbol
+            )
+
+            span.set_attributes(
+                {
+                    "kelly_current": kelly_current if kelly_current else 0,
+                    "kelly_historical": kelly_historical if kelly_historical else 0,
+                }
+            )
+
+            if kelly_current is None or kelly_historical is None:
+                span.add_event("No valid Kelly data - using base size")
+                return base_risk_pos_size
+
+            if kelly_historical == 0:
+                span.add_event(
+                    "Historical Kelly is zero, cannot compute performance ratio. Using base size."
+                )
+                return base_risk_pos_size
+
+            # Calculate performance based on the original formula
+            kelly_performance = 1 - (kelly_current / kelly_historical)
+            span.add_event(
+                "Calculated Kelly performance",
+                {"kelly_performance": kelly_performance},
+            )
+
+            # Get configuration for thresholding
+            reconciliation_config = config.get("reconciliation_engine", {})
+            kelly_threshold = reconciliation_config.get("kelly_threshold", 0.5)
+
+            # Apply threshold cap
+            if kelly_performance > kelly_threshold:
+                kelly_performance = kelly_threshold
+                span.add_event("Capping Kelly performance at threshold")
+
+            # Add safety cap to prevent position flipping
+            if kelly_performance < -1.0:
+                kelly_performance = -0.98
+                span.add_event(
+                    "Flooring Kelly performance at -0.98 to prevent flip but allow pass through sampling"
+                )
+
+            # Calculate adjusted position size
+            kelly_risk_pos_size = base_risk_pos_size + (
+                base_risk_pos_size * kelly_performance
+            )
+
+            span.add_event(
+                "Kelly position size calculated",
+                {
+                    "kelly_performance_adjustment": kelly_performance,
+                    "final_kelly_risk_pos_size": kelly_risk_pos_size,
+                },
+            )
+
+            return kelly_risk_pos_size
+
+        except Exception as e:
+            span.record_exception(e)
+            span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
+            print(f"Error calculating Kelly position size: {e}")
+            return base_risk_pos_size
+
+
 def get_latest_balance() -> float | None:
     """
     Get the latest total balance from the Redis stream.
@@ -97,26 +272,37 @@ def get_desired_state(symbol: str) -> float:
                 if result and result[1] is not None:  # position column
                     # Get risk position size from balance percentage
                     risk_pos_percentage = config.get(
-                        "reconciliation_engine.risk_pos_percentage", 0.0025
+                        "reconciliation_engine.risk_pos_percentage", 0.0016180339887
                     )
                     latest_balance = get_latest_balance()
 
                     if latest_balance:
-                        risk_pos_size = latest_balance * risk_pos_percentage
+                        base_risk_pos_size = latest_balance * risk_pos_percentage
+                        # Apply Kelly criterion for position sizing
+                        risk_pos_size = calculate_kelly_position_size(
+                            base_risk_pos_size, symbol
+                        )
                         span.add_event(
-                            "Calculated risk_pos_size from balance",
+                            "Calculated Kelly-adjusted risk_pos_size from balance",
                             {
                                 "latest_balance": latest_balance,
                                 "risk_pos_percentage": risk_pos_percentage,
-                                "risk_pos_size": risk_pos_size,
+                                "base_risk_pos_size": base_risk_pos_size,
+                                "kelly_adjusted_risk_pos_size": risk_pos_size,
                             },
                         )
                     else:
                         # Fallback to a default value if balance is not available
-                        risk_pos_size = 20.25
+                        base_risk_pos_size = 20.25
+                        risk_pos_size = calculate_kelly_position_size(
+                            base_risk_pos_size, symbol
+                        )
                         span.add_event(
-                            "Failed to get latest balance, using fallback",
-                            {"fallback_risk_pos_size": risk_pos_size},
+                            "Failed to get latest balance, using Kelly-adjusted fallback",
+                            {
+                                "fallback_base_risk_pos_size": base_risk_pos_size,
+                                "kelly_adjusted_risk_pos_size": risk_pos_size,
+                            },
                         )
 
                     position_direction = float(result[1])  # position from query
