@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Trisagion</title>
+  <link rel="icon" type="image/png" href="/TTT.PNG">
+  <link rel="apple-touch-icon" href="/TTT.PNG">
+  <!-- marked.min.js is no longer needed -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tablesort/5.2.1/tablesort.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tablesort/5.2.1/sorts/tablesort.number.min.js"></script>
+  <style>
+    /* --- THEME AND COLOR VARIABLES --- */
+    :root {
+      --bg-color: #000;
+      --text-color: #ff9900;
+      --accent-color: #FFA500;
+      --accent-darker: #FF8C00;
+      --secondary-text-color: #c60;
+      --table-hover-bg: #333;
+      --footer-bg: #332211;
+      --footer-text: #bdc3c7;
+      --footer-heading: #ffffff;
+      --footer-border: #7f8c8d;
+      --icon-color: #FFA500;
+    }
+
+    body[data-theme="light"] {
+      --bg-color: #fff;
+      --text-color: #1a1a1a;
+      --accent-color: #E68A00; /* Darker orange for better contrast on white */
+      --accent-darker: #cc7a00;
+      --secondary-text-color: #555;
+      --table-hover-bg: #f0f0f0;
+      --footer-bg: #f5f5f5;
+      --footer-text: #333;
+      --footer-heading: #000;
+      --footer-border: #ccc;
+      --icon-color: #E68A00;
+    }
+
+    /* --- BASE STYLES USING VARIABLES --- */
+    body {
+	    margin: 0px;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      text-align: center;
+      flex-direction: column;
+      transition: background-color 0.3s, color 0.3s;
+    }
+    body, div, p, a, a:visited, a:active {
+      color: var(--text-color);
+      text-align: center;
+    }
+    #data-container {
+      line-height: 1.6;
+    }
+    #update-status {
+        font-family: 'Courier New', Courier, monospace;
+        font-size: 0.6em;
+        color: var(--secondary-text-color);
+        margin-top: 1em;
+	      margin-right: 1em;
+	      text-align: right;
+    }
+    #clocks-container {
+      color: var(--accent-color);
+      font-family: 'Courier New', Courier, monospace;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.8em;
+      padding: 2em;
+      margin: 0;
+    }
+    table, td, tr, th {
+      font-family: Courier;
+      font-size: 9pt;
+      color: var(--text-color);
+      border-collapse: collapse;
+    }
+    td, th {
+      border-left: 1px solid var(--text-color);
+      border-right: 1px solid var(--text-color);
+      padding-left: 5px;
+      padding-right: 5px;
+    }
+    table {
+      width: 100%;
+      margin-left: auto;
+      margin-right: auto;
+      max-width: 90%;
+      margin-top: 1em;
+      margin-bottom: 2em;
+    }
+    th {
+      cursor: pointer;
+    }
+    
+    .address-container h3 {
+        font-family: 'Courier New', Courier, monospace;
+        font-size: 1.2em;
+        color: var(--accent-color);
+        margin-top: 2em;
+        word-wrap: break-word;
+    }
+
+    .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 10px;
+        max-width: 90%;
+        margin: 1em auto;
+        font-family: Courier;
+        font-size: 9pt;
+        text-align: left;
+    }
+
+    .summary-item {
+        background-color: var(--table-hover-bg);
+        padding: 8px;
+        border-radius: 4px;
+    }
+    
+    .summary-item .label {
+        color: var(--secondary-text-color);
+    }
+    .summary-item .value {
+        color: var(--text-color);
+        font-weight: bold;
+    }
+
+    /* --- IMAGE STYLING (CLIPPING AND FILTER) --- */
+    #logo-wrapper {
+      margin-top: 5rem;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    #logo-image {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scale(1.2);
+      transition: filter 0.3s;
+    }
+    body[data-theme="light"] #logo-image {
+        filter: invert(1) hue-rotate(180deg);
+    }
+     body[data-theme="dark"] #logo-image {
+        filter: none;
+    }
+
+    tbody tr:hover td {
+      background-color: var(--table-hover-bg);
+    }
+    @keyframes flashAnimation {
+      from { background-color: #fffa90; }
+      to { background-color: transparent; }
+    }
+    td.flash-update, .summary-item.flash-update .value {
+      animation-name: flashAnimation;
+      animation-duration: 1.5s;
+    }
+    .clock-container {
+      text-align: center;
+    }
+    .clock {
+      width: 150px;
+      height: 150px;
+      border: 3px solid var(--accent-color);
+      border-radius: 50%;
+      position: relative;
+      background-color: var(--bg-color);
+      box-shadow: 0 0 15px var(--accent-color);
+      transition: border-color 0.3s, background-color 0.3s, box-shadow 0.3s;
+    }
+    .clock-face {
+      width: 100%;
+      height: 100%;
+      position: relative;
+    }
+    .hand {
+      position: absolute;
+      background-color: var(--accent-color);
+      transform-origin: 50% 100%;
+      left: 50%;
+      bottom: 50%;
+      border-radius: 2px;
+    }
+    .hour-hand {
+      width: 4px;
+      height: 30%;
+      margin-left: -2px;
+    }
+    .minute-hand {
+      width: 3px;
+      height: 40%;
+      margin-left: -1.5px;
+    }
+    .second-hand {
+      width: 2px;
+      height: 45%;
+      margin-left: -1px;
+      background-color: var(--accent-darker);
+    }
+    .center-dot {
+      width: 10px;
+      height: 10px;
+      background-color: var(--accent-color);
+      border-radius: 50%;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+    }
+    .time-zone-label {
+      margin-top: 15px;
+      font-size: 1.2em;
+      font-family: Times, "Timew New Roman", Georgia;
+      text-transform: uppercase;
+    }
+    @media (max-width: 600px) {
+      .clock {
+        width: 120px;
+        height: 120px;
+      }
+      .time-zone-label {
+        font-size: 1em;
+      }
+    }
+
+    /* --- MODIFIED: THEME TOGGLE BUTTON STYLING (SUN/MOON ICON) --- */
+    #theme-toggle {
+        position: fixed;
+        top: 1.5rem;
+        right: 1.5rem;
+        width: 2rem;
+        height: 2rem;
+        border-radius: 50%;
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        z-index: 1000;
+        transition: transform 0.3s ease-in-out;
+        overflow: hidden; /* Hide parts of the moon crescent */
+    }
+    #theme-toggle::before, #theme-toggle::after {
+        content: '';
+        position: absolute;
+        transition: transform 0.5s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+    }
+    #theme-toggle::before { /* This is the main sun/moon circle */
+        top: 25%;
+        left: 25%;
+        width: 50%;
+        height: 50%;
+        border-radius: 50%;
+        background-color: var(--icon-color);
+    }
+
+    /* SUN STATE (LIGHT THEME) */
+    body[data-theme="light"] #theme-toggle::before {
+        box-shadow: 
+            0 -1.1rem 0 var(--icon-color), 0 1.1rem 0 var(--icon-color), /* N, S */
+            -1.1rem 0 0 var(--icon-color), 1.1rem 0 0 var(--icon-color), /* W, E */
+            -0.8rem -0.8rem 0 var(--icon-color), 0.8rem -0.8rem 0 var(--icon-color), /* NW, NE */
+            -0.8rem 0.8rem 0 var(--icon-color), 0.8rem 0.8rem 0 var(--icon-color); /* SW, SE */
+        transform: scale(1);
+    }
+
+    /* MOON STATE (DARK THEME) */
+    body[data-theme="dark"] #theme-toggle::before {
+        transform: scale(0.9) rotate(-30deg);
+        box-shadow: none;
+    }
+    body[data-theme="dark"] #theme-toggle::after { /* This part covers the circle to make a crescent */
+        top: 10%;
+        left: 50%;
+        width: 50%;
+        height: 50%;
+        border-radius: 50%;
+        background-color: var(--bg-color);
+        transform: scale(1);
+    }
+    body[data-theme="light"] #theme-toggle::after {
+        transform: scale(0); /* Hide the covering part in light mode */
+    }
+  </style>
+</head>
+<body>
+  <button id="theme-toggle" aria-label="Toggle theme"></button>
+ 
+  <div id="logo-wrapper">
+<svg id="uuid-d42eca4d-b207-4968-85d8-fef4dbf0358c" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" width="331.766" height="431.38" viewBox="0 0 331.766 431.38">
+  <defs>
+    <style>
+      .uuid-43d619ca-4f85-4041-a9d2-15a0cc00c1ed {
+        fill: #f47521;
+      }
+    </style>
+  </defs>
+  <path class="uuid-43d619ca-4f85-4041-a9d2-15a0cc00c1ed" d="M169.071,19.358c7.2.095,10.611-4.105,10.611-9,0-4.99-3.916-8.337-9.348-8.337h-2.116v30.695c0,2.558,1.674,3.411,3.158,3.411v.253h-10.358v-.253c1.516,0,3.158-.916,3.158-3.284V3.442c0-2.211-1.642-3.19-3.158-3.19v-.253h11.021c7.2,0,11.684,4.516,11.684,10.105,0,5.905-4.39,10.042-10.674,10.042-1.453,0-3.284-.253-3.979-.537v-.253Z"/>
+  <path class="uuid-43d619ca-4f85-4041-a9d2-15a0cc00c1ed" d="M152.567,431.38v-.253c1.8,0,3.158-1.169,3.158-3.158v-29.559c0-1.989-1.358-3.158-3.158-3.158v-.253h21.664c.189,1.989.126,5.179.126,5.179h-.253c0-1.8-1.137-3.158-3.126-3.158h-11.211v15.506h10.232c1.453,0,1.895-.916,1.895-1.61h.253v4.579h-.253c0-.695-.442-1.611-1.895-1.611h-10.232v14.085c0,1.989,1.358,3.158,3.158,3.158v.253h-10.358Z"/>
+  <path class="uuid-43d619ca-4f85-4041-a9d2-15a0cc00c1ed" d="M23.335,90.696c-4.232,0-7.548-1.453-8.747-2.211,0,0-1.737-5.905-1.99-7.2l.253-.063s3.411,7.453,10.516,7.453c3.79,0,6.821-2.716,6.821-6.821,0-8.811-15.506-8.084-15.506-19.958,0-4.926,4.137-8.211,8.842-8.211,2.905,0,5.558.947,7.295,1.737l1.863,5.811-.221.126c-1.105-1.8-4.2-5.653-9.126-5.653-3.79,0-5.905,2.59-5.905,5.621,0,8.179,15.758,7.926,15.758,19.011,0,7.295-5.621,10.358-9.853,10.358Z"/>
+  <path class="uuid-43d619ca-4f85-4041-a9d2-15a0cc00c1ed" d="M309.335,90.696c-4.232,0-7.548-1.453-8.747-2.211,0,0-1.737-5.905-1.99-7.2l.253-.063s3.411,7.453,10.516,7.453c3.79,0,6.821-2.716,6.821-6.821,0-8.811-15.506-8.084-15.506-19.958,0-4.926,4.137-8.211,8.842-8.211,2.905,0,5.558.947,7.295,1.737l1.863,5.811-.221.126c-1.105-1.8-4.2-5.653-9.126-5.653-3.79,0-5.905,2.59-5.905,5.621,0,8.179,15.758,7.926,15.758,19.011,0,7.295-5.621,10.358-9.853,10.358Z"/>
+  <path class="uuid-43d619ca-4f85-4041-a9d2-15a0cc00c1ed" d="M241.744,42.696l-14.468,14.468.804.804c4.823-4.823,11.655-4.421,16.075,0l29.739,29.739-100.471,100.471c-2.121,2.121-4.798,3.305-7.541,3.443-2.743-.138-5.42-1.322-7.541-3.443L57.871,87.707l29.739-29.739c4.422-4.422,11.253-4.823,16.075,0l.804-.804-14.468-14.468L0,132.717l14.468,14.468.804-.804c-4.823-4.823-4.421-11.655,0-16.075l29.739-29.739,100.471,100.471c4.421,4.421,4.823,11.253,0,16.075l.019.019h-.079v1.137c6.82,0,11.367,5.115,11.367,11.367v142.087h-42.058c-6.253,0-11.367-4.547-11.367-11.367h-1.137v20.461h127.31v-20.461h-1.137c0,6.82-5.115,11.367-11.367,11.367h-42.058v-142.087c0-6.252,4.547-11.367,11.367-11.367v-1.137h-.078l.019-.019c-4.823-4.823-4.421-11.655,0-16.075l100.471-100.471,29.74,29.739c4.421,4.422,4.823,11.253,0,16.075l.804.804,14.468-14.468-90.021-90.022Z"/>
+  <path class="uuid-43d619ca-4f85-4041-a9d2-15a0cc00c1ed" d="M202.739,91.695h-13.39c-2.945-7.443-9.344-13.134-17.217-15.114v-8.455c1.564-2.97,4.677-4.998,8.267-4.998v-7.265c-.426.059-.857.101-1.298.101-5.159,0-9.342-4.182-9.342-9.342h-7.576c0,5.159-4.182,9.342-9.342,9.342-.315,0-.627-.017-.934-.047v7.259c.307-.031.619-.047.934-.047,2.832,0,5.365,1.265,7.078,3.256v10.198c-7.873,1.98-14.271,7.671-17.217,15.114h-15.825c-.78,2.976-2.986,5.368-5.849,6.405v3.812c2.649.96,4.737,3.078,5.653,5.748l15.214.031c2.428,8.601,9.326,15.321,18.023,17.508v46.101h12.213v-46.101c8.708-2.19,15.611-8.924,18.031-17.539h12.771c.995-2.902,3.376-5.154,6.356-5.972v-3.363c-3.202-.879-5.709-3.413-6.552-6.629ZM159.92,120.821c-6.354-1.95-11.406-6.867-13.577-13.122l5.564.011c.321-.033.645-.051.975-.051,2.811,0,5.325,1.247,7.038,3.211v9.951ZM159.92,88.472c-1.713,1.991-4.246,3.256-7.078,3.256-.315,0-.627-.017-.934-.047v.014h-4.564c2.523-5.105,7.056-9.042,12.576-10.737v7.514ZM166.397,104.859c-2.894,0-5.241-2.346-5.241-5.241s2.346-5.241,5.241-5.241,5.241,2.346,5.241,5.241-2.346,5.241-5.241,5.241ZM172.133,80.958c5.521,1.695,10.054,5.633,12.577,10.737h-4.31v.033c-3.59,0-6.703-2.028-8.267-4.998v-5.772ZM172.133,120.821v-8.08c1.544-3.003,4.661-5.065,8.267-5.08v-.002h5.325c-2.163,6.274-7.224,11.207-13.592,13.162Z"/>
+</svg>
+  </div>
+  
+  <p id="update-status">Checking for updates...</p>
+  <div id="data-container"></div>
+
+  <div id="clocks-container">
+    <!-- Clocks remain unchanged -->
+    <div class="clock-container">
+      <div class="clock" id="clock-vatican">
+        <div class="clock-face"><div class="hand hour-hand"></div><div class="hand minute-hand"></div><div class="hand second-hand"></div><div class="center-dot"></div></div>
+      </div>
+      <div class="time-zone-label">Vaticanae</div>
+    </div>
+    <div class="clock-container">
+      <div class="clock" id="clock-shanghai">
+        <div class="clock-face"><div class="hand hour-hand"></div><div class="hand minute-hand"></div><div class="hand second-hand"></div><div class="center-dot"></div></div>
+      </div>
+      <div class="time-zone-label">上海市</div>
+    </div>
+    <div class="clock-container">
+      <div class="clock" id="clock-new-york">
+        <div class="clock-face"><div class="hand hour-hand"></div><div class="hand minute-hand"></div><div class="hand second-hand"></div><div class="center-dot"></div></div>
+      </div>
+      <div class="time-zone-label">Montréal</div>
+    </div>
+  </div>
+
+  <script>
+    let lastData = null; // Store the last fetched JSON object
+    let lastUpdateTime = null; // Store the timestamp from the JSON
+    const POLLING_INTERVAL = 15000; // ms
+    const tablesortInstances = new Map();
+    const addressLabels = {
+        "0x6F87795cF1B94f1572c161E0633751C9e226f955": "Development",
+        "0x77dEe11bbF0Ad1143Bf008a84AE776557e2ebADE": "Test"
+    };
+
+    /**
+     * Helper to format numbers to a fixed number of decimal places.
+     */
+    function formatNumber(num, decimals = 2) {
+        const val = parseFloat(num);
+        if (isNaN(val)) return num;
+        return val.toLocaleString(undefined, {
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals
+        });
+    }
+    
+    /**
+     * Helper to apply flash animation.
+     */
+    function flashElement(element) {
+        element.classList.add('flash-update');
+        element.addEventListener('animationend', () => {
+            element.classList.remove('flash-update');
+        }, { once: true });
+    }
+
+    /**
+     * Renders the data from the JSON object into the DOM.
+     * Creates or updates sections for each address.
+     */
+    function renderData(data) {
+        const container = document.getElementById('data-container');
+
+        // --- SORTING ---
+        const sortedAddresses = Object.keys(data.positions).sort((a, b) => {
+            const valA = data.positions[a].marginSummary.accountValue;
+            const valB = data.positions[b].marginSummary.accountValue;
+            return valB - valA; // Sort descending
+        });
+
+        const currentAddresses = new Set(sortedAddresses);
+        
+        // Remove containers for addresses that are no longer in the data
+        document.querySelectorAll('.address-container').forEach(div => {
+            if (!currentAddresses.has(div.dataset.address)) {
+                div.remove();
+                if (tablesortInstances.has(div.dataset.address)) {
+                    tablesortInstances.get(div.dataset.address).destroy();
+                    tablesortInstances.delete(div.dataset.address);
+                }
+            }
+        });
+
+        // --- REORDERING ---
+        // Re-insert existing elements in the new sorted order
+        sortedAddresses.forEach(address => {
+            const existingContainer = document.querySelector(`.address-container[data-address="${address}"]`);
+            if (existingContainer) {
+                container.appendChild(existingContainer);
+            }
+        });
+
+        for (const address of sortedAddresses) {
+            const positionData = data.positions[address];
+            const oldPositionData = lastData ? lastData.positions[address] : null;
+
+            let addressContainer = document.querySelector(`.address-container[data-address="${address}"]`);
+            if (!addressContainer) {
+                addressContainer = document.createElement('div');
+                addressContainer.className = 'address-container';
+                addressContainer.dataset.address = address;
+                
+                const label = addressLabels[address];
+                const addressHtml = `<small>${address}</small>`;
+                const titleHtml = label ? `${label} - ${addressHtml}` : addressHtml;
+
+                addressContainer.innerHTML = `<h3>${titleHtml}</h3><div class="summary-grid"></div>`;
+                container.appendChild(addressContainer);
+            }
+
+            // --- Update Summary Grid ---
+            const summary = positionData.marginSummary;
+            const oldSummary = oldPositionData ? oldPositionData.marginSummary : null;
+            const summaryGrid = addressContainer.querySelector('.summary-grid');
+            
+            const summaryItems = {
+                'Account Value': formatNumber(summary.accountValue),
+                'Total Position Value': formatNumber(summary.totalNtlPos),
+                'Total Raw USD': formatNumber(summary.totalRawUsd),
+                'Total Margin Used': formatNumber(summary.totalMarginUsed),
+                'Withdrawable': formatNumber(positionData.withdrawable)
+            };
+
+            for(const label in summaryItems) {
+                const value = summaryItems[label];
+                let itemDiv = summaryGrid.querySelector(`[data-label="${label}"]`);
+                if (!itemDiv) {
+                    itemDiv = document.createElement('div');
+                    itemDiv.className = 'summary-item';
+                    itemDiv.dataset.label = label;
+                    itemDiv.innerHTML = `<span class="label">${label}: </span><span class="value"></span>`;
+                    summaryGrid.appendChild(itemDiv);
+                }
+                const valueSpan = itemDiv.querySelector('.value');
+                if (valueSpan.textContent !== value) {
+                    valueSpan.textContent = value;
+                    // Flash only if old data exists to compare against
+                    if (oldSummary) flashElement(itemDiv);
+                }
+            }
+
+
+            // --- Update Asset Positions Table ---
+            let table = addressContainer.querySelector('table');
+            if (positionData.assetPositions.length > 0) {
+                if (!table) {
+                    table = document.createElement('table');
+                    table.innerHTML = `
+                        <thead>
+                            <tr>
+                                <th>Coin</th>
+                                <th>Size</th>
+                                <th>Entry Px</th>
+                                <th>Liq. Px</th>
+                                <th>Unrealized PNL</th>
+                                <th>ROE %</th>
+                                <th>Margin Used</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    `;
+                    addressContainer.appendChild(table);
+                    // Initialize table sort
+                    const newInstance = new Tablesort(table);
+                    tablesortInstances.set(address, newInstance);
+                }
+
+                const tbody = table.querySelector('tbody');
+                const existingRows = new Map([...tbody.querySelectorAll('tr')].map(row => [row.dataset.coin, row]));
+                const newCoins = new Set();
+
+                positionData.assetPositions.forEach(asset => {
+                    const pos = asset.position;
+                    newCoins.add(pos.coin);
+                    
+                    const oldAsset = oldPositionData?.assetPositions.find(p => p.position.coin === pos.coin)?.position;
+
+                    let row = existingRows.get(pos.coin);
+                    if (!row) {
+                        row = document.createElement('tr');
+                        row.dataset.coin = pos.coin;
+                        tbody.appendChild(row);
+                    }
+                    
+                    const cellsData = [
+                        pos.coin,
+                        formatNumber(pos.szi, 4),
+                        formatNumber(pos.entryPx),
+                        pos.liquidationPx ? formatNumber(pos.liquidationPx) : 'N/A',
+                        formatNumber(pos.unrealizedPnl),
+                        formatNumber(pos.returnOnEquity * 100, 4),
+                        formatNumber(pos.marginUsed)
+                    ];
+
+                    // Create or update cells
+                    for (let i = 0; i < cellsData.length; i++) {
+                        let cell = row.cells[i];
+                        if (!cell) {
+                            cell = row.insertCell();
+                        }
+                        if (cell.textContent !== cellsData[i]) {
+                           cell.textContent = cellsData[i];
+                           if(oldAsset) flashElement(cell);
+                        }
+                    }
+                });
+
+                // Remove rows for coins that are no longer in the data
+                existingRows.forEach((row, coin) => {
+                    if (!newCoins.has(coin)) {
+                        row.remove();
+                    }
+                });
+                
+                if (tablesortInstances.has(address)) {
+                    tablesortInstances.get(address).refresh();
+                }
+
+            } else if (table) {
+                // If there are no positions but a table exists, remove it
+                table.remove();
+                if (tablesortInstances.has(address)) {
+                    tablesortInstances.get(address).destroy();
+                    tablesortInstances.delete(address);
+                }
+            }
+        }
+        
+        // Store the current data for the next comparison
+        lastData = data;
+    }
+
+    async function fetchData() {
+        try {
+            // The URL for your JSON data
+            const response = await fetch('/3T-observer.json', {
+                cache: 'no-store' // Important to prevent browser caching
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            
+            // Use the timestamp from the JSON file
+            if (data.timestamp) {
+                // Check if data has actually changed before re-rendering
+                if (!lastData || JSON.stringify(data.positions) !== JSON.stringify(lastData.positions)) {
+                    lastUpdateTime = new Date(data.timestamp);
+                    renderData(data);
+                }
+            }
+        } catch (err) {
+            console.error('Error fetching JSON data:', err);
+            document.getElementById('update-status').textContent = "Error fetching updates.";
+        }
+    }
+
+    function updateTimer() {
+        const statusElem = document.getElementById('update-status');
+        if (lastUpdateTime) {
+            const secondsAgo = Math.round((new Date() - lastUpdateTime) / 1000);
+            statusElem.textContent = `Last update: ${secondsAgo} second${secondsAgo === 1 ? '' : 's'} ago`;
+        }
+    }
+
+	// --- CLOCK LOGIC (UNCHANGED) ---
+	function setupClock(clockId, timeZone) {
+        const hourHand = document.querySelector(`#${clockId} .hour-hand`);
+        const minuteHand = document.querySelector(`#${clockId} .minute-hand`);
+        const secondHand = document.querySelector(`#${clockId} .second-hand`);
+        function updateClock() {
+            const nowInTimeZone = new Date().toLocaleString("en-US", { timeZone });
+            const date = new Date(nowInTimeZone);
+            const seconds = date.getSeconds();
+            const secondsDegrees = ((seconds / 60) * 360) + 90;
+            secondHand.style.transform = `rotate(${secondsDegrees}deg)`;
+            const minutes = date.getMinutes();
+            const minutesDegrees = ((minutes / 60) * 360) + ((seconds / 60) * 6);
+            minuteHand.style.transform = `rotate(${minutesDegrees}deg)`;
+            const hours = date.getHours();
+            const hoursDegrees = ((hours / 12) * 360) + ((minutes / 60) * 30);
+            hourHand.style.transform = `rotate(${hoursDegrees}deg)`;
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+    }
+
+    // --- INITIALIZATION ---
+    setupClock('clock-vatican', 'Europe/Vatican');
+    setupClock('clock-shanghai', 'Asia/Shanghai');
+    setupClock('clock-new-york', 'America/New_York');
+    fetchData(); // Initial fetch
+    setInterval(fetchData, POLLING_INTERVAL); // Fetch every 15 seconds
+    setInterval(updateTimer, 1000); // Update the 'ago' timer every second
+</script>
+  <script>
+    // --- THEME TOGGLE LOGIC (UNCHANGED) ---
+    document.addEventListener('DOMContentLoaded', () => {
+        const themeToggle = document.getElementById('theme-toggle');
+        const body = document.body;
+        const applyTheme = (theme) => {
+            body.dataset.theme = theme;
+            localStorage.setItem('theme', theme);
+        };
+        const savedTheme = localStorage.getItem('theme');
+        const prefersLight = window.matchMedia('(prefers-color-scheme: light)').matches;
+        if (savedTheme) {
+            applyTheme(savedTheme);
+        } else {
+            applyTheme('dark');
+        }
+        themeToggle.addEventListener('click', () => {
+            const newTheme = body.dataset.theme === 'dark' ? 'light' : 'dark';
+            applyTheme(newTheme);
+        });
+    });
+  </script>
+
+    <style>
+        .site-footer {
+        font-family: 'Courier New', Courier, monospace;
+            background-color: var(--footer-bg);
+            color: var(--footer-text);
+            padding: 45px 0 20px;
+            font-size: 15px;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        .footer-container {
+            width: 80%;
+            margin: 0 auto;
+        }
+        .footer-columns {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+        }
+        .footer-column {
+            width: 100%;
+            margin-bottom: 30px;
+        }
+        @media (min-width: 768px) {
+            .footer-column {
+                width: 30%;
+                margin-bottom: 0;
+            }
+        }
+        .footer-column h6 {
+            color: var(--footer-heading);
+            font-size: 1.2em;
+            margin-top: 5px;
+        }
+        .footer-links {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .footer-links li {
+            margin-bottom: 10px;
+        }
+        .footer-links a {
+            color: var(--footer-text);
+            text-decoration: none;
+        }
+        .footer-links a:hover {
+            color: var(--footer-heading);
+            text-decoration: underline;
+        }
+        .copyright-text {
+            text-align: center;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid var(--footer-border);
+        }
+    footer p {
+      text-align: justify;
+      text-align-last: left;
+      font-size: 8.5pt;
+      color: var(--footer-text);
+    }
+    </style>
+
+    <footer class="site-footer">
+        <!-- Footer remains unchanged -->
+        <div class="footer-container">
+            <div class="footer-columns">
+                <div class="footer-column">
+                    <h6>Explore</h6>
+                    <ul class="footer-links">
+                        <li><a href="https://trisagion.gitbook.io/trisagion-docs/">Documentation</a></li>
+                        <li><a href="https://trisagion.gitbook.io/trisagion-docs/documentation/praying-the-trisagion">The Trisagion Prayer</a></li>
+                        <li><a href="https://www.ewtn.com/catholicism/devotions/angelic-trisagion-382">The Angelic Trisagion</a></li>
+                        <li><a href="https://stats.trisagion.xyz/">Uptime</a></li>
+                    </ul>
+                </div>
+
+                <div class="footer-column">
+                    <h6>Analytics</h6>
+                    <ul class="footer-links">
+                        <li><a href="https://app.coinmarketman.com/hypertracker/wallet/0x77dEe11bbF0Ad1143Bf008a84AE776557e2ebADE">CMM Tracker</a></li>
+                        <li><a href="https://hyperdash.info/trader/0x77dEe11bbF0Ad1143Bf008a84AE776557e2ebADE">HyperDash</a></li>
+                    </ul>
+                </div>
+
+                <div class="footer-column">
+                    <h6>Connect</h6>
+                    <ul class="footer-links">
+                        <li><a href="https://x.com/tttrisagion">X (Twitter)</a></li>
+                        <li><a href="https://github.com/tttrisagion/3T">GitHub</a></li>
+                    </ul>
+                </div>
+
+
+            </div>
+        </div>
+        <div class="footer-container">
+    <p>
+      DISCLAIMER: The accuracy and completeness of the content shared on this website cannot be guaranteed. This information is offered for informational purposes only and should not be considered financial or investment advice. No part of this website is intended to be a solicitation or recommendation for any security or crypto product. The Trisagion project is not a licensed securities dealer, broker, investment adviser, or investment bank.
+      All users should conduct their own thorough research and consult with a qualified financial advisor before making any financial decisions. Engaging with cryptocurrencies involves significant risk, and you should be fully aware of the potential for loss. By using this website, you acknowledge that you are responsible for your own financial choices.
+      <br><br>
+      <span style="text-transform: uppercase;">The Trisagion project is an independent initiative and is not endorsed by, affiliated with, agents of or in a formalized relationship with the Holy See, the Peter’s Pence Office, or the Secretariat for the Economy.
+      Any third-party copyrighted materials including trademarks listed on this website are the property of their respective owners.
+      </span>
+    </p>
+    <p>
+      &copy; MMXXV Trisagion. All Rights Reserved. 
+    </p>
+        </div>
+   </footer>
+
+</body>
+</html>
