@@ -4,6 +4,21 @@ import sys
 import time
 from multiprocessing import shared_memory
 import numpy as np
+    
+# Database connection settings
+docker_username = 'root'
+docker_password = 'secret'
+docker_host = '192.168.2.215'
+docker_database_name = '3t'
+
+# global connection
+cnx = mysql.connector.connect(
+user=docker_username,
+password=docker_password,
+host=docker_host,
+database=docker_database_name
+)
+
 
 def get_volatility( symbol ):
     cursor = cnx.cursor()
