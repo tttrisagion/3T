@@ -112,7 +112,7 @@ def main():
             try:
                 volatility, timestamp, age = get_volatility(symbol)
                 print(f"Symbol: {symbol}")
-                print(f"Volatility: ${volatility:,.5f}")
+                print(f"Volatility: {volatility:,.5f}")
                 print(f"Timestamp: {timestamp:.3f} (age: {age:.1f}s)")
                 print(
                     f"Time: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(timestamp))}"

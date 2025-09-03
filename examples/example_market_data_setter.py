@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
+import mysql.connector
+from mysql.connector import Error
 import struct
 import sys
 import time
 from multiprocessing import shared_memory
 import numpy as np
+import pandas as pd
     
 # Database connection settings
 docker_username = 'root'
@@ -24,47 +27,47 @@ def get_volatility( symbol ):
     cursor = cnx.cursor()
     # Define the query to fetch the data
     query = f"""
-    WITH
-    minute_data AS (
-      SELECT 
-        timestamp,
-        high - low AS range_high_low
-      FROM 
-        market_data
-      WHERE 
-        timeframe = '1m' AND symbol = '{symbol}’
-        AND timestamp >= UNIX_TIMESTAMP(NOW() - INTERVAL 24 HOUR) * 1000
-    ),
+        WITH
+        minute_data AS (
+          SELECT 
+            timestamp,
+            high - low AS range_high_low
+          FROM 
+            market_data
+          WHERE 
+            timeframe = '1m' AND symbol = '{symbol}'
+            AND timestamp >= UNIX_TIMESTAMP(NOW() - INTERVAL 24 HOUR) * 1000
+        ),
 
-    window_data AS (
-      SELECT 
-        timestamp,
-        MAX(high) OVER (ORDER BY timestamp ROWS BETWEEN 60 PRECEDING AND CURRENT ROW) AS max_high,
-        MIN(low) OVER (ORDER BY timestamp ROWS BETWEEN 60 PRECEDING AND CURRENT ROW) AS min_low
-      FROM 
-        market_data
-      WHERE 
-        timeframe = '1m' AND symbol = '{symbol}'
-        AND timestamp >= UNIX_TIMESTAMP(NOW() - INTERVAL 24 HOUR) * 1000
-    ),
+        window_data AS (
+          SELECT 
+            timestamp,
+            MAX(high) OVER (ORDER BY timestamp ROWS BETWEEN 60 PRECEDING AND CURRENT ROW) AS max_high,
+            MIN(low) OVER (ORDER BY timestamp ROWS BETWEEN 60 PRECEDING AND CURRENT ROW) AS min_low
+          FROM 
+            market_data
+          WHERE 
+            timeframe = '1m' AND symbol = '{symbol}'
+            AND timestamp >= UNIX_TIMESTAMP(NOW() - INTERVAL 24 HOUR) * 1000
+        ),
 
-    volatility_data AS (
-      SELECT 
-        timestamp,
-        max_high - min_low AS volatility
-      FROM 
-        window_data
-    )
+        volatility_data AS (
+          SELECT 
+            timestamp,
+            max_high - min_low AS volatility
+          FROM 
+            window_data
+        )
 
-    SELECT 
-      from_unixtime(timestamp/1000) AS timestamp,
-      AVG(volatility) OVER (ORDER BY timestamp ROWS BETWEEN 60 PRECEDING AND CURRENT ROW) AS
-    moving_volatility_average,
-      (select close from market_data where timeframe='1m' and market_data.timestamp = volatility_data.timestamp AND symbol = '{symbol}') as 'close'
-    FROM 
-      volatility_data
-      ORDER BY 1 DESC LIMIT 1
-        """
+        SELECT 
+          from_unixtime(timestamp/1000) AS timestamp,
+          AVG(volatility) OVER (ORDER BY timestamp ROWS BETWEEN 60 PRECEDING AND CURRENT ROW) AS
+        moving_volatility_average,
+          (select close from market_data where timeframe='1m' and market_data.timestamp = volatility_data.timestamp AND symbol = '{symbol}') as 'close'
+        FROM 
+          volatility_data
+          ORDER BY 1 DESC LIMIT 1
+            """
     cursor.execute(query)
     results = cursor.fetchall()
     # Convert the results to a Pandas DataFrame
@@ -85,30 +88,14 @@ TOTAL_SIZE = HEADER_SIZE + (MAX_SYMBOLS * ENTRY_SIZE)
 SHM_NAME = "market_data_shm"
 
 # Test symbols
-TEST_SYMBOLS = [
+SYMBOLS = [
     "BTC/USDC:USDC",
     "ETH/USDC:USDC",
     "SOL/USDC:USDC",
     "HYPE/USDC:USDC",
     "XRP/USDC:USDC",
     "PAXG/USDC:USDC",
-    "ENA/USDC:USDC",
-    "TRUMP/USDC:USDC",
-    "SUI/USDC:USDC",
-    "FARTCOIN/USDC:USDC",
-    "DOGE/USDC:USDC",
-    "KPEPE/USDC:USDC",
-    "ADA/USDC:USDC",
-    "AVAX/USDC:USDC",
-    "PENGU/USDC:USDC",
-    "PUMP/USDC:USDC",
-    "KBONK/USDC:USDC",
-    "LINK/USDC:USDC",
-    "IP/USDC:USDC",
-    "XPL/USDC:USDC",
-    "AAVE/USDC:USDC",
-    "ARB/USDC:USDC",
-    "POL/USDC:USDC",
+    "ENA/USDC:USDC"
 ]
 
 
@@ -140,12 +127,12 @@ def main():
     buffer = np.ndarray((TOTAL_SIZE,), dtype=np.uint8, buffer=shm.buf)
 
     # Initialize header (num_symbols = 0)
-    buffer[:HEADER_SIZE].view(np.uint64)[0] = len(TEST_SYMBOLS)
+    buffer[:HEADER_SIZE].view(np.uint64)[0] = len(SYMBOLS)
 
     # Pre-compute symbol hashes
-    symbol_hashes = {symbol: symbol_to_hash(symbol) for symbol in TEST_SYMBOLS}
+    symbol_hashes = {symbol: symbol_to_hash(symbol) for symbol in SYMBOLS}
 
-    print(f"Setting volatility for {len(TEST_SYMBOLS)} symbols")
+    print(f"Setting volatility for {len(SYMBOLS)} symbols")
     print("Symbol hashes:")
     for symbol, hash_val in symbol_hashes.items():
         print(f"  {symbol}: {hash_val}")
@@ -156,7 +143,7 @@ def main():
             timestamp = time.time()
 
             # Update all symbols
-            for i, symbol in enumerate(TEST_SYMBOLS):
+            for i, symbol in enumerate(SYMBOLS):
                 volatility = get_volatility(symbol)
 
                 # Calculate offset for this entry
