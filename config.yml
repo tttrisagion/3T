@@ -51,7 +51,7 @@ reconciliation_engine:
   risk_pos_percentage: 0.00016180339887
   
   # Kelly Strategy Configuration
-kelly_threshold: 20.0  # maximum Kelly performance scaling threshold (ex: 0.5 = 50%)
+  kelly_threshold: 20.0  # maximum Kelly performance scaling threshold (ex: 0.5 = 50%)
   
   # Symbols to manage 
   symbols:

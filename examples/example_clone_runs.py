@@ -1,29 +1,33 @@
-import mysql.connector
-import time
 import logging
+import time
+
+import mysql.connector
 
 # --- Configuration ---
 # Configure logging to see the script's activity
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 
 # --- Remote (Source) Database Configuration ---
 REMOTE_CONFIG = {
-    'user': 'root',
-    'password': 'secret',
-    'host': '192.168.2.215',
-    'database': '3t' # Assuming the database name is '3t'
+    "user": "root",
+    "password": "secret",
+    "host": "192.168.2.215",
+    "database": "3t",  # Assuming the database name is '3t'
 }
 
 # --- Local (Destination) Database Configuration ---
 LOCAL_CONFIG = {
-    'user': 'root',
-    'password': 'secret',
-    'host': 'localhost',
-    'database': '3t' # Assuming the database name is '3t'
+    "user": "root",
+    "password": "secret",
+    "host": "localhost",
+    "database": "3t",  # Assuming the database name is '3t'
 }
 
-TABLE_TO_CLONE = 'runs'
+TABLE_TO_CLONE = "runs"
 CLONE_INTERVAL_SECONDS = 60
+
 
 def clone_table():
     """
@@ -36,7 +40,9 @@ def clone_table():
         # --- Connect to Remote Database ---
         logging.info("Connecting to remote database...")
         remote_conn = mysql.connector.connect(**REMOTE_CONFIG)
-        remote_cursor = remote_conn.cursor(dictionary=True) # Use dictionary cursor for easy column mapping
+        remote_cursor = remote_conn.cursor(
+            dictionary=True
+        )  # Use dictionary cursor for easy column mapping
         logging.info("Successfully connected to remote database.")
 
         # --- Connect to Local Database ---
@@ -62,26 +68,28 @@ def clone_table():
         local_conn.start_transaction()
 
         # --- Clear the Local Table ---
-        logging.info(f"Deleting all existing data from '{TABLE_TO_CLONE}' on local server...")
+        logging.info(
+            f"Deleting all existing data from '{TABLE_TO_CLONE}' on local server..."
+        )
         local_cursor.execute(f"DELETE FROM {TABLE_TO_CLONE}")
         logging.info("Local table cleared.")
 
         # --- Insert Data into Local Table ---
         logging.info(f"Inserting {len(all_rows)} rows into local table...")
-        
+
         # Prepare the insert statement dynamically based on columns
         columns = all_rows[0].keys()
-        column_names = ', '.join(f"`{col}`" for col in columns)
-        value_placeholders = ', '.join(['%s'] * len(columns))
-        
+        column_names = ", ".join(f"`{col}`" for col in columns)
+        value_placeholders = ", ".join(["%s"] * len(columns))
+
         insert_query = f"INSERT INTO {TABLE_TO_CLONE} ({column_names}) VALUES ({value_placeholders})"
-        
+
         # Prepare data for bulk insertion
         data_to_insert = [tuple(row.values()) for row in all_rows]
 
         # Execute the insertion
         local_cursor.executemany(insert_query, data_to_insert)
-        
+
         # --- Commit the Transaction ---
         local_conn.commit()
         logging.info("Transaction committed. Data successfully cloned.")
@@ -111,14 +119,15 @@ def main():
     """
     logging.info("Starting MariaDB cloning script.")
     while True:
-        logging.info("="*50)
+        logging.info("=" * 50)
         logging.info("Starting new cloning cycle.")
         clone_table()
-        logging.info(f"Cloning cycle complete. Waiting for {CLONE_INTERVAL_SECONDS} seconds...")
-        logging.info("="*50)
+        logging.info(
+            f"Cloning cycle complete. Waiting for {CLONE_INTERVAL_SECONDS} seconds..."
+        )
+        logging.info("=" * 50)
         time.sleep(CLONE_INTERVAL_SECONDS)
 
 
 if __name__ == "__main__":
     main()
-

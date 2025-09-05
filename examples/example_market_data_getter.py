@@ -59,7 +59,9 @@ def get_volatility(symbol, max_retries=None):
 
                     # Unpack entry
                     entry_data = buffer[offset : offset + ENTRY_SIZE].tobytes()
-                    stored_hash, volatility, timestamp = struct.unpack("<Qdd", entry_data)
+                    stored_hash, volatility, timestamp = struct.unpack(
+                        "<Qdd", entry_data
+                    )
 
                     if stored_hash == symbol_hash:
                         # Check staleness

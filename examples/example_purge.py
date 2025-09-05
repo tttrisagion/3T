@@ -1,29 +1,24 @@
 #!/usr/bin/env python3
-import mysql.connector
-from mysql.connector import Error
-import struct
-import sys
 import time
-from multiprocessing import shared_memory
-import numpy as np
-import pandas as pd
-    
+
+import mysql.connector
+
 # Database connection settings
-docker_username = 'root'
-docker_password = 'secret'
-docker_host = '192.168.2.215'
-docker_database_name = '3t'
+docker_username = "root"
+docker_password = "secret"
+docker_host = "192.168.2.215"
+docker_database_name = "3t"
 
 # global connection
 cnx = mysql.connector.connect(
-user=docker_username,
-password=docker_password,
-host=docker_host,
-database=docker_database_name
+    user=docker_username,
+    password=docker_password,
+    host=docker_host,
+    database=docker_database_name,
 )
 
 
-def position_time_stop( ):
+def position_time_stop():
     # if run is an hour old and doesn't have position direction, exit job
     cursor = cnx.cursor()
 
@@ -43,8 +38,8 @@ def position_time_stop( ):
 
     # --- Step 2: Run the original update command if there's anything to update ---
     if items_to_purge > 0:
-        print( "Purging items now..." )
-        query = f"""
+        print("Purging items now...")
+        query = """
 UPDATE runs r1
 JOIN (
   SELECT id
@@ -58,8 +53,9 @@ SET r1.exit_run = 1;
             """
         cursor.execute(query)
         cnx.commit()
-        print( "Done" )
+        print("Done")
     else:
-        print( "No items to purge" )
+        print("No items to purge")
+
 
 position_time_stop()

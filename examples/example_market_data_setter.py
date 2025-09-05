@@ -1,29 +1,28 @@
 #!/usr/bin/env python3
-import mysql.connector
-from mysql.connector import Error
 import struct
-import sys
 import time
 from multiprocessing import shared_memory
+
+import mysql.connector
 import numpy as np
 import pandas as pd
-    
+
 # Database connection settings
-docker_username = 'root'
-docker_password = 'secret'
-docker_host = '192.168.2.215'
-docker_database_name = '3t'
+docker_username = "root"
+docker_password = "secret"
+docker_host = "192.168.2.215"
+docker_database_name = "3t"
 
 # global connection
 cnx = mysql.connector.connect(
-user=docker_username,
-password=docker_password,
-host=docker_host,
-database=docker_database_name
+    user=docker_username,
+    password=docker_password,
+    host=docker_host,
+    database=docker_database_name,
 )
 
 
-def get_volatility( symbol ):
+def get_volatility(symbol):
     cursor = cnx.cursor()
     # Define the query to fetch the data
     query = f"""
@@ -71,9 +70,11 @@ def get_volatility( symbol ):
     cursor.execute(query)
     results = cursor.fetchall()
     # Convert the results to a Pandas DataFrame
-    df = pd.DataFrame(results, columns=['timestamp', 'moving_volatility_average','close'])
+    df = pd.DataFrame(
+        results, columns=["timestamp", "moving_volatility_average", "close"]
+    )
     cursor.close()
-    return float( df['moving_volatility_average'].iloc[0] )
+    return float(df["moving_volatility_average"].iloc[0])
 
 
 # Memory layout: [num_symbols][symbol1_hash, volatility1, timestamp1][symbol2_hash, volatility2, timestamp2]...
@@ -95,7 +96,7 @@ SYMBOLS = [
     "HYPE/USDC:USDC",
     "XRP/USDC:USDC",
     "PAXG/USDC:USDC",
-    "ENA/USDC:USDC"
+    "ENA/USDC:USDC",
 ]
 
 
