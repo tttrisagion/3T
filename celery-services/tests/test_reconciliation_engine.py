@@ -179,8 +179,10 @@ class TestReconciliationEngine(unittest.TestCase):
         self.assertIsNone(position)
 
     @patch("reconciliation_engine.get_current_price")
-    def test_reconciliation_both_short_reduce_position(self, mock_price):
+    @patch("reconciliation_engine.config")
+    def test_reconciliation_both_short_reduce_position(self, mock_config, mock_price):
         """Test reconciliation logic: both short, need to reduce position"""
+        mock_config.get.return_value = 11.0  # minimum_trade_threshold
         mock_price.return_value = 118000.0
 
         # Current: -0.0003, Target: -0.0002 (reduce short position)
@@ -198,8 +200,10 @@ class TestReconciliationEngine(unittest.TestCase):
         self.assertAlmostEqual(position_delta, 0.0001, places=6)
 
     @patch("reconciliation_engine.get_current_price")
-    def test_reconciliation_both_short_add_position(self, mock_price):
+    @patch("reconciliation_engine.config")
+    def test_reconciliation_both_short_add_position(self, mock_config, mock_price):
         """Test reconciliation logic: both short, need to add position"""
+        mock_config.get.return_value = 11.0  # minimum_trade_threshold
         mock_price.return_value = 118000.0
 
         # Current: -0.0001, Target: -0.0003 (increase short position)
@@ -217,8 +221,10 @@ class TestReconciliationEngine(unittest.TestCase):
         self.assertAlmostEqual(position_delta, 0.0002, places=6)
 
     @patch("reconciliation_engine.get_current_price")
-    def test_reconciliation_short_to_long(self, mock_price):
+    @patch("reconciliation_engine.config")
+    def test_reconciliation_short_to_long(self, mock_config, mock_price):
         """Test reconciliation logic: currently short, needs to go long"""
+        mock_config.get.return_value = 11.0  # minimum_trade_threshold
         mock_price.return_value = 118000.0
 
         actual_position = -0.0002
@@ -234,8 +240,10 @@ class TestReconciliationEngine(unittest.TestCase):
         self.assertAlmostEqual(position_delta, 0.0003, places=6)
 
     @patch("reconciliation_engine.get_current_price")
-    def test_reconciliation_long_to_short(self, mock_price):
+    @patch("reconciliation_engine.config")
+    def test_reconciliation_long_to_short(self, mock_config, mock_price):
         """Test reconciliation logic: currently long, needs to go short"""
+        mock_config.get.return_value = 11.0  # minimum_trade_threshold
         mock_price.return_value = 118000.0
 
         actual_position = 0.0002
@@ -251,8 +259,10 @@ class TestReconciliationEngine(unittest.TestCase):
         self.assertAlmostEqual(position_delta, -0.0003, places=6)
 
     @patch("reconciliation_engine.get_current_price")
-    def test_reconciliation_both_long_add_position(self, mock_price):
+    @patch("reconciliation_engine.config")
+    def test_reconciliation_both_long_add_position(self, mock_config, mock_price):
         """Test reconciliation logic: both long, need to add position"""
+        mock_config.get.return_value = 11.0  # minimum_trade_threshold
         mock_price.return_value = 118000.0
 
         # Current: 0.0001, Target: 0.0003 (increase long position)
@@ -269,8 +279,10 @@ class TestReconciliationEngine(unittest.TestCase):
         self.assertAlmostEqual(position_delta, 0.0002, places=6)
 
     @patch("reconciliation_engine.get_current_price")
-    def test_reconciliation_both_long_reduce_position(self, mock_price):
+    @patch("reconciliation_engine.config")
+    def test_reconciliation_both_long_reduce_position(self, mock_config, mock_price):
         """Test reconciliation logic: both long, need to reduce position"""
+        mock_config.get.return_value = 11.0  # minimum_trade_threshold
         mock_price.return_value = 118000.0
 
         # Current: 0.0003, Target: 0.0001 (reduce long position)
@@ -287,8 +299,10 @@ class TestReconciliationEngine(unittest.TestCase):
         self.assertAlmostEqual(position_delta, 0.0002, places=6)
 
     @patch("reconciliation_engine.get_current_price")
-    def test_reconciliation_create_new_position_long(self, mock_price):
+    @patch("reconciliation_engine.config")
+    def test_reconciliation_create_new_position_long(self, mock_config, mock_price):
         """Test reconciliation logic: create new long position"""
+        mock_config.get.return_value = 11.0  # minimum_trade_threshold
         mock_price.return_value = 118000.0
 
         actual_position = 0.0  # Flat
@@ -304,8 +318,10 @@ class TestReconciliationEngine(unittest.TestCase):
         self.assertAlmostEqual(position_delta, 0.0005, places=6)
 
     @patch("reconciliation_engine.get_current_price")
-    def test_reconciliation_create_new_position_short(self, mock_price):
+    @patch("reconciliation_engine.config")
+    def test_reconciliation_create_new_position_short(self, mock_config, mock_price):
         """Test reconciliation logic: create new short position"""
+        mock_config.get.return_value = 11.0  # minimum_trade_threshold
         mock_price.return_value = 118000.0
 
         actual_position = 0.0  # Flat
@@ -321,8 +337,10 @@ class TestReconciliationEngine(unittest.TestCase):
         self.assertAlmostEqual(position_delta, -0.0005, places=6)
 
     @patch("reconciliation_engine.get_current_price")
-    def test_reconciliation_liquidate_long_position(self, mock_price):
+    @patch("reconciliation_engine.config")
+    def test_reconciliation_liquidate_long_position(self, mock_config, mock_price):
         """Test reconciliation logic: liquidate long position (no risk)"""
+        mock_config.get.return_value = 11.0  # minimum_trade_threshold
         mock_price.return_value = 118000.0
 
         actual_position = 0.0003  # Long position
@@ -338,8 +356,10 @@ class TestReconciliationEngine(unittest.TestCase):
         self.assertAlmostEqual(position_delta, -0.0003, places=6)
 
     @patch("reconciliation_engine.get_current_price")
-    def test_reconciliation_liquidate_short_position(self, mock_price):
+    @patch("reconciliation_engine.config")
+    def test_reconciliation_liquidate_short_position(self, mock_config, mock_price):
         """Test reconciliation logic: liquidate short position (no risk)"""
+        mock_config.get.return_value = 11.0  # minimum_trade_threshold
         mock_price.return_value = 118000.0
 
         actual_position = -0.0003  # Short position
