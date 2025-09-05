@@ -45,24 +45,41 @@ market_data:
 # Reconciliation Engine Configuration
 reconciliation_engine:
   # How often to run reconciliation checks (in seconds)
-  rebalance_frequency: 60.0 # in seconds
+  rebalance_frequency: 900.0 # in seconds
   
   # Risk position size as a percentage of total balance (golden ratio based)
   risk_pos_percentage: 0.00016180339887
   
   # Kelly Strategy Configuration
-  kelly_threshold: 10.0  # 50% - maximum Kelly performance scaling threshold
+kelly_threshold: 20.0  # maximum Kelly performance scaling threshold (ex: 0.5 = 50%)
   
   # Symbols to manage 
   symbols:
     - "BTC/USDC:USDC"
     - "ETH/USDC:USDC"
-    - "SOL/USDC:USDC"
-    - "HYPE/USDC:USDC"
-    - "XRP/USDC:USDC"
-    - "PAXG/USDC:USDC"
-    - "ENA/USDC:USDC"
-  
+#    - "SOL/USDC:USDC"
+#    - "HYPE/USDC:USDC"
+#    - "XRP/USDC:USDC"
+#    - "PAXG/USDC:USDC"
+#    - "ENA/USDC:USDC"
+#    - "WLFI/USDC:USDC"
+#    - "FARTCOIN/USDC:USDC"
+#    - "PUMP/USDC:USDC"
+#    - "DOGE/USDC:USDC"
+#    - "KBONK/USDC:USDC"
+#    - "LINK/USDC:USDC"
+#    - "IP/USDC:USDC"
+#    - "XPL/USDC:USDC"
+#    - "TRUMP/USDC:USDC"
+#    - "ADA/USDC:USDC"
+#    - "PENGU/USDC:USDC"
+#    - "KPEPE/USDC:USDC"
+#    - "AAVE/USDC:USDC"
+#    - "SUI/USDC:USDC"
+#    - "ARB/USDC:USDC"
+#    - "AVAX/USDC:USDC"
+#    - "POL/USDC:USDC"
+
   # Observer nodes for consensus validation
   observer_nodes:
     - "http://3tsgp01.trisagion.xyz:8001/3T-observer.json"
@@ -76,14 +93,14 @@ reconciliation_engine:
   position_staleness_timeout: 60
   
   # Minimum trade value in USD to execute orders (avoids dust trades)
-  minimum_trade_threshold: 11.0
+  minimum_trade_threshold: 100.0
   
   # Order gateway request timeout in seconds
   order_timeout: 30
 
 # Take Profit Configuration
 take_profit:
-  threshold: 0.00161803398875
+  threshold: 0.0369
 
 # Health Monitor Configuration (in seconds)
 health_monitor:

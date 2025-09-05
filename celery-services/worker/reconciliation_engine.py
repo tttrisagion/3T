@@ -260,7 +260,8 @@ def get_desired_state(symbol: str) -> float:
                 FROM runs
                 WHERE exit_run = 0
                   AND end_time IS NULL
-                  AND live_pnl > 0
+                  AND live_pnl > 0.1
+                  AND abs(position_direction) > 0
                   AND symbol = %s
                   AND update_time >= NOW() - INTERVAL 10 MINUTE
                 HAVING total_pnl > 0 AND ABS(position) >= 1
