@@ -261,6 +261,7 @@ def get_desired_state(symbol: str) -> float:
                        SUM(position_direction)/COUNT(*) as size_per_run
                 FROM runs
                 WHERE exit_run = 0
+                  AND height IS NULL
                   AND end_time IS NULL
                   AND live_pnl > 0.1
                   AND abs(position_direction) > 0
@@ -295,8 +296,8 @@ def get_desired_state(symbol: str) -> float:
                             },
                         )
                     else:
-                        # Fallback to a default value if balance is not available
-                        base_risk_pos_size = 20.25
+                        # Fallback to a small default value if balance is not available
+                        base_risk_pos_size = 0.01
                         risk_pos_size = calculate_kelly_position_size(
                             base_risk_pos_size, symbol
                         )
