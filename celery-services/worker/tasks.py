@@ -384,7 +384,7 @@ def fetch_and_store_balance() -> float | None:
 def load_perm_entropy_library():
     """Load the permutation entropy C++ library."""
     try:
-        lib_path = "libperm_entropy_cpu.so"
+        lib_path = "/opt/3T/celery-services/cpp/bin/libperm_entropy_cpu.so"
         lib = ctypes.CDLL(lib_path)
 
         func = lib.calculate_cpu_perm_entropy
