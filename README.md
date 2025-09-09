@@ -131,7 +131,8 @@ Note: Your system must have docker and docker-compose available. The docker serv
 
 # Documentation
 
-For technical documentation please see https://trisagion.gitbook.io/trisagion-docs/technology
+- Whitepaper  https://trisagion.xyz/TTT.pdf
+- Technical documentation (needs revision) https://trisagion.gitbook.io/trisagion-docs/technology
 
 ## Development
 
