@@ -162,7 +162,6 @@ def calculate_kelly_position_size(base_risk_pos_size: float, symbol: str) -> flo
             if (
                 kelly_current > 0
                 and kelly_historical > 0
-                and kelly_current > kelly_historical
             ):
                 kelly_performance = kelly_performance * -1
 
