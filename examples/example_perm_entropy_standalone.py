@@ -1,7 +1,7 @@
 import ctypes
-import os
-import time
+
 import numpy as np
+
 
 def load_perm_entropy_library():
     """Load the permutation entropy C++ library."""
@@ -56,49 +56,38 @@ def calculate_permutation_entropy(data):
     except Exception as e:
         print(f"Error in calculate_permutation_entropy task: {e}")
         return None
-    
+
+
 print("🧪 Testing permutation entropy c-library...")
 
 # Generate some test data
 np.random.seed(42)  # For reproducible results
 test_data = np.random.randn(100).tolist()
 
-result = calculate_permutation_entropy (
-    test_data
-)
+result = calculate_permutation_entropy(test_data)
 
-print( "Random", result )
+print("Random", result)
 
 
 # generate some non random test data
-test_data = range( 0, 100 )
+test_data = range(0, 100)
 
-result = calculate_permutation_entropy (
-    test_data
-)
+result = calculate_permutation_entropy(test_data)
 
-print( "Linear", result )
+print("Linear", result)
 
 # 3. Test with a predictable oscillating wave (sine wave)
 # Generate 100 data points for two full sine wave cycles
 x_values = np.linspace(0, 4 * np.pi, 100)
 sine_wave_data = np.sin(x_values)
 
-result = calculate_permutation_entropy(
-    sine_wave_data
-)
+result = calculate_permutation_entropy(sine_wave_data)
 
 print("Sine Wave", result)
 
 
-
-
-
-
-
-
-import numpy as np
 import antropy as ant
+import numpy as np
 
 print(" Legacy testing with antropy library...")
 print("-" * 30)
@@ -126,4 +115,3 @@ result_sine = ant.perm_entropy(sine_wave_data, normalize=True)
 print(f"Sine Wave (antropy): {result_sine}")
 
 print("-" * 30)
-

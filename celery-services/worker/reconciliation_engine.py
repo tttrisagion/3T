@@ -157,6 +157,15 @@ def calculate_kelly_position_size(base_risk_pos_size: float, symbol: str) -> flo
 
             # Calculate performance based on the original formula
             kelly_performance = 1 - (kelly_current / kelly_historical)
+            if kelly_current < 0 and kelly_historical > 0:
+                kelly_performance = kelly_performance * -1
+            if (
+                kelly_current > 0
+                and kelly_historical > 0
+                and kelly_current > kelly_historical
+            ):
+                kelly_performance = kelly_performance * -1
+
             span.add_event(
                 "Calculated Kelly performance",
                 {"kelly_performance": kelly_performance},

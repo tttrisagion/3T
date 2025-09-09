@@ -70,7 +70,8 @@ def trigger_take_profit(db_cnx):
 
     # Assign height to runs that contributed to take profit event
     cursor.execute(
-        "UPDATE runs SET height = %s WHERE exit_run = 0 AND height IS NULL", (next_height,)
+        "UPDATE runs SET height = %s WHERE exit_run = 0 AND height IS NULL",
+        (next_height,),
     )
     db_cnx.commit()
     cursor.close()
