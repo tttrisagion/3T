@@ -1,3 +1,6 @@
+> ⚠️ **Warning: Highly Experimental Project**
+> This project is currently in a highly experimental and pre-alpha state. It is **not ready for production use** and may contain significant bugs, breaking changes, or incomplete features. Use with caution.
+
 # Tactical Trend Trader (3T)
 
 ```
