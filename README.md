@@ -1,3 +1,6 @@
+> ⚠️ **Warning: Highly Experimental Project**
+> This project is currently in a highly experimental and pre-alpha state. It is **not ready for production use** and may contain significant bugs, breaking changes, or incomplete features. Use with caution.
+
 # Tactical Trend Trader (3T)
 
 ```
@@ -15,7 +18,22 @@
 
 ## Introduction
 
-Tactical Trend Trader (3T) is a sophisticated, service-oriented platform designed for automated trend trading. It leverages a robust architecture to analyze market data, execute trades, and provide real-time observability into its operations.
+Tactical Trend Trader (3T) is a sophisticated, service-oriented platform designed for automated trend trading. It leverages a robust architecture to analyze market data, execute trades, and provide real-time observability into its operations. Read the latest [draft whiepaper](https://trisagion.xyz/TTT.pdf) and the semi-out of date documentation microsite [here](https://trisagion.gitbook.io/trisagion-docs/).
+
+### 📖 Table of Contents
+
+- [Architecture](#architecture)
+- [Observability & Monitoring Stack](#observability--monitoring-stack)
+- [Data Pipeline](#data-pipeline)
+- [Networking](#networking)
+- [Getting Started](#getting-started)
+- [Documentation](#documentation)
+- [Development](#development)
+- [Observability](#observability)
+- [Roadmap](#roadmap)
+- [Contributing](#contributing)
+- [Disclaimer](#disclaimer)
+- [License](#license)
 
 ## Architecture
 
@@ -113,7 +131,8 @@ Note: Your system must have docker and docker-compose available. The docker serv
 
 # Documentation
 
-For technical documentation please see https://trisagion.gitbook.io/trisagion-docs/technology
+- Whitepaper  https://trisagion.xyz/TTT.pdf
+- Technical documentation (needs revision) https://trisagion.gitbook.io/trisagion-docs/technology
 
 ## Development
 
