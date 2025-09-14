@@ -1,32 +1,33 @@
-@startuml Trade Signal Lifecycle
+@startuml Adaptive Trade Lifecycle
+
 !include <C4/C4_Sequence.puml>
 
 LAYOUT_WITH_LEGEND()
 
-title Dynamic Diagram: End-to-End Trade Signal Lifecycle
+title Dynamic Diagram: Adaptive Trade Lifecycle
 
-Person(risk_manager, "Risk Manager")
 System_Ext(hyperliquid_ws, "HyperLiquid WebSocket")
-System_Ext(hyperliquid_api, "HyperLiquid REST API")
-
 Container(price_stream_producer, "Price Stream Producer")
 ContainerDb(redis_streams, "Redis Streams")
-Container(price_stream_consumer, "Price Stream Consumer")
+Container(celery_worker, "Celery Worker", "Hosts Optimization and Trading Engines")
 ContainerDb(db, "Database")
-Container(strategy_runner, "Strategy Runner")
-Container(inference_service, "Inference Service")
-Container(portfolio_service, "Portfolio Service")
+Container(order_gateway, "Order Gateway")
+System_Ext(hyperliquid_api, "HyperLiquid REST API")
 
-hyperliquid_ws -> price_stream_producer: 1. Real-time trade event via WebSocket
-price_stream_producer -> redis_streams: 2. Publishes price update to prices:updated stream
-redis_streams --> price_stream_consumer: 3. Consumer reads price update
-price_stream_consumer -> strategy_runner: 4. Forwards real-time price to strategy
-strategy_runner -> db: 5. Reads historical market data for context
-strategy_runner -> inference_service: 6. Requests prediction with real-time + historical features
-inference_service --> strategy_runner: 7. Returns profit/loss prediction
-strategy_runner -> portfolio_service: 8. Sends trade instruction (e.g., BUY 0.1 BTC based on price trigger)
-portfolio_service -> hyperliquid_api: 9. Places order on exchange
-hyperliquid_api --> portfolio_service: 10. Confirms order placement
-portfolio_service --> risk_manager: 11. (Async) Updates portfolio state for reporting
+hyperliquid_ws -> price_stream_producer: 1. Real-time trade event
+price_stream_producer -> redis_streams: 2. Publishes price to stream
+redis_streams --> celery_worker: 3. Optimization Engine consumes price for continuous, parallel simulations to find best parameters
+
+== Trading Decision ==
+celery_worker -> db: 4. Trade Engine reads historical data for market analysis
+celery_worker -> celery_worker: 5. Calculates Permutation Entropy to check for 'trending' market
+note right
+  If market is 'noisy',
+  the cycle ends here.
+end note
+celery_worker -> celery_worker: 6. Applies entry logic (e.g., Breakout) and performance-based sizing heuristic
+celery_worker -> order_gateway: 7. Sends trade instruction
+order_gateway -> hyperliquid_api: 8. Places order on exchange
+hyperliquid_api --> order_gateway: 9. Confirms order placement
 
 @enduml

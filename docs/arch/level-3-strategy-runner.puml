@@ -1,38 +1,38 @@
-@startuml Strategy Runner Components
+@startuml Trade Evaluation Engine Components
+
 !include <C4/C4_Component.puml>
 
 LAYOUT_WITH_LEGEND()
 LAYOUT_TOP_DOWN()
 
-title Component Diagram for Strategy Runner
+title Component Diagram for Trade Evaluation and Execution Engine
 
-Container_Boundary(strategy_runner, "Strategy Runner") {
-    Component(main_loop, "Main Application Loop", "Python", "Initializes and runs the main control flow.")
-    Component(context, "Strategy Context", "Python Class", "Orchestrates the data-to-decision workflow and holds the active strategy.")
-    Component(istrategy, "IStrategy", "Python Interface (ABC)", "Defines the common interface for all trading algorithms.")
-    Component(concrete_strategy, "Concrete Strategy", "Python Class", "Implements a specific trading algorithm (e.g., Mean Reversion).")
-    Component(data_consumer, "Market Data Consumer", "Python Class", "Fetches latest market data slices.")
-    Component(price_consumer, "Price Stream Consumer", "Python Class", "Receives real-time price updates from Redis streams.")
-    Component(inference_client, "Inference Client", "Python Class", "Handles HTTP communication with the Inference Service.")
-    Component(portfolio_client, "Portfolio Client", "Python Class", "Communicates desired position changes to the Portfolio Service.")
+Container_Boundary(celery_worker, "Celery Worker") {
+    Component(trade_eval_engine, "Trade Evaluation Engine", "Python/Celery Task", "Orchestrates the trade decision process using optimized parameters from the optimization engine.")
+    Component(market_regime_analyzer, "Market Regime Analyzer", "Python Module", "Calculates Permutation Entropy on recent market data to classify the market as 'trending' or 'noisy'.")
+    Component(entry_logic, "Entry Logic", "Python Module", "Applies the configured trading strategy (e.g., 'Breakout' or 'Swing') to identify entry opportunities.")
+    Component(sizing_heuristic, "Position Sizing Heuristic", "Python Module", "Calculates position size using a performance-based heuristic that modulates a base risk size.")
+    Component(trade_executor, "Trade Executor", "Python Module", "Constructs and sends the final trade order.")
 
-    Rel(main_loop, context, "Invokes")
-    Rel(context, data_consumer, "Gets historical data from")
-    Rel(context, price_consumer, "Gets real-time prices from")
-    Rel(context, istrategy, "Delegates decision logic to")
-    Rel(concrete_strategy, istrategy, "Implements")
-    Rel(concrete_strategy, inference_client, "Uses to get predictions")
-    Rel(context, portfolio_client, "Sends trade instructions via")
+    Rel(trade_eval_engine, market_regime_analyzer, "Uses to filter for tradable market conditions")
+    Rel(trade_eval_engine, entry_logic, "Uses to find entry signals")
+    Rel(trade_eval_engine, sizing_heuristic, "Uses to determine position size")
+    Rel(trade_eval_engine, trade_executor, "Uses to place the trade")
 }
 
-System_Ext(db, "Database", "Provides historical market data.")
-System_Ext(redis_streams, "Redis Streams", "Provides real-time price updates.")
-System_Ext(inference_service, "Inference Service", "Provides ML predictions.")
-System_Ext(portfolio_service, "Portfolio Service", "Manages trade execution.")
+ContainerDb_Ext(redis, "Redis", "Provides the latest optimized parameters and real-time prices.")
+ContainerDb_Ext(mariadb, "MariaDB", "Provides historical market data for analysis and performance data for sizing.")
+Container_Ext(order_gateway, "Order Gateway", "FastAPI/Python", "Receives and executes the trade order.")
 
-Rel(data_consumer, db, "Reads historical data from", "SQL")
-Rel(price_consumer, redis_streams, "Consumes price updates from", "XREADGROUP")
-Rel(inference_client, inference_service, "Requests prediction from", "JSON/HTTPS")
-Rel(portfolio_client, portfolio_service, "Sends instructions to", "Internal API")
+Rel(trade_eval_engine, redis, "Reads optimized parameters from", "Redis KV Store")
+Rel(market_regime_analyzer, mariadb, "Reads historical OHLCV data from", "SQL")
+Rel(sizing_heuristic, mariadb, "Reads historical performance data from", "SQL")
+Rel(trade_executor, order_gateway, "Sends trade order to", "HTTPS")
+
+note right of market_regime_analyzer
+  Trading is only initiated
+  if the market is classified
+  as 'trending'.
+end note
 
 @enduml

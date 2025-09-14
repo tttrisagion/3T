@@ -1,4 +1,5 @@
 @startuml Price Streaming Service Components
+
 !include <C4/C4_Component.puml>
 
 LAYOUT_WITH_LEGEND()
@@ -8,12 +9,11 @@ title Component Diagram for Price Streaming Service
 
 Person(developer, "Developer", "Monitors real-time price feeds")
 System_Ext(hyperliquid, "HyperLiquid Exchange", "Provides real-time trade data via WebSocket")
-System_Ext(cors_proxy, "CORS Proxy", "Forwards requests to HyperLiquid")
 ContainerDb_Ext(redis, "Redis", "Streams for real-time events")
 ContainerDb_Ext(mariadb, "MariaDB", "Product and instrument configuration")
 
-Container_Boundary(price_stream_producer, "Price Poll Producer") {
-    Component(http_client, "HTTP Client", "Python/HTTP", "Polls HyperLiquid for price data.")
+Container_Boundary(price_stream_producer, "Price Stream Producer") {
+    Component(websocket_client, "WebSocket Client", "Python/WebSocket", "Connects to HyperLiquid for real-time trade data.")
     Component(price_publisher, "Price Publisher", "Python/Redis", "Publishes formatted price updates to Redis stream")
     Component(instrument_loader, "Instrument Loader", "Python/MySQL", "Loads supported trading instruments from database")
     Component(hyperliquid_client, "HyperLiquid Client", "Python/Auth", "Handles authentication and client setup using secrets.yml")
@@ -22,7 +22,7 @@ Container_Boundary(price_stream_producer, "Price Poll Producer") {
 Container_Boundary(price_stream_consumer, "Price Stream Consumer") {
     Component(stream_reader, "Stream Reader", "Python/Redis", "Reads price updates from Redis stream using consumer groups")
     Component(message_processor, "Message Processor", "Python", "Processes and validates incoming price messages")
-    Component(downstream_notifier, "Downstream Notifier", "Python", "Forwards processed prices to trading strategies or analytics")
+    Component(downstream_notifier, "Downstream Notifier", "Python", "Forwards processed prices to other services (e.g., Optimization Engine)")
 }
 
 Container_Boundary(shared_libs, "Shared Libraries") {
@@ -34,14 +34,13 @@ Rel(developer, price_producer, "Monitors via logs")
 Rel(developer, price_consumer, "Monitors price processing")
 
 Rel(hyperliquid_client, config_manager, "Uses credentials from")
-Rel(hyperliquid_client, cors_proxy, "Routes requests through", "HTTPS")
-Rel(http_client, hyperliquid_client, "Uses for authentication")
+Rel(websocket_client, hyperliquid_client, "Uses for authentication")
+Rel(websocket_client, hyperliquid, "Receives trade data from", "WSS")
 
 Rel(instrument_loader, mariadb, "Queries supported instruments", "SQL")
 Rel(instrument_loader, config_manager, "Uses database config")
-Rel(http_client, instrument_loader, "Polls for instruments from")
 
-Rel(http_client, price_publisher, "Sends trade data to")
+Rel(websocket_client, price_publisher, "Sends trade data to")
 Rel(price_publisher, redis, "Publishes to prices:updated stream", "XADD")
 
 Rel(stream_reader, redis, "Consumes from prices:updated stream", "XREADGROUP")
@@ -50,6 +49,6 @@ Rel(message_processor, downstream_notifier, "Sends processed prices to")
 
 Rel(price_publisher, tracer, "Records spans")
 Rel(stream_reader, tracer, "Records spans")
-Rel(http_client, tracer, "Records connection events")
+Rel(websocket_client, tracer, "Records connection events")
 
 @enduml

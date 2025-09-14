@@ -1,4 +1,5 @@
 @startuml Production Deployment
+
 !include <C4/C4_Deployment.puml>
 
 LAYOUT_WITH_LEGEND()
@@ -8,37 +9,34 @@ title Deployment Diagram for Trisagion System (Production Environment)
 Deployment_Node(cloud_provider, "Cloud Provider (e.g., AWS)", "IaaS/PaaS") {
     Deployment_Node(k8s_cluster, "Kubernetes Cluster", "e.g., Amazon EKS") {
         Deployment_Node(worker_node_1, "Worker Node 1", "Virtual Machine") {
-            Container(inference_service_pod, "Inference Service", "Docker Container")
-            Container(strategy_runner_pod, "Strategy Runner", "Docker Container")
             Container(price_stream_producer_pod, "Price Stream Producer", "Docker Container")
-        }
-        Deployment_Node(worker_node_2, "Worker Node 2", "Virtual Machine") {
-            Container(portfolio_service_pod, "Portfolio Service", "Docker Container")
             Container(price_stream_consumer_pod, "Price Stream Consumer", "Docker Container")
             Container(balance_consumer_pod, "Balance Consumer", "Docker Container")
         }
+        Deployment_Node(worker_node_2, "Worker Node 2", "Virtual Machine") {
+            Container(celery_worker_pod, "Celery Worker", "Docker Container", "Runs optimization, trading, and reconciliation logic")
+            Container(celery_beat_pod, "Celery Beat", "Docker Container", "Schedules periodic tasks")
+            Container(order_gateway_pod, "Order Gateway", "Docker Container")
+            Container(exchange_observer_pod, "Exchange Observer", "Docker Container")
+        }
         Deployment_Node(worker_node_3, "Worker Node 3", "Virtual Machine") {
-            Container(celery_worker_pod, "Celery Worker", "Docker Container")
-            Container(celery_beat_pod, "Celery Beat", "Docker Container")
             Container(redis_pod, "Redis", "Docker Container")
+            ' Observability stack can be here
         }
     }
 
-    Deployment_Node(rds, "Managed Database Service", "e.g., Amazon RDS for PostgreSQL") {
-        Container(db_instance, "Database", "PostgreSQL")
-    }
-
-    Deployment_Node(s3, "Object Storage Service", "e.g., Amazon S3") {
-        Container(model_artifacts, "Model Artifacts", "Stored Files")
+    Deployment_Node(rds, "Managed Database Service", "e.g., Amazon RDS for MariaDB") {
+        Container(db_instance, "Database", "MariaDB")
     }
 }
 
 System_Ext(hyperliquid, "HyperLiquid Exchange")
 System_Ext(uptime_robot, "UptimeRobot")
 
-Rel(inference_service_pod, model_artifacts, "Reads model from", "S3 API")
 Rel(price_stream_producer_pod, hyperliquid, "WebSocket connection", "WSS")
-Rel(celery_worker_pod, hyperliquid, "REST API calls", "HTTPS")
+Rel(celery_worker_pod, hyperliquid, "REST API calls for historical data", "HTTPS")
+Rel(order_gateway_pod, hyperliquid, "REST API calls for order execution", "HTTPS")
+Rel(exchange_observer_pod, hyperliquid, "REST API calls for position monitoring", "HTTPS")
 Rel(k8s_cluster, rds, "Database connections", "TCP/IP")
 Rel(k8s_cluster, uptime_robot, "Sends health checks to", "HTTPS")
 

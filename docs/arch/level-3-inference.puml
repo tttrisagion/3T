@@ -1,31 +1,38 @@
-@startuml Inference Service Components
+@startuml Parameter Optimization Engine Components
+
 !include <C4/C4_Component.puml>
 
 LAYOUT_WITH_LEGEND()
 LAYOUT_TOP_DOWN()
 
-title Component Diagram for Inference Service
+title Component Diagram for Parameter Optimization Engine
 
-Container_Boundary(inference_service, "Inference Service") {
-    Component(nginx, "Nginx Reverse Proxy", "Nginx", "Terminates HTTPS, load balances requests across workers.")
-    Component(gunicorn, "Gunicorn WSGI Server", "Gunicorn", "Manages a pool of Python worker processes for concurrency.")
-    Component(flask_app, "Flask Web App", "Flask", "Provides the /predict API endpoint and request handling.")
-    Component(controller, "Prediction Controller", "Python Class", "Validates input features and orchestrates the prediction flow.")
-    Component(loader, "Model Loader", "Python Class", "Loads the serialized AutoGluon model from storage at startup.")
-    Component(inference_component, "Inference Component", "Python Class, AutoGluon", "Wraps the TabularPredictor and executes the predict() method.")
-    
-    Rel(nginx, gunicorn, "Forwards requests to")
-    Rel(gunicorn, flask_app, "Invokes")
-    Rel(flask_app, controller, "Routes /predict requests to")
-    Rel(controller, inference_component, "Calls predict method with features")
-    Rel(loader, inference_component, "Provides loaded model to")
+Container_Boundary(celery_worker, "Celery Worker") {
+    Component(optimization_engine, "Optimization Engine", "Python/Celery Task", "Orchestrates the optimization process, running continuous, parallel simulations of trading strategies.")
+    Component(policy_generator, "Policy Generator", "Python Module", "Generates candidate policies (parameter sets) by applying stochastic perturbations to a base configuration.")
+    Component(virtual_simulator, "Virtual Simulator", "Python Module", "Simulates trading using a candidate policy against live market data streams.")
+    Component(profit_assessor, "Profitability Assessor", "Python Module", "Evaluates the profit-and-loss of a simulation and applies an 'accept-if-profitable' hill-climbing rule.")
+    Component(best_policy_propagator, "Best Policy Propagator", "Python Module", "Propagates the most profitable discovered parameters for use in live trading.")
+
+    Rel(optimization_engine, policy_generator, "Uses to generate candidate policies")
+    Rel(optimization_engine, virtual_simulator, "Uses to test policies")
+    Rel(virtual_simulator, profit_assessor, "Sends simulation results to")
+    Rel(profit_assessor, best_policy_propagator, "Notifies of new best policy")
 }
 
-System_Ext(strategy_runner, "Strategy Runner", "Requests predictions.")
-System_Ext(model_storage, "Model Artifact Store", "e.g., S3 Bucket or Mounted Volume. Stores the trained model.tar.gz file.")
+ContainerDb_Ext(redis, "Redis", "Provides live market data streams for simulations and stores the best discovered parameters.")
+Component_Ext(trade_eval_engine, "Trade Evaluation Engine", "Python/Celery", "The consumer of the optimized parameters.")
 
-Rel(strategy_runner, nginx, "Sends prediction request", "JSON/HTTPS")
-Rel(inference_component, strategy_runner, "Returns prediction", "JSON/HTTPS")
-Rel(loader, model_storage, "Loads model from", "File I/O")
+Rel(virtual_simulator, redis, "Consumes live market data from", "Redis Streams")
+Rel(best_policy_propagator, redis, "Writes best parameters to", "Redis KV Store")
+Rel(trade_eval_engine, redis, "Reads best parameters from", "Redis KV Store")
+
+note right of optimization_engine
+  This engine is the direct replacement
+  for the previous ML-based
+  prediction model. It favors
+  continuous, exploratory adaptation
+  over retrospective prediction.
+end note
 
 @enduml

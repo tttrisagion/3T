@@ -1,4 +1,5 @@
 @startuml trisagion_system_context
+
 !include <C4/C4_Context.puml>
 
 LAYOUT_WITH_LEGEND()
@@ -7,7 +8,7 @@ LAYOUT_TOP_DOWN()
 title System Context Diagram for Trisagion Algorithmic Trading System
 
 Person(risk_manager, "Risk Manager", "Oversees portfolio risk and performance. Receives alerts and reports.")
-Person(quant, "Data Scientist / Quant Analyst", "Develops, trains, and deploys predictive models.")
+Person(quant, "Data Scientist / Quant Analyst", "Develops and refines trading strategies and the optimization engine.")
 Person(developer, "Developer", "Develops and maintains trading system using make test workflow with automated quality gates.")
 Person(ops_team, "Operations Team", "Monitors system health and manages uptime.")
 
@@ -16,11 +17,11 @@ System_Ext(uptime_robot, "UptimeRobot", "External 3rd-party monitoring and alert
 System_Ext(github_repo, "GitHub Repository", "Source code with automated CI/CD: pre-commit hooks, GitHub Actions running make test for quality gates.")
 
 System_Boundary(c1, "3T (Tactical Trend Trader)") {
-    System(trisagion, "Trisagion", "A proof-of-concept algorithmic trading system that uses ML-based predictions to manage a live portfolio.")
+    System(trisagion, "Trisagion", "An adaptive algorithmic trading system that uses real-time parameter optimization to manage a live portfolio.")
 }
 
 Rel(risk_manager, trisagion, "Uses", "Views performance and manages overall strategy")
-Rel(quant, trisagion, "Manages Models for", "Deploys new AutoGluon models and analyzes performance")
+Rel(quant, trisagion, "Develops Strategies for", "Analyzes performance and tunes the optimization engine")
 Rel(developer, github_repo, "Commits Code to", "Pre-commit hooks run make test for quality assurance")
 Rel(ops_team, uptime_robot, "Receives Alerts from", "Responds to system outages and performance degradation")
 

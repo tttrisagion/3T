@@ -5,3 +5,4 @@ secrets.yml
 tmp
 database/migrations/*
 3T-observer.json
+.DS_Store

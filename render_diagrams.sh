@@ -34,30 +34,24 @@ for puml_file in *.puml; do
         total_count=$((total_count + 1))
         
         # Render with Docker (suppress error output but continue processing)
-        if docker run --rm -v "$ARCH_DIR:/work" -w /work plantuml/plantuml:latest -tpng "$puml_file" 2>/dev/null; then
+        if docker run --rm -v "$ARCH_DIR:/work" -w /work plantuml/plantuml:latest -tpng "$puml_file"; then
             
-            # Get the expected PNG name (based on @startuml title or filename)
-            diagram_title=$(grep -m1 "^@startuml" "$puml_file" | sed 's/@startuml[[:space:]]*//' | tr -d '\r')
-            
-            # Determine the generated PNG filename
-            if [[ -n "$diagram_title" ]]; then
-                generated_png="${diagram_title}.png"
-            else
-                # If no title, PlantUML uses the .puml filename
-                generated_png="${puml_file%.puml}.png"
-            fi
-            
-            # Rename the PNG to match the original puml filename if needed
+            # PlantUML uses the puml filename for the output PNG
             expected_png="${puml_file%.puml}.png"
-            if [[ "$generated_png" != "$expected_png" ]] && [[ -f "$generated_png" ]]; then
-                mv "$generated_png" "$expected_png"
-            fi
             
             if [[ -f "$expected_png" ]]; then
                 echo "  ✓ Generated $expected_png"
                 success_count=$((success_count + 1))
             else
-                echo "  ✗ Failed to generate PNG for $puml_file"
+                # Check if a file with the title name was created instead
+                diagram_title=$(grep -m1 "^@startuml" "$puml_file" | sed 's/@startuml[[:space:]]*//' | tr -d '\r')
+                if [[ -n "$diagram_title" ]] && [[ -f "${diagram_title}.png" ]]; then
+                    mv "${diagram_title}.png" "$expected_png"
+                    echo "  ✓ Generated $expected_png (renamed from ${diagram_title}.png)"
+                    success_count=$((success_count + 1))
+                else
+                    echo "  ✗ Failed to generate PNG for $puml_file"
+                fi
             fi
         else
             echo "  ✗ Docker rendering failed for $puml_file"
