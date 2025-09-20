@@ -33,6 +33,7 @@ services:
     depends_on:
       - redis
       - mariadb
+      - otel-collector
     restart: unless-stopped
 
   celery_beat:
@@ -57,6 +58,7 @@ services:
     depends_on:
       - redis
       - mariadb
+      - otel-collector
     restart: unless-stopped
 
   balance_consumer:
@@ -76,6 +78,7 @@ services:
     depends_on:
       - redis
       - celery_worker
+      - otel-collector
     restart: unless-stopped
 
   take-profit:
@@ -95,6 +98,7 @@ services:
     depends_on:
       - redis
       - mariadb
+      - otel-collector
     restart: unless-stopped
 
   price_stream_producer:
