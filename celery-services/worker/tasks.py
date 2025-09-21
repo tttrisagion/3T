@@ -498,14 +498,28 @@ def create_run(
         int: The ID of the newly created run.
     """
     with tracer.start_as_current_span("create_run_task") as span:
+        # Record input parameters as span attributes for observability
         span.set_attribute("task.name", "create_run")
+        span.set_attribute("run.start_balance", start_balance)
+        span.set_attribute("run.max_duration", max_duration)
+        if symbol:
+            span.set_attribute("run.symbol", symbol)
+        if ann_params:
+            span.set_attribute("run.ann_params", ann_params)
+        if controller_seed:
+            span.set_attribute("run.controller_seed", controller_seed)
+        if pid:
+            span.set_attribute("run.pid", pid)
+        if host:
+            span.set_attribute("run.host", host)
+
         db_cnx = None
         try:
             db_cnx = get_db_connection()
             cursor = db_cnx.cursor()
             query = """
-                INSERT INTO runs (start_balance, max_duration, symbol, ann_params, controller_seed, pid, host )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                INSERT INTO runs (start_balance, max_duration, symbol, ann_params, controller_seed, pid, host)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
             """
             cursor.execute(
                 query,
@@ -528,6 +542,8 @@ def create_run(
                 db_cnx.rollback()
             span.set_attribute("error", True)
             span.record_exception(e)
+            # Re-raise the exception to ensure the task is marked as failed
+            raise
         finally:
             if db_cnx and db_cnx.is_connected():
                 cursor.close()
