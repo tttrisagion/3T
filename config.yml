@@ -106,3 +106,7 @@ take_profit:
 health_monitor:
   polling_interval: 0.5
   polling_threshold: 90.0
+
+observability:
+  # Sampling rate for noisy tasks. 1.0 = 100%, 0.001 = 0.1%
+  sampling_rate: 1.0
