@@ -1,6 +1,7 @@
 services:
   redis:
     image: redis:7.2-alpine
+    command: redis-server --maxclients 50000
     ports:
       - "6379:6379"
     restart: unless-stopped
@@ -9,7 +10,7 @@ services:
     build:
       context: .
       dockerfile: celery-services/Dockerfile
-    command: celery -A worker.tasks worker -P eventlet --loglevel=info --autoscale=600,10
+    command: celery -A worker.tasks worker -P eventlet --loglevel=info --autoscale=600,300
     volumes:
       - ./celery-services/worker:/app/worker
       - ./shared:/app/shared
