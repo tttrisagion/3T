@@ -1,4 +1,5 @@
 import ctypes
+import json
 import os
 import time
 from datetime import UTC, datetime
@@ -469,3 +470,437 @@ def calculate_permutation_entropy(data, order=3, delay=1, iterations=1000):
             span.record_exception(e)
             print(f"Error in calculate_permutation_entropy task: {e}")
             return {"error": str(e), "result": None}
+
+
+@app.task(name="worker.tasks.create_run")
+def create_run(
+    start_balance,
+    max_duration,
+    symbol=None,
+    ann_params=None,
+    controller_seed=None,
+    pid=None,
+    host=None,
+    height=None,
+):
+    """
+    Creates a new run in the database and returns the run ID.
+
+    Args:
+        start_balance (float): The starting balance for the run.
+        max_duration (int): The maximum duration of the run in seconds.
+        symbol (str, optional): The trading symbol.
+        ann_params (str, optional): The ANN parameters.
+        controller_seed (float, optional): The controller seed.
+        pid (int, optional): The process ID.
+        host (str, optional): The host name.
+        height (int, optional): The height.
+
+    Returns:
+        int: The ID of the newly created run.
+    """
+    with tracer.start_as_current_span("create_run_task") as span:
+        span.set_attribute("task.name", "create_run")
+        db_cnx = None
+        try:
+            db_cnx = get_db_connection()
+            cursor = db_cnx.cursor()
+            query = """
+                INSERT INTO runs (start_balance, max_duration, symbol, ann_params, controller_seed, pid, host, height)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            """
+            cursor.execute(
+                query,
+                (
+                    start_balance,
+                    max_duration,
+                    symbol,
+                    ann_params,
+                    controller_seed,
+                    pid,
+                    host,
+                    height,
+                ),
+            )
+            run_id = cursor.lastrowid
+            db_cnx.commit()
+            span.set_attribute("run_id", run_id)
+            return run_id
+        except Exception as e:
+            if db_cnx:
+                db_cnx.rollback()
+            span.set_attribute("error", True)
+            span.record_exception(e)
+        finally:
+            if db_cnx and db_cnx.is_connected():
+                cursor.close()
+                db_cnx.close()
+
+
+@app.task(name="worker.tasks.update_run_position")
+def update_run_position(run_id, pos):
+    """
+    Updates the position direction for a given run.
+
+    Args:
+        run_id (int): The ID of the run to update.
+        pos (int): The new position direction.
+    """
+    with tracer.start_as_current_span("update_run_position_task") as span:
+        span.set_attribute("task.name", "update_run_position")
+        span.set_attribute("run_id", run_id)
+        db_cnx = None
+        try:
+            db_cnx = get_db_connection()
+            cursor = db_cnx.cursor()
+            query = "UPDATE runs SET position_direction=%s WHERE id=%s"
+            cursor.execute(query, (pos, run_id))
+            db_cnx.commit()
+            span.set_attribute("position_direction", pos)
+            return True
+        except Exception as e:
+            if db_cnx:
+                db_cnx.rollback()
+            span.set_attribute("error", True)
+            span.record_exception(e)
+            print(f"Error in update_run_position task: {e}")
+            raise
+        finally:
+            if db_cnx and db_cnx.is_connected():
+                cursor.close()
+                db_cnx.close()
+
+
+@app.task(name="worker.tasks.update_pnl")
+def update_pnl(run_id, pnl):
+    """
+    Updates the live PNL for a given run.
+
+    Args:
+        run_id (int): The ID of the run to update.
+        pnl (float): The new live PNL value.
+    """
+    with tracer.start_as_current_span("update_pnl_task") as span:
+        span.set_attribute("task.name", "update_pnl")
+        span.set_attribute("run_id", run_id)
+        db_cnx = None
+        try:
+            db_cnx = get_db_connection()
+            cursor = db_cnx.cursor()
+            query = "UPDATE runs SET live_pnl=%s WHERE id=%s"
+            cursor.execute(query, (pnl, run_id))
+            db_cnx.commit()
+            span.set_attribute("live_pnl", pnl)
+            return True
+        except Exception as e:
+            if db_cnx:
+                db_cnx.rollback()
+            span.set_attribute("error", True)
+            span.record_exception(e)
+            print(f"Error in update_pnl task: {e}")
+            raise
+        finally:
+            if db_cnx and db_cnx.is_connected():
+                cursor.close()
+                db_cnx.close()
+
+
+@app.task(name="worker.tasks.end_run")
+def end_run(run_id, balance):
+    """
+    Ends a run by setting its end balance and end time.
+
+    Args:
+        run_id (int): The ID of the run to update.
+        balance (float): The ending balance for the run.
+    """
+    with tracer.start_as_current_span("end_run_task") as span:
+        span.set_attribute("task.name", "end_run")
+        span.set_attribute("run_id", run_id)
+        db_cnx = None
+        try:
+            db_cnx = get_db_connection()
+            cursor = db_cnx.cursor()
+            query = "UPDATE runs SET end_balance=%s, end_time=NOW() WHERE id=%s"
+            cursor.execute(query, (balance, run_id))
+            db_cnx.commit()
+            span.set_attribute("end_balance", balance)
+            return True
+        except Exception as e:
+            if db_cnx:
+                db_cnx.rollback()
+            span.set_attribute("error", True)
+            span.record_exception(e)
+            print(f"Error in end_run task: {e}")
+            raise
+        finally:
+            if db_cnx and db_cnx.is_connected():
+                cursor.close()
+                db_cnx.close()
+
+
+@app.task(name="worker.tasks.get_exit_status")
+def get_exit_status(run_id):
+    """
+    Retrieves the exit status for a given run.
+
+    Args:
+        run_id (int): The ID of the run to check.
+
+    Returns:
+        bool: The value of the exit_run flag.
+    """
+    with tracer.start_as_current_span("get_exit_status_task") as span:
+        span.set_attribute("task.name", "get_exit_status")
+        span.set_attribute("run_id", run_id)
+        db_cnx = None
+        try:
+            db_cnx = get_db_connection()
+            cursor = db_cnx.cursor()
+            query = "SELECT exit_run FROM runs WHERE id = %s"
+            cursor.execute(query, (run_id,))
+            row = cursor.fetchone()
+            should_exit = bool(row[0]) if row else False
+            span.set_attribute("exit_run", should_exit)
+            return should_exit
+        except Exception as e:
+            span.set_attribute("error", True)
+            span.record_exception(e)
+            print(f"Error in get_exit_status task: {e}")
+            raise
+        finally:
+            if db_cnx and db_cnx.is_connected():
+                cursor.close()
+                db_cnx.close()
+
+
+@app.task(name="worker.tasks.get_active_run_count")
+def get_active_run_count(symbol):
+    """
+    Counts the number of active runs for a given symbol.
+
+    Args:
+        symbol (str): The trading symbol to count active runs for.
+
+    Returns:
+        int: The number of active runs.
+    """
+    with tracer.start_as_current_span("get_active_run_count_task") as span:
+        span.set_attribute("task.name", "get_active_run_count")
+        span.set_attribute("symbol", symbol)
+        db_cnx = None
+        try:
+            db_cnx = get_db_connection()
+            cursor = db_cnx.cursor()
+            query = "SELECT count(*) FROM runs WHERE exit_run=0 AND end_time IS NULL AND symbol=%s"
+            cursor.execute(query, (symbol,))
+            count = cursor.fetchone()[0]
+            span.set_attribute("active_runs", count)
+            return count
+        except Exception as e:
+            span.set_attribute("error", True)
+            span.record_exception(e)
+            print(f"Error in get_active_run_count task: {e}")
+            raise
+        finally:
+            if db_cnx and db_cnx.is_connected():
+                cursor.close()
+                db_cnx.close()
+
+
+def _calculate_weight_from_data(results):
+    """Processes raw market data to calculate an average weight without pandas."""
+    if not results:
+        return 0
+
+    close_prices = []
+    for row in results:
+        try:
+            close_prices.append(float(row["close_price"]))
+        except (ValueError, TypeError):
+            continue
+
+    if len(close_prices) < 2:
+        return 0
+
+    mean_price = sum(close_prices) / len(close_prices)
+    threshold = (0.01 / 100) * mean_price
+
+    weights = []
+    for i in range(1, len(close_prices)):
+        diff = close_prices[i] - close_prices[i - 1]
+        if diff > threshold:
+            weights.append(1)
+        elif diff < -threshold:
+            weights.append(-1)
+        else:
+            weights.append(0)
+
+    sum_weights = sum(weights)
+    if not weights:
+        return 0
+
+    avg_weights = sum_weights / len(weights)
+
+    if sum_weights:
+        return avg_weights
+    else:
+        return 0
+
+
+@app.task(name="worker.tasks.get_market_weight")
+def get_market_weight(symbol):
+    """
+    Fetches market data for a symbol, calculates a weight, and caches the result.
+
+    Args:
+        symbol (str): The trading symbol.
+
+    Returns:
+        float: The calculated average weight.
+    """
+    with tracer.start_as_current_span("get_market_weight_task") as span:
+        span.set_attribute("task.name", "get_market_weight")
+        span.set_attribute("symbol", symbol)
+        db_cnx = None
+
+        try:
+            with get_redis_connection() as redis_cnx:
+                current_minute = int(time.time() / 60)
+                cache_key = (
+                    f"market_weight:{symbol}:{current_minute}"  # Renamed cache key
+                )
+                span.set_attribute("cache.key", cache_key)
+
+                cached_data = redis_cnx.get(cache_key)
+                if cached_data:
+                    span.add_event("Cache hit")
+                    return float(json.loads(cached_data))
+
+                span.add_event("Cache miss")
+                db_cnx = get_db_connection()
+                cursor = db_cnx.cursor(dictionary=True)
+                query = """
+                    SELECT from_unixtime(timestamp/1000) as 'timestamp', close as 'close_price'
+                    FROM market_data
+                    WHERE timeframe='1m' AND symbol=%s  AND timestamp >= (unix_timestamp() - 1800) * 1000
+                    ORDER BY timestamp
+                """
+                cursor.execute(query, (symbol,))
+                raw_data = cursor.fetchall()
+
+                # Process the raw data to get the final weight
+                final_weight = _calculate_weight_from_data(raw_data)
+                span.set_attribute("calculated_weight", final_weight)
+
+                # Store the final float value in cache
+                redis_cnx.set(cache_key, json.dumps(final_weight), ex=60)
+                span.add_event("Stored final weight in cache")
+
+                return final_weight
+
+        except Exception as e:
+            span.set_attribute("error", True)
+            span.record_exception(e)
+            print(f"Error in get_market_weight task: {e}")
+            raise
+        finally:
+            if db_cnx and db_cnx.is_connected():
+                cursor.close()
+                db_cnx.close()
+
+
+@app.task(name="worker.tasks.get_max_run_height")
+def get_max_run_height():
+    """
+    Retrieves the maximum height from the runs table.
+
+    Returns:
+        int: The maximum height value.
+    """
+    with tracer.start_as_current_span("get_max_run_height_task") as span:
+        span.set_attribute("task.name", "get_max_run_height")
+        db_cnx = None
+        try:
+            db_cnx = get_db_connection()
+            cursor = db_cnx.cursor()
+            query = "SELECT max(height) FROM runs"
+            cursor.execute(query)
+            row = cursor.fetchone()
+            max_height = row[0] if row and row[0] is not None else 0
+            span.set_attribute("max_height", max_height)
+            return max_height
+        except Exception as e:
+            span.set_attribute("error", True)
+            span.record_exception(e)
+            print(f"Error in get_max_run_height task: {e}")
+            raise
+        finally:
+            if db_cnx and db_cnx.is_connected():
+                cursor.close()
+                db_cnx.close()
+
+
+@app.task(name="worker.tasks.set_exit_for_runs_by_height")
+def set_exit_for_runs_by_height(height):
+    """
+    Sets the exit_run flag for all runs at a specific height.
+
+    Args:
+        height (int): The height of the runs to exit.
+    """
+    with tracer.start_as_current_span("set_exit_for_runs_by_height_task") as span:
+        span.set_attribute("task.name", "set_exit_for_runs_by_height")
+        span.set_attribute("height", height)
+        db_cnx = None
+        try:
+            db_cnx = get_db_connection()
+            cursor = db_cnx.cursor()
+            query = "UPDATE runs SET exit_run = 1 WHERE height = %s"
+            cursor.execute(query, (height,))
+            db_cnx.commit()
+            span.add_event(
+                f"Exited runs for height {height}. Rows affected: {cursor.rowcount}"
+            )
+            return cursor.rowcount
+        except Exception as e:
+            if db_cnx:
+                db_cnx.rollback()
+            span.set_attribute("error", True)
+            span.record_exception(e)
+            print(f"Error in set_exit_for_runs_by_height task: {e}")
+            raise
+        finally:
+            if db_cnx and db_cnx.is_connected():
+                cursor.close()
+                db_cnx.close()
+
+
+@app.task(name="worker.tasks.get_all_product_symbols")
+def get_all_product_symbols():
+    """
+    Retrieves a list of all symbols from the products table.
+
+    Returns:
+        list: A list of symbol strings.
+    """
+    with tracer.start_as_current_span("get_all_product_symbols_task") as span:
+        span.set_attribute("task.name", "get_all_product_symbols")
+        db_cnx = None
+        try:
+            db_cnx = get_db_connection()
+            cursor = db_cnx.cursor()
+            query = "SELECT symbol FROM products"
+            cursor.execute(query)
+            symbols = [item[0] for item in cursor.fetchall()]
+            span.set_attribute("symbol.count", len(symbols))
+            return symbols
+        except Exception as e:
+            span.set_attribute("error", True)
+            span.record_exception(e)
+            print(f"Error in get_all_product_symbols task: {e}")
+            raise
+        finally:
+            if db_cnx and db_cnx.is_connected():
+                cursor.close()
+                db_cnx.close()
