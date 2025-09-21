@@ -481,7 +481,6 @@ def create_run(
     controller_seed=None,
     pid=None,
     host=None,
-    height=None,
 ):
     """
     Creates a new run in the database and returns the run ID.
@@ -494,7 +493,6 @@ def create_run(
         controller_seed (float, optional): The controller seed.
         pid (int, optional): The process ID.
         host (str, optional): The host name.
-        height (int, optional): The height.
 
     Returns:
         int: The ID of the newly created run.
@@ -506,7 +504,7 @@ def create_run(
             db_cnx = get_db_connection()
             cursor = db_cnx.cursor()
             query = """
-                INSERT INTO runs (start_balance, max_duration, symbol, ann_params, controller_seed, pid, host, height)
+                INSERT INTO runs (start_balance, max_duration, symbol, ann_params, controller_seed, pid, host )
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             """
             cursor.execute(
@@ -519,7 +517,6 @@ def create_run(
                     controller_seed,
                     pid,
                     host,
-                    height,
                 ),
             )
             run_id = cursor.lastrowid
