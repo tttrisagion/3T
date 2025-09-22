@@ -1,5 +1,4 @@
 import os
-import random
 
 from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
@@ -7,8 +6,6 @@ from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.sdk.trace.sampling import (
-    Decision,
-    ParentBased,
     Sampler,
     SamplingResult,
     TraceIdRatioBased,
@@ -21,18 +18,20 @@ from shared.config import config
 # --- Custom Sampler Definition ---
 
 
-class TaskSpecificSampler(Sampler):
+class DispatchingSampler(Sampler):
     """
-    A custom sampler that applies a specific sampling rate to a list of target tasks,
-    while sampling all other tasks. It ensures that errored traces for the target
-    tasks are always recorded.
+    Dispatches to one of two samplers based on the span name.
     """
 
-    def __init__(self, rate: float, target_tasks: list[str]):
-        self._rate = rate
-        self._target_tasks = set(target_tasks)
-        # Use ParentBased with a default of "always on" for non-target tasks
-        self._default_sampler = ParentBased(root=TraceIdRatioBased(1.0))
+    def __init__(
+        self,
+        target_tasks: set[str],
+        low_rate_sampler: Sampler,
+        default_sampler: Sampler,
+    ):
+        self._target_tasks = target_tasks
+        self._low_rate_sampler = low_rate_sampler
+        self._default_sampler = default_sampler
 
     def should_sample(
         self,
@@ -44,26 +43,16 @@ class TaskSpecificSampler(Sampler):
         links=None,
         trace_state=None,
     ) -> SamplingResult:
-        # If the span is one of the noisy tasks, apply our custom logic
         if name in self._target_tasks:
-            # The OpenTelemetry SDK is designed to record spans with an ERROR status
-            # regardless of the sampler's decision. So, we can simply apply
-            # the sampling rate here. If an exception occurs later and the
-            # span status is set to ERROR, it will be recorded.
-            if random.random() < self._rate:
-                return SamplingResult(
-                    Decision.RECORD_AND_SAMPLE, attributes, trace_state
-                )
-            else:
-                return SamplingResult(Decision.DROP, attributes, trace_state)
-
-        # For all other tasks, use the default parent-based sampling.
+            return self._low_rate_sampler.should_sample(
+                parent_context, trace_id, name, kind, attributes, links, trace_state
+            )
         return self._default_sampler.should_sample(
             parent_context, trace_id, name, kind, attributes, links, trace_state
         )
 
     def get_description(self) -> str:
-        return f"TaskSpecificSampler{{rate={self._rate}, targets={self._target_tasks}}}"
+        return "DispatchingSampler"
 
 
 # --- Global Tracer Setup ---
@@ -82,18 +71,22 @@ def setup_telemetry(service_name: str):
 
     resource = Resource.create(attributes={"service.name": service_name})
 
-    # Get sampling rate from config
+    # Get sampling rate from config for the noisy tasks
     sampling_rate = config.get("observability.sampling_rate", 1.0)
 
-    # Define the noisy tasks that should be sampled
-    noisy_tasks = [
+    # Define the noisy tasks that should be sampled at a lower rate
+    noisy_tasks = {
         "worker.tasks.get_market_weight",
         "worker.tasks.update_pnl",
         "worker.tasks.get_exit_status",
-    ]
+    }
 
-    # Configure the custom sampler
-    sampler = TaskSpecificSampler(rate=sampling_rate, target_tasks=noisy_tasks)
+    # Configure the dispatching sampler
+    sampler = DispatchingSampler(
+        target_tasks=noisy_tasks,
+        low_rate_sampler=TraceIdRatioBased(sampling_rate),
+        default_sampler=TraceIdRatioBased(1.0),  # Sample all other traces
+    )
 
     provider = TracerProvider(sampler=sampler, resource=resource)
 
