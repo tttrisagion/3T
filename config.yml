@@ -109,4 +109,4 @@ health_monitor:
 
 observability:
   # Sampling rate for noisy tasks. 1.0 = 100%, 0.001 = 0.1%
-  sampling_rate: 1.0
+  sampling_rate: 0.000001

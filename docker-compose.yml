@@ -10,7 +10,8 @@ services:
     build:
       context: .
       dockerfile: celery-services/Dockerfile
-    command: celery -A worker.tasks worker -P eventlet --loglevel=info --autoscale=600,300
+    command: celery -A worker.tasks worker --loglevel=info --concurrency=16
+    cpus: 16
     volumes:
       - ./celery-services/worker:/app/worker
       - ./shared:/app/shared
@@ -199,7 +200,7 @@ services:
     image: docker.elastic.co/elasticsearch/elasticsearch:7.17.15
     environment:
       - discovery.type=single-node
-      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - "ES_JAVA_OPTS=-Xms2g -Xmx2g"
       - xpack.security.enabled=false
     volumes:
       - elasticsearch_data:/usr/share/elasticsearch/data
