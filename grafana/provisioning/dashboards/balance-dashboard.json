@@ -994,7 +994,13 @@
           ],
           "show": false
         },
-        "showHeader": true
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "age"
+          }
+        ]
       },
       "pluginVersion": "10.2.2",
       "targets": [
@@ -1007,7 +1013,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "select count(*) as 'total_runs',height,TIMESTAMPDIFF(SECOND, MIN(start_time), MAX(start_time)) / 3600 AS duration_hours from runs where not (height is null\nand exit_run = 1 ) group by 2;\n",
+          "rawSql": "select count(*) as 'total_runs',height,TIMESTAMPDIFF(SECOND, MIN(start_time), MAX(start_time)) / 3600 AS duration_hours, max(start_time) as 'age' from runs where not (height is null\nand exit_run = 1 ) group by 2;\n",
           "refId": "A",
           "sql": {
             "columns": [
@@ -1471,6 +1477,6 @@
   "timezone": "",
   "title": "3T Balance & Positions",
   "uid": "3t-balance-dashboard",
-  "version": 1,
+  "version": 2,
   "weekStart": ""
 }

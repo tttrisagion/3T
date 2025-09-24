@@ -198,7 +198,8 @@
                 "value": 0.1
               }
             ]
-          }
+          },
+          "unit": "currencyUSD"
         },
         "overrides": [
           {
@@ -329,7 +330,7 @@
           }
         }
       ],
-      "title": "Runs Health",
+      "title": "Runs Simulated P&L Health",
       "type": "timeseries"
     },
     {
@@ -695,6 +696,6 @@
   "timezone": "",
   "title": "3T Run Heath",
   "uid": "ecace1b2-f188-418d-9b67-e73ffade548b",
-  "version": 11,
+  "version": 1,
   "weekStart": ""
 }
