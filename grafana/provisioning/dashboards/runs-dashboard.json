@@ -17,7 +17,7 @@
   },
   "editable": true,
   "fiscalYearStartMonth": 0,
-  "graphTooltip": 0,
+  "graphTooltip": 1,
   "id": 3,
   "links": [],
   "liveNow": false,
@@ -151,7 +151,7 @@
           },
           "custom": {
             "axisBorderShow": false,
-            "axisCenteredZero": false,
+            "axisCenteredZero": true,
             "axisColorMode": "text",
             "axisLabel": "",
             "axisPlacement": "auto",
@@ -204,26 +204,52 @@
           {
             "matcher": {
               "id": "byName",
+              "options": "active"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "dark-yellow",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
               "options": "current"
             },
             "properties": [
               {
                 "id": "color",
                 "value": {
-                  "fixedColor": "dark-orange",
+                  "fixedColor": "#c4162a82",
                   "mode": "fixed"
                 }
-              },
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "historical"
+            },
+            "properties": [
               {
-                "id": "unit",
-                "value": "currencyUSD"
+                "id": "color",
+                "value": {
+                  "fixedColor": "#c4162a80",
+                  "mode": "fixed"
+                }
               }
             ]
           }
         ]
       },
       "gridPos": {
-        "h": 21,
+        "h": 14,
         "w": 17,
         "x": 0,
         "y": 3
@@ -250,9 +276,40 @@
           },
           "editorMode": "code",
           "format": "table",
+          "hide": false,
           "rawQuery": true,
-          "rawSql": "select start_time,live_pnl as 'current' from runs",
+          "rawSql": "select start_time,live_pnl as 'active' from runs where end_time is null and exit_run = 0",
           "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        },
+        {
+          "dataset": "`3t`",
+          "datasource": {
+            "type": "mysql",
+            "uid": "3T-MariaDB-Datasource"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "hide": false,
+          "rawQuery": true,
+          "rawSql": "select start_time,live_pnl as 'historical' from runs",
+          "refId": "B",
           "sql": {
             "columns": [
               {
@@ -371,7 +428,7 @@
         ]
       },
       "gridPos": {
-        "h": 21,
+        "h": 14,
         "w": 7,
         "x": 17,
         "y": 3
@@ -430,6 +487,198 @@
       ],
       "title": "Blocks",
       "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "mysql",
+        "uid": "3T-MariaDB-Datasource"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": true,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "points",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 2,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "line"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "yellow",
+                "value": null
+              },
+              {
+                "color": "#767676",
+                "value": 0
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "current"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "dark-orange",
+                  "mode": "fixed"
+                }
+              },
+              {
+                "id": "unit",
+                "value": "none"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "historical"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#c4162a87",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "active"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "dark-yellow",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 13,
+        "w": 17,
+        "x": 0,
+        "y": 17
+      },
+      "id": 4,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "dataset": "`3t`",
+          "datasource": {
+            "type": "mysql",
+            "uid": "3T-MariaDB-Datasource"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "select start_time,sum(position_direction) as 'active' from runs where position_direction != 0 and exit_run = 0 and end_time is null group by start_time",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        },
+        {
+          "dataset": "`3t`",
+          "datasource": {
+            "type": "mysql",
+            "uid": "3T-MariaDB-Datasource"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "hide": false,
+          "rawQuery": true,
+          "rawSql": "select start_time,sum(position_direction) as 'historical' from runs where position_direction != 0 group by start_time",
+          "refId": "B",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "Runs Position Direction",
+      "type": "timeseries"
     }
   ],
   "refresh": "",
@@ -439,13 +688,13 @@
     "list": []
   },
   "time": {
-    "from": "now-3h",
+    "from": "now-2d",
     "to": "now"
   },
   "timepicker": {},
   "timezone": "",
   "title": "3T Run Heath",
   "uid": "ecace1b2-f188-418d-9b67-e73ffade548b",
-  "version": 6,
+  "version": 11,
   "weekStart": ""
 }
