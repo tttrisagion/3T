@@ -6,3 +6,5 @@ app = Celery(
     backend="redis://redis:6379/0",
     include=["worker.tasks", "worker.trading_range"],
 )
+
+app.conf.update(result_expires=3600)

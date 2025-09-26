@@ -11,7 +11,7 @@ services:
       context: .
       dockerfile: celery-services/Dockerfile
     command: celery -A worker.tasks worker --loglevel=info --concurrency=16
-    cpus: 16
+    cpus: 12
     volumes:
       - ./celery-services/worker:/app/worker
       - ./shared:/app/shared
@@ -340,6 +340,18 @@ services:
 
 
 
+
+  node-exporter:
+    image: prom/node-exporter:v1.7.0
+    container_name: node_exporter
+    ports:
+      - "9100:9100"
+    command:
+      - '--path.rootfs=/host'
+    pid: host
+    restart: unless-stopped
+    volumes:
+      - '/:/host:ro'
 
 volumes:
   mariadb_data:

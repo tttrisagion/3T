@@ -51,12 +51,10 @@ if __name__ == "__main__":
     print("⚠️  Make sure services are running with 'make install' first!\n")
 
     # 1. Create a new run to have some data to work with
-    test_height = int(time.time())
     run_params = {
         "start_balance": 5000.0,
         "max_duration": 7200,
         "symbol": "BTC/USDC:USDC",  # Symbol for the test run
-        "height": test_height,
     }
     run_id = call_task("worker.tasks.create_run", kwargs=run_params)
 
@@ -70,10 +68,6 @@ if __name__ == "__main__":
     )
     if active_runs_before > 0:
         print(f"✅ Verified: Found {active_runs_before} active run(s).")
-
-    max_height = call_task("worker.tasks.get_max_run_height")
-    if max_height >= test_height:
-        print(f"✅ Verified: Max height {max_height} is correct.")
 
     # 3. Get all product symbols and loop through them
     all_symbols = call_task("worker.tasks.get_all_product_symbols")
@@ -102,22 +96,32 @@ if __name__ == "__main__":
                 call_task("worker.tasks.get_market_weight", args=[symbol])
 
     # 4. Exit the run we created at the start
-    rows_affected = call_task(
-        "worker.tasks.set_exit_for_runs_by_height", args=[test_height]
+    end_run_result = call_task(
+        "worker.tasks.end_run", args=[run_id, run_params["start_balance"]]
     )
-    if rows_affected > 0:
-        print(f"✅ Verified: {rows_affected} run(s) were marked for exit.")
+    if end_run_result:
+        print(f"✅ Verified: Run {run_id} was marked for exit.")
 
     # 5. Verify the run was exited
-    print(f"\n--- Verifying exit for height {test_height} ---")
-    active_runs_after = call_task(
-        "worker.tasks.get_active_run_count", args=[run_params["symbol"]]
-    )
-    if active_runs_after < active_runs_before:
+    print(f"\n--- Verifying exit for run {run_id} ---")
+    exit_status = call_task("worker.tasks.get_exit_status", args=[run_id])
+    if exit_status:
         print(
-            f"✅ Verified: Active run count decreased from {active_runs_before} to {active_runs_after}."
+            f"✅ Verified: Run {run_id} has been successfully marked with exit_run=True."
         )
     else:
-        print("❌ Verification failed: Active run count did not decrease.")
+        # This check is important. If end_run sets end_time, the run is considered inactive,
+        # so get_active_run_count should decrease.
+        active_runs_after = call_task(
+            "worker.tasks.get_active_run_count", args=[run_params["symbol"]]
+        )
+        if active_runs_after < active_runs_before:
+            print(
+                f"✅ Verified: Active run count decreased from {active_runs_before} to {active_runs_after}."
+            )
+        else:
+            print(
+                "❌ Verification failed: Run was not exited and active count did not decrease."
+            )
 
     print("\n\n🏁 Showcase completed!")

@@ -550,7 +550,7 @@ def create_run(
                 db_cnx.close()
 
 
-@app.task(name="worker.tasks.update_run_position")
+@app.task(name="worker.tasks.update_run_position", ignore_result=True)
 def update_run_position(run_id, pos):
     """
     Updates the position direction for a given run.
@@ -584,7 +584,7 @@ def update_run_position(run_id, pos):
                 db_cnx.close()
 
 
-@app.task(name="worker.tasks.update_pnl")
+@app.task(name="worker.tasks.update_pnl", ignore_result=True)
 def update_pnl(run_id, pnl):
     """
     Updates the live PNL for a given run.
