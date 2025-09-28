@@ -29,7 +29,7 @@ from shared.voms import VOMS
 
 # --- Constants ---
 NUM_CHILDREN = 100
-DECISION_SLEEP_SECONDS = 333
+DECISION_SLEEP_SECONDS = 60
 STARTING_BALANCE = 10000
 LEVERAGE = 10
 MARGIN_THRESHOLD = 70
@@ -104,6 +104,7 @@ def get_price_from_shm(symbol: str):
 
 # --- Child Process Logic ---
 def child_task():
+    POSITION_SIZE = 20  # Fixed dollar amount for each trade
     start_time = time.time()
     max_duration = random.randint(300, 259200)  # 5 minutes to 72 hours
 
@@ -230,6 +231,7 @@ def child_task():
                         logging.info(
                             f"CHILD: Holding winning {'LONG' if is_currently_long else 'SHORT'} position. P&L: {metrics['unrealized_pnl']:.2f}"
                         )
+                        update_pnl(metrics["unrealized_pnl"])
                         continue
 
                     logging.info(
@@ -240,29 +242,38 @@ def child_task():
                     logging.info(
                         f"CHILD: Position is losing. Waiting and not trading. P&L: {metrics['unrealized_pnl']:.2f}"
                     )
+                    update_pnl(metrics["unrealized_pnl"])
                     continue
 
             # Execute trade: if no position, or if winning and coin flip agrees
+            # Calculate the quantity for a single trade unit based on fixed dollar amount
+            trade_quantity_unit = POSITION_SIZE / price
+
             if go_long:
-                trade_size = 1.0
-                logging.info(f"CHILD: Executing LONG trade. Size: {trade_size:.4f}")
-                voms.add_trade(trade_size)
+                logging.info(
+                    f"CHILD: Executing LONG trade. Quantity: {trade_quantity_unit:.8f} (${POSITION_SIZE})"
+                )
+                voms.add_trade(trade_quantity_unit)
             else:  # Go short
-                trade_size = -1.0
-                logging.info(f"CHILD: Executing SHORT trade. Size: {trade_size:.4f}")
-                voms.add_trade(trade_size)
+                logging.info(
+                    f"CHILD: Executing SHORT trade. Quantity: {-trade_quantity_unit:.8f} (${POSITION_SIZE})"
+                )
+                voms.add_trade(-trade_quantity_unit)
 
             # Update run state in DB
             final_metrics = voms.get_metrics()
             if final_metrics:
                 update_pnl(final_metrics["unrealized_pnl"])
                 final_pos_size = final_metrics.get("position_size", 0)
-                position_direction = (
-                    1 if final_pos_size > 0 else -1 if final_pos_size < 0 else 0
-                )
-                update_run_position(position_direction)
+
+                # Calculate position magnitude in integer units of POSITION_SIZE
+                position_magnitude = 0
+                if trade_quantity_unit > 0:
+                    position_magnitude = round(final_pos_size / trade_quantity_unit)
+
+                update_run_position(position_magnitude)
                 logging.info(
-                    f"CHILD: Position updated to {final_pos_size:.4f} ({position_direction}). P&L: {final_metrics['unrealized_pnl']:.2f}"
+                    f"CHILD: Position updated to {final_pos_size:.4f} ({position_magnitude}). P&L: {final_metrics['unrealized_pnl']:.2f}"
                 )
             else:
                 logging.info("CHILD: No metrics to update in DB yet.")

@@ -137,20 +137,42 @@ class PricePollProducer:
         print(f"Poll interval: {self.poll_interval} seconds")
         print(f"Batch size: {self.batch_size} symbols")
 
-        # Get all trading instruments
-        try:
-            print("Polling producer: Fetching instrument list from database...")
-            instruments = get_exchange_instruments()
-            symbols = [f"{inst}/USDC:USDC" for inst in instruments]
-            print(f"Monitoring {len(symbols)} symbols: {symbols}")
-        except Exception as e:
-            print(f"Polling producer: Failed to get instruments: {e}")
-            # Fallback to BTC if database fetch fails
-            symbols = ["BTC/USDC:USDC"]
-            print(f"Falling back to BTC only: {symbols}")
+        symbols = []
+        last_instrument_fetch_time = 0
+        INSTRUMENT_FETCH_INTERVAL = 300  # 5 minutes
 
         while True:
             try:
+                # Periodically refresh instrument list from DB
+                if not symbols or (
+                    time.time() - last_instrument_fetch_time > INSTRUMENT_FETCH_INTERVAL
+                ):
+                    try:
+                        print(
+                            "Polling producer: (Re)fetching instrument list from database..."
+                        )
+                        instruments = get_exchange_instruments()
+                        if instruments:
+                            symbols = [f"{inst}/USDC:USDC" for inst in instruments]
+                            print(f"Now monitoring {len(symbols)} symbols: {symbols}")
+                            last_instrument_fetch_time = time.time()
+                        else:
+                            print(
+                                "Polling producer: Received empty instrument list from database."
+                            )
+                    except Exception as e:
+                        print(
+                            f"Polling producer: Failed to get instruments: {e}. Will retry."
+                        )
+                        # If it fails, continue with the old list (or empty) and retry later
+
+                if not symbols:
+                    print(
+                        "Polling producer: No symbols to monitor. Waiting for instrument list from DB."
+                    )
+                    await asyncio.sleep(self.poll_interval)
+                    continue
+
                 # Get a fresh exchange instance to ensure proxy failover works
                 exchange = exchange_manager.get_exchange("hyperliquid")
 

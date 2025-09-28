@@ -1,4 +1,12 @@
 services:
+  mission-control:
+    build: ./mission-control
+    ports:
+      - "80:80"
+    volumes:
+      - ./config.yml:/usr/share/nginx/html/config.yml:ro
+      - ./docker-compose.yml:/usr/share/nginx/html/docker-compose.yml:ro
+
   redis:
     image: redis:7.2-alpine
     command: redis-server --maxclients 50000
