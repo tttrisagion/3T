@@ -447,7 +447,7 @@ def get_observer_state(symbol: str) -> tuple[float | None, str | None]:
 
             for asset_pos in asset_positions:
                 position_data = asset_pos.get("position", {})
-                if position_data.get("coin") == base_symbol:
+                if position_data.get("coin", "").upper() == base_symbol.upper():
                     return float(position_data.get("szi", 0)), None
 
             # If no position found, it's a flat position

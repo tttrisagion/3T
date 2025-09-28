@@ -338,7 +338,7 @@ def fetch_and_store_balance() -> float | None:
 
             if len(exchange_status["info"]["assetPositions"]) > 0:
                 for pos in exchange_status["info"]["assetPositions"]:
-                    symbol = pos["position"]["coin"] + "/USDC:USDC"
+                    symbol = pos["position"]["coin"].upper() + "/USDC:USDC"
                     if symbol in products:
                         query = "INSERT INTO positions (product_id, position_size, position_value, unrealized_pnl) VALUES (%s, %s, %s, %s)"
                         cursor.execute(

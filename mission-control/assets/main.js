@@ -136,7 +136,7 @@ async function loadAndRenderCompose() {
             const iconSrc = (iconSlug === 'default') 
                 ? 'assets/logo.svg' 
                 : `https://cdn.simpleicons.org/${iconSlug}/ff9900`;
-            const iconHTML = `<img src="${iconSrc}" alt="" width="16" height="16" style="vertical-align: middle; margin-right: 8px;" onerror="this.style.display='none'">`;
+            const iconHTML = `<img src="${iconSrc}" alt="" width="32" height="32" style="vertical-align: middle; margin-right: 8px;" onerror="this.style.display='none'">`;
             const finalNameHTML = `${iconHTML}${serviceName}`;
             if (nameCell.innerHTML !== finalNameHTML) nameCell.innerHTML = finalNameHTML;
             nameCell.className = 'service-name';
