@@ -8,11 +8,11 @@ from pathlib import Path
 import numpy as np
 import redis
 
-from shared.config import config
-
 # Add project root to sys.path to allow importing shared modules
 project_root = Path(__file__).resolve().parent.parent
 sys.path.append(str(project_root))
+
+from shared.config import config
 
 
 def get_redis_config():
