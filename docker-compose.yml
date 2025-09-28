@@ -4,6 +4,7 @@ services:
     ports:
       - "80:80"
     volumes:
+      - ./mission-control:/usr/share/nginx/html
       - ./config.yml:/usr/share/nginx/html/config.yml:ro
       - ./docker-compose.yml:/usr/share/nginx/html/docker-compose.yml:ro
 

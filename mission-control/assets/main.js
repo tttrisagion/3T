@@ -160,7 +160,10 @@ async function loadAndRenderCompose() {
             row.onclick = null;
             if (service.ports && WEB_SERVICES.includes(serviceName)) {
                 const hostPort = service.ports[0].split(':')[0];
-                const url = `http://${window.location.hostname}:${hostPort}`;
+                let url = `http://${window.location.hostname}:${hostPort}`;
+                if (serviceName === 'grafana') {
+                    url += '/dashboards';
+                }
                 row.classList.add('clickable-row');
                 row.onclick = () => window.open(url, '_blank');
             }
