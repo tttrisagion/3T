@@ -20,6 +20,12 @@
 
 Tactical Trend Trader (3T) is a sophisticated, service-oriented platform designed for automated trend trading. It leverages a robust architecture to analyze market data, execute trades, and provide real-time observability into its operations. Read the latest [draft whiepaper](https://trisagion.xyz/TTT.pdf) and the semi-out of date documentation microsite [here](https://trisagion.gitbook.io/trisagion-docs/).
 
+[![LOC][loc-badge]][loc-report]
+
+[loc-badge]: https://tokei.rs/b1/github/tttrisagion/3T
+[loc-report]: https://github.com/tttrisagion/3T
+
+
 ### 📖 Table of Contents
 
 - [Architecture](#architecture)
