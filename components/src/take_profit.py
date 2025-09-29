@@ -91,6 +91,33 @@ def trigger_take_profit(db_cnx):
         time.sleep(120 * i)
 
 
+def trigger_drawdown_reset(db_cnx):
+    """
+    Flags all active runs with null height to exit, allowing the strategy to reset.
+    This is triggered when the portfolio experiences a significant drawdown.
+    """
+    cursor = db_cnx.cursor()
+
+    # Set exit_run = 1 to signal the run to exit.
+    cursor.execute("UPDATE runs SET exit_run = 1 WHERE height IS NULL")
+    db_cnx.commit()
+    cursor.close()
+    print(
+        "DRAWDOWN RESET TRIGGERED: All active runs with null height have been flagged to exit.",
+        flush=True,
+    )
+
+    # Trigger the reconciliation task to flatten positions
+    for i in range(1, 4):
+        # Double check that there was no edge case / race condition causing imbalance
+        try:
+            app.send_task("worker.reconciliation_engine.reconcile_positions")
+            print("Successfully triggered reconciliation task.", flush=True)
+        except Exception as e:
+            print(f"Error triggering reconciliation task: {e}", flush=True)
+        time.sleep(120 * i)
+
+
 def listen_for_balance_updates():
     """
     Connects to the Redis Stream and processes balance updates to check for take-profit conditions.
@@ -171,6 +198,13 @@ def listen_for_balance_updates():
                                                 flush=True,
                                             )
                                             trigger_take_profit(db_cnx)
+                                            update_last_balance(db_cnx, current_balance)
+                                        elif profit_percentage < -threshold:
+                                            print(
+                                                f"DRAWDOWN: Threshold of -{threshold} reached, triggering reset!",
+                                                flush=True,
+                                            )
+                                            trigger_drawdown_reset(db_cnx)
                                             update_last_balance(db_cnx, current_balance)
 
                             redis_cnx.xack(stream_name, group_name, message_id)

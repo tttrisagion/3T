@@ -186,10 +186,26 @@ def child_task():
     def update_pnl(pnl: float):
         app.send_task("worker.tasks.update_pnl", args=[run_id, pnl])
 
+    def get_exit():
+        """Checks if the run has been flagged to exit."""
+        try:
+            result = app.send_task("worker.tasks.get_exit_status", args=[run_id])
+            return result.get(timeout=10)  # Using 10s timeout for responsiveness
+        except Exception as e:
+            logging.error(
+                f"CHILD: Could not get exit status for run {run_id}. Error: {e}"
+            )
+            return False  # Default to not exiting if check fails
+
     while True:
         try:
             if time.time() - start_time > max_duration:
                 logging.info("CHILD: Max duration reached. Exiting.")
+                break
+
+            # Check for external exit signal
+            if get_exit():
+                logging.info(f"CHILD: Exit signal received for run {run_id}. Exiting.")
                 break
 
             time.sleep(DECISION_SLEEP_SECONDS)
