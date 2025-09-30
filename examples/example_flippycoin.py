@@ -16,7 +16,6 @@ import time
 from multiprocessing import resource_tracker, shared_memory
 from pathlib import Path
 
-import mysql.connector
 import numpy as np
 from celery import Celery
 
@@ -28,7 +27,7 @@ from shared.config import config
 from shared.voms import VOMS
 
 # --- Constants ---
-NUM_CHILDREN = 200
+NUM_CHILDREN = 150
 DECISION_SLEEP_SECONDS = 60
 STARTING_BALANCE = 10000
 LEVERAGE = 10
@@ -43,32 +42,33 @@ logging.basicConfig(
 )
 
 
-# --- Database and SHM Functions ---
-def get_db_config():
-    """Constructs database configuration for direct connections."""
-    return {
-        "user": config.get("database.user"),
-        "password": config.get_secret("database.password"),
-        "host": "localhost",  # Connect to host machine from example script
-        "database": config.get("database.database"),
-    }
-
-
+# --- Symbol and SHM Functions ---
 def get_all_products():
-    """Fetches all products (symbol and leverage) from the database."""
-    products = []
+    """
+    Fetches product symbols from config.yml and assigns leverage based on a
+    static map, with a fallback to a default value.
+    """
+    leverage_map = {
+        "BTC/USDC:USDC": 40,
+        "ETH/USDC:USDC": 25,
+    }
+    default_leverage = 3
     try:
-        cnx = mysql.connector.connect(**get_db_config())
-        cursor = cnx.cursor(dictionary=True)
-        cursor.execute("SELECT symbol, max_leverage FROM products")
-        products = cursor.fetchall()
+        symbols = config.get("reconciliation_engine.symbols")
+        if not symbols:
+            logging.error(
+                "No symbols found in config.yml under reconciliation_engine.symbols"
+            )
+            return []
+
+        products = []
+        for s in symbols:
+            leverage = leverage_map.get(s, default_leverage)
+            products.append({"symbol": s, "max_leverage": leverage})
+        return products
     except Exception as e:
-        logging.error(f"Could not fetch products from DB: {e}")
-    finally:
-        if "cnx" in locals() and cnx.is_connected():
-            cursor.close()
-            cnx.close()
-    return products
+        logging.error(f"Could not fetch products from config: {e}")
+        return []
 
 
 def get_price_from_shm(symbol: str):
@@ -121,7 +121,7 @@ def child_task():
     # 1. Get all available products
     products = get_all_products()
     if not products:
-        logging.error("CHILD: No products found in database. Exiting.")
+        logging.error("CHILD: No products found in config. Exiting.")
         return
 
     # 2. Margin-based Symbol Selection
@@ -134,7 +134,7 @@ def child_task():
         try:
             # Check current margin allocation for this symbol
             result = app.send_task("worker.tasks.get_active_run_count", args=[symbol])
-            active_runs = result.get(timeout=10)
+            active_runs = result.get(timeout=DECISION_SLEEP_SECONDS)
 
             # Normalize run count by leverage
             margin_val = float(active_runs / leverage)
@@ -167,7 +167,7 @@ def child_task():
             "host": "flippycoin",
         }
         result = app.send_task("worker.tasks.create_run", kwargs=run_params)
-        run_id = result.get(timeout=10)
+        run_id = result.get(timeout=DECISION_SLEEP_SECONDS)
         logging.info(
             f"CHILD: Created run_id: {run_id} for symbol {selected_product['symbol']}"
         )
@@ -190,7 +190,9 @@ def child_task():
         """Checks if the run has been flagged to exit."""
         try:
             result = app.send_task("worker.tasks.get_exit_status", args=[run_id])
-            return result.get(timeout=10)  # Using 10s timeout for responsiveness
+            return result.get(
+                timeout=DECISION_SLEEP_SECONDS
+            )  # Using 10s timeout for responsiveness
         except Exception as e:
             logging.error(
                 f"CHILD: Could not get exit status for run {run_id}. Error: {e}"
@@ -314,7 +316,7 @@ if __name__ == "__main__":
 
     def get_height():
         result = parent_app.send_task("worker.tasks.get_max_run_height")
-        return result.get(timeout=10)
+        return result.get(timeout=DECISION_SLEEP_SECONDS)
 
     def exit_runs_by_height(height):
         parent_app.send_task("worker.tasks.set_exit_for_runs_by_height", args=[height])
