@@ -4,8 +4,20 @@ install:
 	docker compose up -d --build
 
 test:
-	python3 -m ruff check --fix || true
-	python3 -m ruff format
+	@cleanup() { \
+		if [ -f .tmp_config_created ]; then \
+			echo "Removing temporary config.yml"; \
+			rm -f config.yml .tmp_config_created; \
+		fi; \
+	}; \
+	trap cleanup EXIT; \
+	if [ ! -f config.yml ]; then \
+		echo "config.yml not found. Creating temporary copy for testing."; \
+		cp config.yml.example config.yml; \
+		touch .tmp_config_created; \
+	fi; \
+	python3 -m ruff check --fix || true; \
+	python3 -m ruff format; \
 	DISABLE_OTEL_EXPORTER=true python3 -m pytest -v
 
 render-diagrams:
