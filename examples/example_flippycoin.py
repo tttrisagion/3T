@@ -181,7 +181,10 @@ def child_task():
     risk_percentage = config.get("reconciliation_engine.risk_pos_percentage", 0.01)
 
     def update_run_position(pos_direction: int):
-        app.send_task("worker.tasks.update_run_position", args=[run_id, pos_direction])
+        # apply technique to mean-revision only
+        app.send_task(
+            "worker.tasks.update_run_position", args=[run_id, pos_direction * -1]
+        )
 
     def update_pnl(pnl: float):
         app.send_task("worker.tasks.update_pnl", args=[run_id, pnl])

@@ -1,5 +1,6 @@
 *.swp
 secrets.yml
+config.yml
 **/__pycache__/
 .coverage
 tmp
