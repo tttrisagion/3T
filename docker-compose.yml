@@ -19,7 +19,7 @@ services:
     build:
       context: .
       dockerfile: celery-services/Dockerfile
-    command: celery -A worker.tasks worker --loglevel=info --concurrency=16
+    command: celery -A worker.tasks worker --loglevel=info --concurrency=16 --max-tasks-per-child=7000
     cpus: 12
     volumes:
       - ./celery-services/worker:/app/worker
