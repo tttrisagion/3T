@@ -6,7 +6,6 @@
   <title>Trisagion</title>
   <link rel="icon" type="image/png" href="/TTT.PNG">
   <link rel="apple-touch-icon" href="/TTT.PNG">
-  <!-- marked.min.js is no longer needed -->
   <script src="/js/tablesort.min.js"></script>
   <script src="/js/tablesort.number.min.js"></script>
   <style>
@@ -52,6 +51,49 @@
       color: var(--text-color);
       text-align: center;
     }
+    
+    /* --- CRT/SCANLINE EFFECTS --- */
+    @keyframes flicker {
+      0% { opacity: 0.95; }
+      5% { opacity: 0.92; }
+      10% { opacity: 0.95; }
+      25% { opacity: 0.93; }
+      50% { opacity: 0.96; }
+      75% { opacity: 0.94; }
+      100% { opacity: 0.95; }
+    }
+
+    body::after {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100vh;
+      background: repeating-linear-gradient(
+        0deg,
+        rgba(0, 0, 0, 0.4) 0,
+        rgba(0, 0, 0, 0.4) 1px,
+        transparent 1px,
+        transparent 3px
+      );
+      pointer-events: none;
+      z-index: 9999;
+      animation: flicker 15s infinite;
+    }
+
+    @keyframes text-flicker {
+      0% { text-shadow: 0 0 5px var(--accent-darker); }
+      50% { text-shadow: 0 0 8px var(--accent-darker); }
+      100% { text-shadow: 0 0 5px var(--accent-darker); }
+    }
+
+    /* Apply glow to relevant headings and labels */
+    .address-container h3, .time-zone-label, .footer-column h6 {
+        text-shadow: 0 0 7px var(--accent-darker);
+        animation: text-flicker 10s infinite;
+    }
+    
     #data-container {
       line-height: 1.6;
     }
@@ -315,7 +357,6 @@ DOCILIS • HUMILIS • MITIS
   <div id="data-container"></div>
 
   <div id="clocks-container">
-    <!-- Clocks remain unchanged -->
     <div class="clock-container">
       <div class="clock" id="clock-vatican">
         <div class="clock-face"><div class="hand hour-hand"></div><div class="hand minute-hand"></div><div class="hand second-hand"></div><div class="center-dot"></div></div>
@@ -418,7 +459,7 @@ DOCILIS • HUMILIS • MITIS
                 const addressHtml = `<small>${address}</small>`;
                 const titleHtml = label ? `${label} ${addressHtml}` : addressHtml;
 
-                addressContainer.innerHTML = `<h4>${titleHtml}</h4><div class="summary-grid"></div>`;
+                addressContainer.innerHTML = `<h3>${titleHtml}</h3><div class="summary-grid"></div>`;
                 container.appendChild(addressContainer);
             }
 
@@ -696,7 +737,6 @@ DOCILIS • HUMILIS • MITIS
     </style>
 
     <footer class="site-footer">
-        <!-- Footer remains unchanged -->
         <div class="footer-container">
             <div class="footer-columns">
                 <div class="footer-column">
