@@ -53,6 +53,7 @@ def process_price_update(db_cursor, symbol, price, timestamp):
         print(f"Error processing timestamp '{timestamp}': {e}", flush=True)
     except mysql.connector.Error as err:
         print(f"Database insert error: {err}", flush=True)
+        raise
 
 
 def listen_for_price_updates():

@@ -125,8 +125,12 @@ def main():
             else:
                 print("❌ Some health checks failed. System is degraded.")
 
+        except mysql.connector.Error as e:
+            print(f"Database connection error during health checks: {e}")
+            print("❌ Some health checks failed. System is degraded.")
         except Exception as e:
-            print(f"An error occurred during health checks: {e}")
+            print(f"An unexpected error occurred during health checks: {e}")
+            print("❌ Some health checks failed. System is degraded.")
 
         time.sleep(polling_interval)
 
