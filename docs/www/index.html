@@ -331,8 +331,9 @@
   </style>
 </head>
 <body>
+<!--
   <button id="theme-toggle" aria-label="Toggle theme"></button>
- 
+ -->
   <div id="logo-wrapper">
 <svg id="uuid-d42eca4d-b207-4968-85d8-fef4dbf0358c" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" width="331.766" height="431.38" viewBox="0 0 331.766 431.38">
   <defs>
@@ -471,7 +472,7 @@ DOCILIS • HUMILIS • MITIS
             const summaryItems = {
                 'Account Value': formatNumber(summary.accountValue),
                 'Total Position Value': formatNumber(summary.totalNtlPos),
-                'Total Raw USD': formatNumber(summary.totalRawUsd),
+                //'Total Raw USD': formatNumber(summary.totalRawUsd),
                 'Total Margin Used': formatNumber(summary.totalMarginUsed),
                 'Withdrawable': formatNumber(positionData.withdrawable)
             };
