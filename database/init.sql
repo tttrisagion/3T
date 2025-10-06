@@ -180,5 +180,5 @@ INSERT INTO `products` (`instrument_id`, `exchange_id`, `symbol`, `product_type`
 ((SELECT id from `instruments` where name = 'XPL'), 1, 'XPL/USDC:USDC', 'PERP', 3),
 ((SELECT id from `instruments` where name = 'AAVE'), 1, 'AAVE/USDC:USDC', 'PERP', 3),
 ((SELECT id from `instruments` where name = 'ARB'), 1, 'ARB/USDC:USDC', 'PERP', 3),
-((SELECT id from `instruments` where name = 'POL'), 1, 'POL/USDC:USDC', 'PERP', 3);
+((SELECT id from `instruments` where name = 'POL'), 1, 'POL/USDC:USDC', 'PERP', 3),
 ((SELECT id from `instruments` where name = 'DOT'), 1, 'DOT/USDC:USDC', 'PERP', 10);
