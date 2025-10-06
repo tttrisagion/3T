@@ -31,9 +31,24 @@ fi
 
 # --- Welcome Message and Confirmation ---
 echo '''
-   ▄▖▄▖  ▄▖▖ ▄▖
-   ▄▌▐   ▙▖▌ ▌ 
-   ▄▌▐   ▌ ▙▖▙▖
+                                        
+              ████████████████          
+              ████████████████          
+              ████                      
+              ████                      
+              ████                      
+              ████                      
+              ███████████████           
+              ███████████████           
+              ████                      
+              ████                      
+           ██████████                   
+              ████                      
+              ████                      
+                                        
+           ▄▖▄▖  ▄▖▖ ▄▖
+           ▄▌▐   ▙▖▌ ▌ 
+           ▄▌▐   ▌ ▙▖▙▖
             
 '
 echo "Welcome to the Flippycoin 'Hello World' Trading Demonstration!"

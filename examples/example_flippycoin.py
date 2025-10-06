@@ -27,8 +27,8 @@ from shared.config import config
 from shared.voms import VOMS
 
 # --- Constants ---
-NUM_CHILDREN = 150
-DECISION_SLEEP_SECONDS = 60
+NUM_CHILDREN = 300
+DECISION_SLEEP_SECONDS = 30
 STARTING_BALANCE = 10000
 LEVERAGE = 10
 MARGIN_THRESHOLD = 70

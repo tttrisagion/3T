@@ -145,7 +145,7 @@ INSERT INTO `instruments` (`name`) VALUES
 ('BTC'), ('ETH'), ('SOL'), ('XRP'), ('MKR'), ('TRUMP'), ('HYPE'), ('SUI'),
 ('FARTCOIN'), ('DOGE'), ('KPEPE'), ('ENA'), ('ADA'), ('AVAX'), ('CRV'),
 ('BERA'), ('GRASS'), ('TAO'), ('RENDER'), ('WLD'), ('AI16Z'), ('AIXBT'), ('PAXG'),
-('BCH'), ('PENGU'), ('PUMP'), ('KBONK'), ('LINK'), ('IP'), ('XPL'), ('AAVE'), ('ARB'), ('POL');
+('BCH'), ('PENGU'), ('PUMP'), ('KBONK'), ('LINK'), ('IP'), ('XPL'), ('AAVE'), ('ARB'), ('POL'), ('DOT');
 
 INSERT INTO `products` (`instrument_id`, `exchange_id`, `symbol`, `product_type`, `max_leverage`) VALUES
 ((SELECT id from `instruments` where name = 'BTC'), 1, 'BTC/USDC:USDC', 'PERP', 40),
@@ -181,3 +181,4 @@ INSERT INTO `products` (`instrument_id`, `exchange_id`, `symbol`, `product_type`
 ((SELECT id from `instruments` where name = 'AAVE'), 1, 'AAVE/USDC:USDC', 'PERP', 3),
 ((SELECT id from `instruments` where name = 'ARB'), 1, 'ARB/USDC:USDC', 'PERP', 3),
 ((SELECT id from `instruments` where name = 'POL'), 1, 'POL/USDC:USDC', 'PERP', 3);
+((SELECT id from `instruments` where name = 'DOT'), 1, 'DOT/USDC:USDC', 'PERP', 10);
