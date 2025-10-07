@@ -48,37 +48,47 @@ reconciliation_engine:
   rebalance_frequency: 450.0 # in seconds
   
   # Risk position size as a percentage of total balance (golden ratio based)
-  risk_pos_percentage: 0.0016180339887
+  risk_pos_percentage: 0.00016180339887
   
   # Kelly Strategy Configuration
   kelly_threshold: 20.0  # maximum Kelly performance scaling threshold (ex: 0.5 = 50%)
   
   # Symbols to manage 
   symbols:
-    - "BTC/USDC:USDC"
-    - "ETH/USDC:USDC"
-    - "SOL/USDC:USDC"
-    - "HYPE/USDC:USDC"
-    - "XRP/USDC:USDC"
-    - "PAXG/USDC:USDC"
-    - "ENA/USDC:USDC"
-    - "FARTCOIN/USDC:USDC"
-    - "PUMP/USDC:USDC"
-    - "DOGE/USDC:USDC"
-    - "KBONK/USDC:USDC"
-    - "LINK/USDC:USDC"
-    - "IP/USDC:USDC"
-    - "XPL/USDC:USDC"
-    - "TRUMP/USDC:USDC"
-    - "ADA/USDC:USDC"
-    - "PENGU/USDC:USDC"
-    - "KPEPE/USDC:USDC"
     - "AAVE/USDC:USDC"
-    - "SUI/USDC:USDC"
+    - "ADA/USDC:USDC"
+    - "AI16Z/USDC:USDC"
+    - "AIXBT/USDC:USDC"
     - "ARB/USDC:USDC"
     - "AVAX/USDC:USDC"
-    - "POL/USDC:USDC"
+    - "BCH/USDC:USDC"
+    - "BERA/USDC:USDC"
+    - "BTC/USDC:USDC"
+    - "CRV/USDC:USDC"
+    - "DOGE/USDC:USDC"
     - "DOT/USDC:USDC"
+    - "ENA/USDC:USDC"
+    - "ETH/USDC:USDC"
+    - "FARTCOIN/USDC:USDC"
+    - "GRASS/USDC:USDC"
+    - "HYPE/USDC:USDC"
+    - "IP/USDC:USDC"
+    - "KBONK/USDC:USDC"
+    - "KPEPE/USDC:USDC"
+    - "LINK/USDC:USDC"
+    - "SKY/USDC:USDC"
+    - "PAXG/USDC:USDC"
+    - "PENGU/USDC:USDC"
+    - "POL/USDC:USDC"
+    - "PUMP/USDC:USDC"
+    - "RENDER/USDC:USDC"
+    - "SOL/USDC:USDC"
+    - "SUI/USDC:USDC"
+    - "TAO/USDC:USDC"
+    - "TRUMP/USDC:USDC"
+    - "WLD/USDC:USDC"
+    - "XPL/USDC:USDC"
+    - "XRP/USDC:USDC"
 
   # Observer nodes for consensus validation
   observer_nodes:
@@ -93,7 +103,7 @@ reconciliation_engine:
   position_staleness_timeout: 60
   
   # Minimum trade value in USD to execute orders (avoids dust trades)
-  minimum_trade_threshold: 30.0
+  minimum_trade_threshold: 50.0
   
   # Order gateway request timeout in seconds
   order_timeout: 30

@@ -30,6 +30,7 @@ if ! pgrep -f "example_feed.py" > /dev/null; then
 fi
 
 # --- Welcome Message and Confirmation ---
+echo -e "\033[38;5;202m"
 echo '''
                                         
               ████████████████          
@@ -45,12 +46,9 @@ echo '''
            ██████████                   
               ████                      
               ████                      
-                                        
-           ▄▖▄▖  ▄▖▖ ▄▖
-           ▄▌▐   ▙▖▌ ▌ 
-           ▄▌▐   ▌ ▙▖▙▖
             
 '
+echo -e "\033[0m"
 echo "Welcome to the Flippycoin 'Hello World' Trading Demonstration!"
 echo ""
 echo "This script will launch and manage the trading bot."

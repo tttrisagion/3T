@@ -27,8 +27,8 @@ from shared.config import config
 from shared.voms import VOMS
 
 # --- Constants ---
-NUM_CHILDREN = 300
-DECISION_SLEEP_SECONDS = 30
+NUM_CHILDREN = 3500
+DECISION_SLEEP_SECONDS = 333
 STARTING_BALANCE = 10000
 LEVERAGE = 10
 MARGIN_THRESHOLD = 70
@@ -181,9 +181,8 @@ def child_task():
     risk_percentage = config.get("reconciliation_engine.risk_pos_percentage", 0.01)
 
     def update_run_position(pos_direction: int):
-        # apply technique to mean-revision only
         app.send_task(
-            "worker.tasks.update_run_position", args=[run_id, pos_direction * -1]
+            "worker.tasks.update_run_position", args=[run_id, pos_direction]
         )
 
     def update_pnl(pnl: float):

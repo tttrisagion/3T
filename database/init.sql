@@ -142,7 +142,7 @@ CREATE TABLE `take_profit_state` (
 INSERT INTO `exchanges` (`id`, `name`, `api_url`) VALUES (1, 'HyperLiquid', 'https://api.hyperliquid.xyz');
 
 INSERT INTO `instruments` (`name`) VALUES
-('BTC'), ('ETH'), ('SOL'), ('XRP'), ('MKR'), ('TRUMP'), ('HYPE'), ('SUI'),
+('BTC'), ('ETH'), ('SOL'), ('XRP'), ('SKY'), ('TRUMP'), ('HYPE'), ('SUI'),
 ('FARTCOIN'), ('DOGE'), ('KPEPE'), ('ENA'), ('ADA'), ('AVAX'), ('CRV'),
 ('BERA'), ('GRASS'), ('TAO'), ('RENDER'), ('WLD'), ('AI16Z'), ('AIXBT'), ('PAXG'),
 ('BCH'), ('PENGU'), ('PUMP'), ('KBONK'), ('LINK'), ('IP'), ('XPL'), ('AAVE'), ('ARB'), ('POL'), ('DOT');
@@ -152,7 +152,7 @@ INSERT INTO `products` (`instrument_id`, `exchange_id`, `symbol`, `product_type`
 ((SELECT id from `instruments` where name = 'ETH'), 1, 'ETH/USDC:USDC', 'PERP', 25),
 ((SELECT id from `instruments` where name = 'SOL'), 1, 'SOL/USDC:USDC', 'PERP', 20),
 ((SELECT id from `instruments` where name = 'XRP'), 1, 'XRP/USDC:USDC', 'PERP', 20),
-((SELECT id from `instruments` where name = 'MKR'), 1, 'MKR/USDC:USDC', 'PERP', 10),
+((SELECT id from `instruments` where name = 'SKY'), 1, 'SKY/USDC:USDC', 'PERP', 10),
 ((SELECT id from `instruments` where name = 'TRUMP'), 1, 'TRUMP/USDC:USDC', 'PERP', 10),
 ((SELECT id from `instruments` where name = 'HYPE'), 1, 'HYPE/USDC:USDC', 'PERP', 10),
 ((SELECT id from `instruments` where name = 'SUI'), 1, 'SUI/USDC:USDC', 'PERP', 10),
