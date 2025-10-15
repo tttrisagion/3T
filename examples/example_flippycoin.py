@@ -27,11 +27,11 @@ from shared.config import config
 from shared.voms import VOMS
 
 # --- Constants ---
-NUM_CHILDREN = 3500
-DECISION_SLEEP_SECONDS = 333
+NUM_CHILDREN = 1750
+DECISION_SLEEP_SECONDS = 777
 STARTING_BALANCE = 10000
 LEVERAGE = 10
-MARGIN_THRESHOLD = 70
+MARGIN_THRESHOLD = 45
 
 SHM_PRICE_NAME = "price_data_shm"
 
@@ -327,6 +327,7 @@ if __name__ == "__main__":
     logging.info(f"PARENT: Initial height is {current_height}")
 
     for i in range(NUM_CHILDREN):
+        time.sleep(0.25)
         pid = os.fork()
         if pid == 0:
             import multiprocessing.util

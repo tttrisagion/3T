@@ -260,17 +260,17 @@ def get_desired_state(symbol: str) -> float:
                 cursor = conn.cursor()
 
                 # Query from the spec using full symbol format
+                # NB: configured as mean revision system
                 query = """
                 SELECT symbol,
                        SUM(position_direction) as position,
                        SUM(live_pnl) as total_pnl,
-                       COUNT(*) as runs,
-                       SUM(position_direction)/COUNT(*) as size_per_run
+                       COUNT(*) as runs
                 FROM runs
                 WHERE exit_run = 0
                   AND height IS NULL
                   AND end_time IS NULL
-                  AND live_pnl > 0.1
+                  AND live_pnl > 0
                   AND abs(position_direction) > 0
                   AND symbol = %s
                   AND update_time >= NOW() - INTERVAL 10 MINUTE

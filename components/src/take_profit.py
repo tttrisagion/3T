@@ -138,6 +138,7 @@ def listen_for_balance_updates():
                 print("Successfully connected to the database.", flush=True)
 
             threshold = config.get("take_profit.threshold")
+            reward_multiple = config.get("take_profit.reward_multiple")
             stream_name = config.get("redis.streams.balance_updates")
             group_name = "take_profit_consumers"
             consumer_name = os.environ.get("HOSTNAME", "take-profit-consumer-1")
@@ -151,6 +152,7 @@ def listen_for_balance_updates():
 
             print("Listening for balance updates...", flush=True)
             print(f"Target profit pct: {threshold:.4f}", flush=True)
+            print(f"Reward multiple: {reward_multiple:.4f}", flush=True)
             while True:
                 try:
                     response = redis_cnx.xreadgroup(
@@ -199,9 +201,9 @@ def listen_for_balance_updates():
                                             )
                                             trigger_take_profit(db_cnx)
                                             update_last_balance(db_cnx, current_balance)
-                                        elif profit_percentage < -threshold:
+                                        elif profit_percentage < -threshold / reward_multiple:
                                             print(
-                                                f"DRAWDOWN: Threshold of -{threshold} reached, triggering reset!",
+                                                f"DRAWDOWN: Threshold of -{threshold / reward_multiple} reached, triggering reset!",
                                                 flush=True,
                                             )
                                             trigger_drawdown_reset(db_cnx)
