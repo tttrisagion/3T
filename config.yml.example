@@ -56,12 +56,8 @@ reconciliation_engine:
   # Symbols to manage 
   symbols:
     - "BTC/USDC:USDC"
-    - "ETH/USDC:USDC"
-    - "SOL/USDC:USDC"
-    - "SKY/USDC:USDC"
     - "PAXG/USDC:USDC"
     - "HYPE/USDC:USDC"
-    - "ENA/USDC:USDC"
 
   # Observer nodes for consensus validation
   observer_nodes:
@@ -83,8 +79,8 @@ reconciliation_engine:
 
 # Take Profit Configuration
 take_profit:
-  threshold: 0.0369
-  reward_multiple: 10
+  threshold: 0.0963
+  reward_multiple: 20
 
 # Health Monitor Configuration (in seconds)
 health_monitor:
