@@ -200,11 +200,15 @@ class TestReconciliationEngine(unittest.TestCase):
         self.assertAlmostEqual(position_delta, 0.0001, places=6)
 
     @patch("reconciliation_engine.get_current_price")
+    @patch("reconciliation_engine.get_position_pnl")
     @patch("reconciliation_engine.config")
-    def test_reconciliation_both_short_add_position(self, mock_config, mock_price):
+    def test_reconciliation_both_short_add_position(
+        self, mock_config, mock_pnl, mock_price
+    ):
         """Test reconciliation logic: both short, need to add position"""
         mock_config.get.return_value = 11.0  # minimum_trade_threshold
         mock_price.return_value = 118000.0
+        mock_pnl.return_value = 100.0  # Profitable
 
         # Current: -0.0001, Target: -0.0003 (increase short position)
         actual_position = -0.0001
@@ -259,11 +263,15 @@ class TestReconciliationEngine(unittest.TestCase):
         self.assertAlmostEqual(position_delta, -0.0003, places=6)
 
     @patch("reconciliation_engine.get_current_price")
+    @patch("reconciliation_engine.get_position_pnl")
     @patch("reconciliation_engine.config")
-    def test_reconciliation_both_long_add_position(self, mock_config, mock_price):
+    def test_reconciliation_both_long_add_position(
+        self, mock_config, mock_pnl, mock_price
+    ):
         """Test reconciliation logic: both long, need to add position"""
         mock_config.get.return_value = 11.0  # minimum_trade_threshold
         mock_price.return_value = 118000.0
+        mock_pnl.return_value = 100.0  # Profitable
 
         # Current: 0.0001, Target: 0.0003 (increase long position)
         actual_position = 0.0001
@@ -406,6 +414,86 @@ class TestReconciliationEngine(unittest.TestCase):
 
         # Should not execute trade due to threshold
         self.assertFalse(execute_trade)
+
+    @patch("reconciliation_engine.get_current_price")
+    @patch("reconciliation_engine.get_position_pnl")
+    @patch("reconciliation_engine.config")
+    def test_reconciliation_prevent_increase_unprofitable_long(
+        self, mock_config, mock_pnl, mock_price
+    ):
+        """Test that increasing an unprofitable long position is prevented."""
+        mock_config.get.return_value = 11.0
+        mock_price.return_value = 50000.0
+        mock_pnl.return_value = -100.0  # Unprofitable
+
+        actual_position = 0.1
+        desired_position = 0.2  # Attempt to increase
+
+        execute_trade, _, _ = calculate_reconciliation_action(
+            actual_position, desired_position, "BTC/USDC:USDC"
+        )
+
+        self.assertFalse(execute_trade)
+
+    @patch("reconciliation_engine.get_current_price")
+    @patch("reconciliation_engine.get_position_pnl")
+    @patch("reconciliation_engine.config")
+    def test_reconciliation_allow_increase_profitable_long(
+        self, mock_config, mock_pnl, mock_price
+    ):
+        """Test that increasing a profitable long position is allowed."""
+        mock_config.get.return_value = 11.0
+        mock_price.return_value = 50000.0
+        mock_pnl.return_value = 100.0  # Profitable
+
+        actual_position = 0.1
+        desired_position = 0.2  # Attempt to increase
+
+        execute_trade, _, _ = calculate_reconciliation_action(
+            actual_position, desired_position, "BTC/USDC:USDC"
+        )
+
+        self.assertTrue(execute_trade)
+
+    @patch("reconciliation_engine.get_current_price")
+    @patch("reconciliation_engine.get_position_pnl")
+    @patch("reconciliation_engine.config")
+    def test_reconciliation_prevent_increase_unprofitable_short(
+        self, mock_config, mock_pnl, mock_price
+    ):
+        """Test that increasing an unprofitable short position is prevented."""
+        mock_config.get.return_value = 11.0
+        mock_price.return_value = 50000.0
+        mock_pnl.return_value = -100.0  # Unprofitable
+
+        actual_position = -0.1
+        desired_position = -0.2  # Attempt to increase
+
+        execute_trade, _, _ = calculate_reconciliation_action(
+            actual_position, desired_position, "BTC/USDC:USDC"
+        )
+
+        self.assertFalse(execute_trade)
+
+    @patch("reconciliation_engine.get_current_price")
+    @patch("reconciliation_engine.get_position_pnl")
+    @patch("reconciliation_engine.config")
+    def test_reconciliation_allow_increase_profitable_short(
+        self, mock_config, mock_pnl, mock_price
+    ):
+        """Test that increasing a profitable short position is allowed."""
+        mock_config.get.return_value = 11.0
+        mock_price.return_value = 50000.0
+        mock_pnl.return_value = 100.0  # Profitable
+
+        actual_position = -0.1
+        desired_position = -0.2  # Attempt to increase
+
+        execute_trade, _, _ = calculate_reconciliation_action(
+            actual_position, desired_position, "BTC/USDC:USDC"
+        )
+
+        self.assertTrue(execute_trade)
 
     @patch("reconciliation_engine.config")
     def test_send_order_to_gateway(self, mock_config):
