@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trendline Drawing Tool</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        /* Style for the drawing cursor */
+        canvas.drawing-active {
+            cursor: crosshair;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-200">
+
+    <div class="w-full h-screen text-center flex flex-col p-4 md:p-8">
+       <div class="flex items-baseline gap-x-4 mb-4 text-left">
+    <h1 class="text-xl font-bold text-white">Trendline Drawing Tool</h1>
+    <p class="text-slate-400 text-sm">
+        Press <kbd class="px-2 py-1.5 text-xs font-semibold text-gray-800 bg-gray-100 border border-gray-200 rounded-lg">Ctrl+V</kbd> 
+        or 
+        <kbd class="inline-flex items-center gap-x-1 px-2 py-1.5 text-xs font-semibold text-gray-800 bg-gray-100 border border-gray-200 rounded-lg">
+            <!-- Mac Command Key Icon -->
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="opacity-80">
+                <path d="M18 3a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3H6a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3V6a3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3h12a3 3 0 0 0 3-3 3 3 0 0 0-3-3z"></path>
+            </svg>
+            +V
+        </kbd> 
+        to paste an image.
+    </p>
+</div> 
+        <!-- Main container for canvas and controls -->
+        <div id="app-container" class="bg-slate-800 p-4 rounded-xl shadow-2xl border border-slate-700 flex flex-col flex-grow overflow-y-auto">
+            <!-- Canvas container with instructions -->
+            <div id="canvas-container" class="relative w-full flex-grow bg-slate-700/50 rounded-lg flex items-center justify-center border-2 border-dashed border-slate-600 overflow-auto">
+                <div id="placeholder" class="text-center text-slate-500">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="mx-auto mb-4 opacity-50"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+                    <p class="font-semibold">Waiting for image...</p>
+                    <p class="text-sm">Your pasted image will appear here.</p>
+                </div>
+                <canvas id="main-canvas" class="absolute top-0 left-0 hidden"></canvas>
+            </div>
+            
+            <!-- Controls section -->
+            <div id="controls" class="mt-2 flex flex-wrap gap-2 justify-center items-center hidden">
+                <div class="flex items-center gap-2">
+                    <label for="line-color" class="font-medium text-xs">Line Color:</label>
+                    <input type="color" id="line-color" value="#FFA500" class="w-8 h-8 bg-transparent border-none rounded-md cursor-pointer">
+                </div>
+                <div class="flex items-center gap-2">
+                    <label for="line-width" class="font-medium text-xs">Line Width:</label>
+                    <input type="range" id="line-width" min="1" max="50" value="1" class="w-24 cursor-pointer">
+                    <span id="line-width-value" class="w-8 text-right font-mono text-xs">1px</span>
+                </div>
+                <button id="undo-btn" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg shadow-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed">Undo Last Line</button>
+                <button id="clear-btn" class="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg shadow-md transition-all duration-200">Clear All Lines</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // DOM Elements
+            const canvas = document.getElementById('main-canvas');
+            const ctx = canvas.getContext('2d');
+            const placeholder = document.getElementById('placeholder');
+            const controls = document.getElementById('controls');
+            const colorPicker = document.getElementById('line-color');
+            const widthSlider = document.getElementById('line-width');
+            const widthValue = document.getElementById('line-width-value');
+            const undoBtn = document.getElementById('undo-btn');
+            const clearBtn = document.getElementById('clear-btn');
+
+            // Application State
+            let pastedImage = null;
+            let lines = [];
+            let isDrawing = false;
+            let startPoint = { x: 0, y: 0 };
+
+            // --- Event Listeners ---
+
+            // Listen for paste event
+            window.addEventListener('paste', handlePaste);
+
+            // Mouse drawing events
+            canvas.addEventListener('mousedown', startDrawing);
+            canvas.addEventListener('mousemove', drawPreview);
+            canvas.addEventListener('mouseup', stopDrawing);
+            canvas.addEventListener('mouseout', stopDrawing); // Stop if mouse leaves canvas
+
+            // Control events
+            widthSlider.addEventListener('input', () => {
+                widthValue.textContent = `${widthSlider.value}px`;
+            });
+            clearBtn.addEventListener('click', () => {
+                lines = [];
+                redrawCanvas();
+                updateUndoButtonState();
+            });
+            undoBtn.addEventListener('click', () => {
+                if (lines.length > 0) {
+                    lines.pop();
+                    redrawCanvas();
+                    updateUndoButtonState();
+                }
+            });
+
+            // --- Functions ---
+
+            /**
+             * Handles the paste event to capture and display an image.
+             * @param {ClipboardEvent} e The clipboard event.
+             */
+            function handlePaste(e) {
+                // Prevent the default paste action
+                e.preventDefault();
+
+                const items = (e.clipboardData || window.clipboardData).items;
+                for (const item of items) {
+                    if (item.type.indexOf('image') !== -1) {
+                        const blob = item.getAsFile();
+                        const reader = new FileReader();
+                        reader.onload = function(event) {
+                            const img = new Image();
+                            img.onload = function() {
+                                // Store the image and reset state
+                                pastedImage = img;
+                                lines = [];
+
+                                // Configure canvas dimensions
+                                canvas.width = img.width;
+                                canvas.height = img.height;
+
+                                // Show canvas and controls
+                                placeholder.classList.add('hidden');
+                                canvas.classList.remove('hidden');
+                                controls.classList.remove('hidden');
+
+                                // Initial draw and UI update
+                                redrawCanvas();
+                                updateUndoButtonState();
+                            };
+                            img.src = event.target.result;
+                        };
+                        reader.readAsDataURL(blob);
+                        // Exit after finding the first image
+                        return;
+                    }
+                }
+                console.warn("No image found on clipboard.");
+            }
+
+            /**
+             * Redraws the entire canvas, including the image and all saved lines.
+             */
+            function redrawCanvas() {
+                if (!pastedImage) return;
+
+                // Clear the canvas completely
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                // Draw the background image
+                ctx.drawImage(pastedImage, 0, 0);
+
+                // Draw all the saved lines
+                lines.forEach(line => {
+                    ctx.beginPath();
+                    ctx.moveTo(line.start.x, line.start.y);
+                    ctx.lineTo(line.end.x, line.end.y);
+                    ctx.strokeStyle = line.color;
+                    ctx.lineWidth = line.width;
+                    ctx.lineCap = 'round'; // Make line ends smoother
+                    ctx.stroke();
+                });
+            }
+
+            /**
+             * Initiates the line drawing process on mousedown.
+             * @param {MouseEvent} e The mouse event.
+             */
+            function startDrawing(e) {
+                if (!pastedImage) return;
+                isDrawing = true;
+                canvas.classList.add('drawing-active');
+                startPoint = getMousePos(e);
+            }
+
+            /**
+             * Draws a temporary line preview while the mouse is moving.
+             * @param {MouseEvent} e The mouse event.
+             */
+            function drawPreview(e) {
+                if (!isDrawing) return;
+                const currentPoint = getMousePos(e);
+                
+                // Redraw the base canvas (image + saved lines)
+                redrawCanvas();
+
+                // Draw the preview line on top
+                ctx.beginPath();
+                ctx.moveTo(startPoint.x, startPoint.y);
+                ctx.lineTo(currentPoint.x, currentPoint.y);
+                ctx.strokeStyle = colorPicker.value;
+                ctx.lineWidth = widthSlider.value;
+                ctx.lineCap = 'round';
+                ctx.stroke();
+            }
+
+            /**
+             * Finalizes a line on mouseup and saves it.
+             * @param {MouseEvent} e The mouse event.
+             */
+            function stopDrawing(e) {
+                if (!isDrawing) return;
+                isDrawing = false;
+                canvas.classList.remove('drawing-active');
+
+                const endPoint = getMousePos(e);
+                
+                // Add the new line to our array
+                lines.push({
+                    start: startPoint,
+                    end: endPoint,
+                    color: colorPicker.value,
+                    width: widthSlider.value
+                });
+
+                // Do a final redraw to bake the new line in
+                redrawCanvas();
+                updateUndoButtonState();
+            }
+
+            /**
+             * Gets the mouse coordinates relative to the canvas.
+             * @param {MouseEvent} e The mouse event.
+             * @returns {{x: number, y: number}} The coordinates.
+             */
+            function getMousePos(e) {
+                const rect = canvas.getBoundingClientRect();
+                // Scale mouse coordinates to match canvas resolution if CSS scales it
+                const scaleX = canvas.width / rect.width;
+                const scaleY = canvas.height / rect.height;
+                return {
+                    x: (e.clientX - rect.left) * scaleX,
+                    y: (e.clientY - rect.top) * scaleY
+                };
+            }
+
+            /**
+             * Enables or disables the undo button based on whether lines exist.
+             */
+            function updateUndoButtonState() {
+                undoBtn.disabled = lines.length === 0;
+            }
+
+            // Initial state
+            updateUndoButtonState();
+        });
+    </script>
+</body>
+</html>
+
+
