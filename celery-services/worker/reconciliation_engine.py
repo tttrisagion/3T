@@ -48,9 +48,7 @@ def _calculate_kelly_metrics(
                 WHERE {condition}
                   AND live_pnl IS NOT NULL
                   AND live_pnl <> 0
-                  AND symbol = '{symbol}
-                  AND exit_run = 0
-                  AND end_time IS NULL'
+                  AND symbol = '{symbol}'
                 """
 
                 cursor.execute(query)
