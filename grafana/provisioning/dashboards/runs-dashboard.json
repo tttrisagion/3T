@@ -18,7 +18,7 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
-  "id": 1,
+  "id": 4,
   "links": [],
   "liveNow": false,
   "panels": [
@@ -251,11 +251,12 @@
       },
       "gridPos": {
         "h": 13,
-        "w": 24,
+        "w": 4.8,
         "x": 0,
         "y": 3
       },
       "id": 1,
+      "maxPerRow": 6,
       "options": {
         "legend": {
           "calcs": [],
@@ -446,11 +447,12 @@
       },
       "gridPos": {
         "h": 13,
-        "w": 24,
+        "w": 4.8,
         "x": 0,
         "y": 16
       },
       "id": 4,
+      "maxPerRow": 6,
       "options": {
         "legend": {
           "calcs": [],
@@ -625,9 +627,9 @@
         ]
       },
       "gridPos": {
-        "h": 14,
-        "w": 7,
-        "x": 17,
+        "h": 6,
+        "w": 24,
+        "x": 0,
         "y": 29
       },
       "id": 3,
@@ -695,10 +697,18 @@
         "current": {
           "selected": true,
           "text": [
-            "BTC/USDC:USDC"
+            "APT/USDC:USDC",
+            "BTC/USDC:USDC",
+            "HYPE/USDC:USDC",
+            "PAXG/USDC:USDC",
+            "ZEC/USDC:USDC"
           ],
           "value": [
-            "BTC/USDC:USDC"
+            "APT/USDC:USDC",
+            "BTC/USDC:USDC",
+            "HYPE/USDC:USDC",
+            "PAXG/USDC:USDC",
+            "ZEC/USDC:USDC"
           ]
         },
         "datasource": {
