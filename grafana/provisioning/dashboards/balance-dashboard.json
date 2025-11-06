@@ -101,7 +101,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT timestamp as time, cross_maintenance_margin_used/account_value FROM `3t`.balance_history  ORDER BY timestamp ASC",
+          "rawSql": "SELECT timestamp as time, cross_maintenance_margin_used/account_value FROM `3t`.balance_history  WHERE\n\n     $__timeFilter(timestamp) ORDER BY timestamp ASC",
           "refId": "A",
           "sql": {
             "columns": [
@@ -157,7 +157,7 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 4,
+        "h": 8,
         "w": 19,
         "x": 5,
         "y": 0
@@ -470,7 +470,7 @@
         "h": 5,
         "w": 19,
         "x": 5,
-        "y": 4
+        "y": 8
       },
       "id": 6,
       "options": {
@@ -826,7 +826,7 @@
         "h": 5,
         "w": 10,
         "x": 5,
-        "y": 9
+        "y": 13
       },
       "id": 11,
       "options": {
@@ -852,7 +852,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT\n\n    CAST(DATE_FORMAT(o.created_at, '%Y-%m-%d %H:00:00') AS DATETIME) AS `hour`,\n\n\n\n    SUM(o.size * p.last_px) AS `total_volume_in_usd`\n\nFROM\n\n    order_execution_log AS o\n\nJOIN\n\n    (SELECT symbol, last_px\n\n     FROM stream_data\n\n     WHERE (symbol, timestamp) IN\n\n     (\n\n         SELECT symbol, MAX(timestamp)\n\n         FROM stream_data\n\n         GROUP BY symbol\n\n     )) AS p\n\nON\n\n    o.product_id = p.symbol\n\nWHERE\n\n    o.product_id IN ('BTC/USDC:USDC', 'ETH/USDC:USDC')\n\nGROUP BY\n\n    `hour`\n\nORDER BY\n\n    `hour` ASC; ",
+          "rawSql": "SELECT\n\n    CAST(DATE_FORMAT(o.created_at, '%Y-%m-%d %H:00:00') AS DATETIME) AS `hour`,\n\n\n\n    SUM(o.size * p.last_px) AS `total_volume_in_usd`\n\nFROM\n\n    order_execution_log AS o\n\nJOIN\n\n    (SELECT symbol, last_px\n\n     FROM stream_data\n\n     WHERE (symbol, timestamp) IN\n\n     (\n\n         SELECT symbol, MAX(timestamp)\n\n         FROM stream_data\n\n         GROUP BY symbol\n\n     )) AS p\n\nON\n\n    o.product_id = p.symbol\n\n\n\nGROUP BY\n\n    `hour`\n\nORDER BY\n\n    `hour` ASC; ",
           "refId": "A",
           "sql": {
             "columns": [
@@ -981,7 +981,7 @@
         "h": 5,
         "w": 9,
         "x": 15,
-        "y": 9
+        "y": 13
       },
       "id": 10,
       "options": {
@@ -1214,7 +1214,7 @@
         "h": 5,
         "w": 10,
         "x": 5,
-        "y": 14
+        "y": 18
       },
       "id": 7,
       "options": {
@@ -1238,7 +1238,7 @@
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT timestamp as time, cross_maintenance_margin_used FROM `3t`.balance_history  ORDER BY timestamp ASC",
+          "rawSql": "SELECT timestamp as time, cross_maintenance_margin_used FROM `3t`.balance_history  where $__timeFilter(timestamp) ORDER BY timestamp ASC",
           "refId": "A",
           "sql": {
             "columns": [
@@ -1325,7 +1325,7 @@
         "h": 5,
         "w": 9,
         "x": 15,
-        "y": 14
+        "y": 18
       },
       "id": 1,
       "options": {
@@ -1349,7 +1349,7 @@
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT timestamp AS time, account_value FROM balance_history ORDER BY timestamp ASC",
+          "rawSql": "SELECT timestamp AS time, account_value FROM balance_history where $__timeFilter(timestamp) ORDER BY timestamp ASC",
           "refId": "A",
           "sql": {
             "columns": [
@@ -1411,7 +1411,7 @@
         "h": 9,
         "w": 24,
         "x": 0,
-        "y": 19
+        "y": 23
       },
       "id": 3,
       "options": {
@@ -1470,13 +1470,13 @@
     "list": []
   },
   "time": {
-    "from": "now-2d",
+    "from": "now-5d",
     "to": "now"
   },
   "timepicker": {},
   "timezone": "",
   "title": "3T Balance & Positions",
   "uid": "3t-balance-dashboard",
-  "version": 2,
+  "version": 1,
   "weekStart": ""
 }
