@@ -213,6 +213,7 @@ services:
       - discovery.type=single-node
       - "ES_JAVA_OPTS=-Xms8g -Xmx8g"
       - xpack.security.enabled=false
+      - cluster.max_shards_per_node=2000
     volumes:
       - elasticsearch_data:/usr/share/elasticsearch/data
     ports:
