@@ -2,7 +2,10 @@
 
 ## 3T Trading Infrastructure
 
-`docker compose exec mariadb /bin/bash`
+```
+cd /opt/3T
+docker compose exec mariadb /bin/bash
+```
 
 ```
 mysql -u root -psecret 3t
