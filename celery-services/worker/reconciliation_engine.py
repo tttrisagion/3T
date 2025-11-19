@@ -578,58 +578,6 @@ def get_local_position(symbol: str) -> float | None:
         return None
 
 
-def get_position_pnl(symbol: str) -> float:
-    """
-    Get the unrealized PNL for a given symbol.
-    Args:
-        symbol: The trading symbol.
-    Returns:
-        The unrealized PNL, or 0.0 if not available.
-    """
-    with tracer.start_as_current_span("get_position_pnl") as span:
-        span.set_attribute("symbol", symbol)
-        try:
-            with get_db_connection() as conn:
-                cursor = conn.cursor()
-
-                # Get the product_id for this symbol (use full symbol)
-                query = """
-                SELECT id FROM products
-                WHERE symbol = %s
-                """
-                cursor.execute(query, (symbol,))
-                product_result = cursor.fetchone()
-
-                if not product_result:
-                    span.add_event("No product found, returning PNL of 0.0")
-                    return 0.0
-
-                product_id = product_result[0]
-
-                # Get latest unrealized PNL from positions table
-                query = """
-                SELECT unrealized_pnl FROM positions
-                WHERE product_id = %s
-                ORDER BY timestamp DESC
-                LIMIT 1
-                """
-                cursor.execute(query, (product_id,))
-                result = cursor.fetchone()
-
-                if result and result[0] is not None:
-                    pnl = float(result[0])
-                    span.set_attribute("unrealized_pnl", pnl)
-                    return pnl
-
-                span.add_event("No position found or PNL is null, returning PNL of 0.0")
-                return 0.0
-        except Exception as e:
-            span.record_exception(e)
-            span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
-            print(f"Error getting position PNL for {symbol}: {e}")
-            return 0.0
-
-
 def calculate_reconciliation_action(
     actual_position: float, desired_position: float, symbol: str
 ) -> tuple[bool, str | None, float | None]:
@@ -670,9 +618,6 @@ def calculate_reconciliation_action(
             position_delta = 0.0
 
             if open_risk and position_exists:
-                unrealized_pnl = get_position_pnl(symbol)
-                span.set_attribute("unrealized_pnl", unrealized_pnl)
-
                 if actual_position < 0 and desired_position < 0:  # Both short
                     position_now = abs(actual_position)
                     position_target = abs(desired_position)
@@ -686,18 +631,12 @@ def calculate_reconciliation_action(
                             execute_trade = True
                             side = "buy"
                     elif position_now < position_target:
-                        if unrealized_pnl > 0:
-                            position_delta = abs(
-                                abs(position_now) - abs(position_target)
-                            )
-                            if position_delta * instrument_price >= min_trade_threshold:
-                                execute_trade = True
-                                side = "sell"
-                        else:
-                            span.add_event(
-                                "Preventing increase of unprofitable short position",
-                                {"unrealized_pnl": unrealized_pnl},
-                            )
+                        position_delta = abs(
+                            abs(position_now) - abs(position_target)
+                        )
+                        if position_delta * instrument_price >= min_trade_threshold:
+                            execute_trade = True
+                            side = "sell"
 
                 elif actual_position < 0 and desired_position > 0:  # From short to long
                     position_delta = abs(actual_position) + desired_position
@@ -716,19 +655,13 @@ def calculate_reconciliation_action(
                     position_target = abs(desired_position)
 
                     if position_now < position_target:
-                        if unrealized_pnl > 0:
-                            position_delta = position_target - position_now
-                            if (
-                                abs(position_delta * instrument_price)
-                                >= min_trade_threshold
-                            ):
-                                execute_trade = True
-                                side = "buy"
-                        else:
-                            span.add_event(
-                                "Preventing increase of unprofitable long position",
-                                {"unrealized_pnl": unrealized_pnl},
-                            )
+                        position_delta = position_target - position_now
+                        if (
+                            abs(position_delta * instrument_price)
+                            >= min_trade_threshold
+                        ):
+                            execute_trade = True
+                            side = "buy"
                     elif position_now > position_target:
                         position_delta = position_now - position_target
                         if (

@@ -81,8 +81,8 @@ reconciliation_engine:
 
 # Take Profit Configuration
 take_profit:
-  threshold: 0.1800
-  reward_multiple: 10
+  threshold: 0.001379663161
+  reward_multiple: 0.1
 
 # Health Monitor Configuration (in seconds)
 health_monitor:
