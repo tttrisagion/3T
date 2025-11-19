@@ -202,12 +202,11 @@ class TestReconciliationEngine(unittest.TestCase):
     @patch("reconciliation_engine.get_current_price")
     @patch("reconciliation_engine.config")
     def test_reconciliation_both_short_add_position(
-        self, mock_config, mock_pnl, mock_price
+        self, mock_config, mock_price
     ):
         """Test reconciliation logic: both short, need to add position"""
         mock_config.get.return_value = 11.0  # minimum_trade_threshold
         mock_price.return_value = 118000.0
-        mock_pnl.return_value = 100.0  # Profitable
 
         # Current: -0.0001, Target: -0.0003 (increase short position)
         actual_position = -0.0001
@@ -264,12 +263,11 @@ class TestReconciliationEngine(unittest.TestCase):
     @patch("reconciliation_engine.get_current_price")
     @patch("reconciliation_engine.config")
     def test_reconciliation_both_long_add_position(
-        self, mock_config, mock_pnl, mock_price
+        self, mock_config, mock_price
     ):
         """Test reconciliation logic: both long, need to add position"""
         mock_config.get.return_value = 11.0  # minimum_trade_threshold
         mock_price.return_value = 118000.0
-        mock_pnl.return_value = 100.0  # Profitable
 
         # Current: 0.0001, Target: 0.0003 (increase long position)
         actual_position = 0.0001
