@@ -200,7 +200,6 @@ class TestReconciliationEngine(unittest.TestCase):
         self.assertAlmostEqual(position_delta, 0.0001, places=6)
 
     @patch("reconciliation_engine.get_current_price")
-    @patch("reconciliation_engine.get_position_pnl")
     @patch("reconciliation_engine.config")
     def test_reconciliation_both_short_add_position(
         self, mock_config, mock_pnl, mock_price
@@ -263,7 +262,6 @@ class TestReconciliationEngine(unittest.TestCase):
         self.assertAlmostEqual(position_delta, -0.0003, places=6)
 
     @patch("reconciliation_engine.get_current_price")
-    @patch("reconciliation_engine.get_position_pnl")
     @patch("reconciliation_engine.config")
     def test_reconciliation_both_long_add_position(
         self, mock_config, mock_pnl, mock_price
@@ -416,7 +414,6 @@ class TestReconciliationEngine(unittest.TestCase):
         self.assertFalse(execute_trade)
 
     @patch("reconciliation_engine.get_current_price")
-    @patch("reconciliation_engine.get_position_pnl")
     @patch("reconciliation_engine.config")
     def test_reconciliation_prevent_increase_unprofitable_long(
         self, mock_config, mock_pnl, mock_price
@@ -436,7 +433,6 @@ class TestReconciliationEngine(unittest.TestCase):
         self.assertFalse(execute_trade)
 
     @patch("reconciliation_engine.get_current_price")
-    @patch("reconciliation_engine.get_position_pnl")
     @patch("reconciliation_engine.config")
     def test_reconciliation_allow_increase_profitable_long(
         self, mock_config, mock_pnl, mock_price
@@ -456,7 +452,6 @@ class TestReconciliationEngine(unittest.TestCase):
         self.assertTrue(execute_trade)
 
     @patch("reconciliation_engine.get_current_price")
-    @patch("reconciliation_engine.get_position_pnl")
     @patch("reconciliation_engine.config")
     def test_reconciliation_prevent_increase_unprofitable_short(
         self, mock_config, mock_pnl, mock_price
@@ -476,7 +471,6 @@ class TestReconciliationEngine(unittest.TestCase):
         self.assertFalse(execute_trade)
 
     @patch("reconciliation_engine.get_current_price")
-    @patch("reconciliation_engine.get_position_pnl")
     @patch("reconciliation_engine.config")
     def test_reconciliation_allow_increase_profitable_short(
         self, mock_config, mock_pnl, mock_price
