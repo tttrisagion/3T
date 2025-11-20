@@ -42,6 +42,23 @@ def _calculate_kelly_metrics(
             with get_db_connection() as conn:
                 cursor = conn.cursor()
 
+                # Positive Expectancy Gate to filter out
+                # entire heights/blocks that lose money on aggregate
+                # preventing a bad null height cohort from looking
+                # better than it should
+                regime_filter = ""
+                if "height IS NOT NULL" in condition:
+                    regime_filter = f"""
+                    AND height IN (
+                        SELECT height
+                        FROM runs
+                        WHERE symbol = '{symbol}'
+                          AND height IS NOT NULL
+                        GROUP BY height
+                        HAVING SUM(live_pnl) > 0
+                    )
+                    """
+
                 query = f"""
                 SELECT live_pnl
                 FROM runs
@@ -49,6 +66,7 @@ def _calculate_kelly_metrics(
                   AND live_pnl IS NOT NULL
                   AND live_pnl <> 0
                   AND symbol = '{symbol}'
+                  {regime_filter}
                 """
 
                 cursor.execute(query)
@@ -146,8 +164,10 @@ def calculate_kelly_position_size(base_risk_pos_size: float, symbol: str) -> flo
             )
 
             if kelly_current is None or kelly_historical is None:
-                span.add_event("No valid Kelly data - using base size")
-                return base_risk_pos_size
+                span.add_event("No valid Kelly data - using probationary base size")
+                # we don't have enough data so treat symbol as "High Risk"
+                # Only allocate 10% of the standard size until we have more data
+                return base_risk_pos_size * 0.1
 
             if kelly_historical == 0:
                 span.add_event(

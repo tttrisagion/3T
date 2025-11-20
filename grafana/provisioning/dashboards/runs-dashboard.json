@@ -18,10 +18,101 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
-  "id": 4,
+  "id": 5,
   "links": [],
   "liveNow": false,
   "panels": [
+    {
+      "datasource": {
+        "type": "mysql",
+        "uid": "3T-MariaDB-Datasource"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "max": 0.01517629,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "dark-red",
+                "value": null
+              },
+              {
+                "color": "#EAB839",
+                "value": 0.005
+              },
+              {
+                "color": "dark-green",
+                "value": 0.009
+              }
+            ]
+          },
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 3,
+        "x": 0,
+        "y": 0
+      },
+      "id": 13,
+      "options": {
+        "minVizHeight": 75,
+        "minVizWidth": 75,
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/.*/",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "pluginVersion": "10.2.2",
+      "targets": [
+        {
+          "dataset": "`3t`",
+          "datasource": {
+            "type": "mysql",
+            "uid": "3T-MariaDB-Datasource"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  0.01379663161+(((latest_balance.account_value - take_profit.last_balance) / take_profit.last_balance)) AS percentage_change\nFROM\n  (\n    SELECT\n      account_value\n    FROM\n      balance_history\n    ORDER BY\n      timestamp DESC\n    LIMIT 1\n  ) AS latest_balance,\n  (\n    SELECT\n      last_balance\n    FROM\n      take_profit_state\n    ORDER BY\n      id DESC\n    LIMIT 1\n  ) AS take_profit;",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "RUN RISK REMAINING",
+      "transparent": true,
+      "type": "gauge"
+    },
     {
       "datasource": {
         "type": "mysql",
@@ -37,7 +128,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "dark-orange",
+                "color": "#fefefe",
                 "value": null
               }
             ]
@@ -83,9 +174,9 @@
         ]
       },
       "gridPos": {
-        "h": 3,
-        "w": 24,
-        "x": 0,
+        "h": 7,
+        "w": 2,
+        "x": 3,
         "y": 0
       },
       "id": 2,
@@ -138,6 +229,186 @@
       ],
       "transparent": true,
       "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "mysql",
+        "uid": "3T-MariaDB-Datasource"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "cross_maintenance_margin_used"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#37872d3b",
+                  "mode": "fixed"
+                }
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              },
+              {
+                "id": "custom.drawStyle",
+                "value": "bars"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "account_value"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "dark-orange",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 19,
+        "x": 5,
+        "y": 0
+      },
+      "id": 22,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "mysql",
+            "uid": "3T-MariaDB-Datasource"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT timestamp AS time, account_value FROM balance_history where $__timeFilter(timestamp) ORDER BY timestamp ASC",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        },
+        {
+          "dataset": "`3t`",
+          "datasource": {
+            "type": "mysql",
+            "uid": "3T-MariaDB-Datasource"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "hide": false,
+          "rawQuery": true,
+          "rawSql": "SELECT timestamp as time, cross_maintenance_margin_used FROM `3t`.balance_history  where $__timeFilter(timestamp) ORDER BY timestamp ASC",
+          "refId": "B",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "Total Account Value",
+      "type": "timeseries"
     },
     {
       "datasource": {
@@ -250,10 +521,10 @@
         ]
       },
       "gridPos": {
-        "h": 13,
+        "h": 10,
         "w": 4.8,
         "x": 0,
-        "y": 3
+        "y": 7
       },
       "id": 1,
       "maxPerRow": 6,
@@ -282,7 +553,7 @@
           "format": "table",
           "hide": false,
           "rawQuery": true,
-          "rawSql": "select start_time,live_pnl as 'active' from runs where end_time is null and exit_run = 0 and symbol in ($symbol)",
+          "rawSql": "select start_time,live_pnl as 'active' from runs where end_time is null and exit_run = 0 and symbol in ($symbol) and height is null",
           "refId": "A",
           "sql": {
             "columns": [
@@ -312,7 +583,7 @@
           "format": "table",
           "hide": false,
           "rawQuery": true,
-          "rawSql": "select start_time,live_pnl as 'historical' from runs where symbol in ($symbol)",
+          "rawSql": "select start_time,live_pnl as 'historical' from runs where symbol in ($symbol) and height is null",
           "refId": "B",
           "sql": {
             "columns": [
@@ -446,10 +717,10 @@
         ]
       },
       "gridPos": {
-        "h": 13,
+        "h": 11,
         "w": 4.8,
         "x": 0,
-        "y": 16
+        "y": 17
       },
       "id": 4,
       "maxPerRow": 6,
@@ -477,7 +748,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "select start_time,sum(position_direction) as 'active' from runs where position_direction != 0 and exit_run = 0 and end_time is null and symbol in ($symbol) group by start_time",
+          "rawSql": "select start_time,sum(position_direction) as 'active' from runs where position_direction != 0 and exit_run = 0 and end_time is null and symbol in ($symbol) and height is null group by start_time",
           "refId": "A",
           "sql": {
             "columns": [
@@ -507,7 +778,7 @@
           "format": "table",
           "hide": false,
           "rawQuery": true,
-          "rawSql": "select start_time,sum(position_direction) as 'historical' from runs where position_direction != 0 group by start_time",
+          "rawSql": "select start_time,sum(position_direction) as 'historical' from runs where position_direction != 0 and height is null group by start_time",
           "refId": "B",
           "sql": {
             "columns": [
@@ -630,7 +901,7 @@
         "h": 6,
         "w": 24,
         "x": 0,
-        "y": 29
+        "y": 28
       },
       "id": 3,
       "options": {
@@ -644,7 +915,12 @@
           "show": false
         },
         "showHeader": true,
-        "sortBy": []
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "age"
+          }
+        ]
       },
       "pluginVersion": "10.2.2",
       "targets": [
@@ -657,7 +933,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "select count(*) as 'total_runs',height,TIMESTAMPDIFF(SECOND, MIN(start_time), MAX(start_time)) / 3600 AS duration_hours from runs where not (height is null\nand exit_run = 1 ) group by 2;\n",
+          "rawSql": "select count(*) as 'total_runs',height,TIMESTAMPDIFF(SECOND, MIN(start_time), MAX(start_time)) / 3600 AS duration_hours, max(start_time) as 'age' from runs where not (height is null\nand exit_run = 1 ) group by 2;\n",
           "refId": "A",
           "sql": {
             "columns": [
@@ -732,13 +1008,13 @@
     ]
   },
   "time": {
-    "from": "now-24h",
+    "from": "now-12h",
     "to": "now"
   },
   "timepicker": {},
   "timezone": "",
   "title": "3T Run Heath",
-  "uid": "ecace1b2-f188-418d-9b67-e73ffade548b",
-  "version": 1,
+  "uid": "ee0a97a2-27f0-43ed-b288-404fdc037467",
+  "version": 9,
   "weekStart": ""
 }

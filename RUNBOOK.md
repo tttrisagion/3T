@@ -3,6 +3,8 @@
 ## 3T Trading Infrastructure
 
 ```
+curl -X DELETE "http://localhost:9200/jaeger-*"
+
 cd /opt/3T
 docker compose exec mariadb /bin/bash
 ```
