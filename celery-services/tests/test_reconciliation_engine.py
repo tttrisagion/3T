@@ -42,31 +42,56 @@ class TestReconciliationEngine(unittest.TestCase):
         self.assertEqual(get_base_symbol("ENA/USDC:USDC"), "ENA")
         self.assertEqual(get_base_symbol("BTC"), "BTC")  # Already base symbol
 
-    @patch("reconciliation_engine.calculate_kelly_position_size") 
+    @patch("reconciliation_engine.calculate_kelly_position_size")
     @patch("reconciliation_engine.get_db_connection")
     @patch("reconciliation_engine.get_latest_balance")
     @patch("reconciliation_engine.config")
     @patch("reconciliation_engine.get_current_price")
     def test_get_desired_state_with_active_runs(
-        self, mock_price, mock_config, mock_balance, mock_db, mock_kelly_calc # Add arg
+        self, 
+        mock_price, 
+        mock_config, 
+        mock_balance, 
+        mock_db, 
+        mock_kelly_calc
     ):
         """Test desired state calculation with active runs"""
-        # ... existing mock setup ...
-        mock_config.get.return_value = 0.0025
-        mock_balance.return_value = 100000.0
-        mock_price.return_value = 118000.0
-        
-        # FIX: Force the Kelly calculator to return the exact value the test expects (250.0)
-        # This bypasses the DB lookup error AND the probation logic
-        mock_kelly_calc.return_value = 250.0 
+        # Mock configuration
+        mock_config.get.return_value = 0.0025  # risk_pos_percentage
 
-        # ... rest of DB mock setup ...
+        # Mock latest balance
+        mock_balance.return_value = 100000.0  # $100,000 balance
+
+        # Mock current price
+        mock_price.return_value = 118000.0  # BTC price
+        
+        # FORCES the Kelly Size to 250.0
+        # Base Size = 100,000 * 0.0025 = 250.0
+        # We force the calculator to return this base size, bypassing probation logic
+        mock_kelly_calc.return_value = 250.0
+
+        # Mock database response
         mock_cursor = Mock()
-        mock_cursor.fetchone.return_value = ("BTC", 2.0, 100.0, 5, 0.4)
-        # ...
+        mock_cursor.fetchone.return_value = (
+            "BTC",
+            2.0,  # position_direction
+            100.0,
+            5,
+            0.4,
+        )
+        mock_conn = Mock()
+        mock_conn.cursor.return_value = mock_cursor
+        mock_conn.__enter__ = Mock(return_value=mock_conn)
+        mock_conn.__exit__ = Mock(return_value=None)
+        mock_db.return_value = mock_conn
 
         result = get_desired_state("BTC/USDC:USDC")
 
+        # Expected Math:
+        # Risk Size = 250.0
+        # Position = 2.0
+        # Price = 118,000
+        # Result = (2.0 * 250.0) / 118,000 = 0.004237...
         expected = 0.004237
         self.assertAlmostEqual(result, expected, places=6)
 
