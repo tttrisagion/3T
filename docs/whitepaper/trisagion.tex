@@ -174,7 +174,9 @@ P_{\text{kelly}} =
 \end{cases}
 \end{equation}
 
-where $H_{\text{cur}}$ is the Kelly percentage from current runs and $H_{\text{hist}}$ is from historical runs. The factor $P_{\text{kelly}}$ is then clipped to a symmetric bound $[-\tau,\tau]$ (default $\tau = 0.5$) and floored at $-0.98$. The final position size is:
+where $H_{\text{cur}}$ is the Kelly percentage from current runs and $H_{\text{hist}}$ is the aggregate Kelly percentage derived exclusively from \textbf{historically profitable market regimes} (filtered by block expectancy). This ``positive expectancy gate'' ensures the current strategy is compared against a robust ``winner's index'' rather than a global average that may be diluted by noise.
+
+The factor $P_{\text{kelly}}$ is then clipped to a symmetric bound $[-\tau,\tau]$ (default $\tau = 0.5$) and floored at $-0.98$. The final position size is:
 
 \begin{equation}
 \label{eq:kelly-adjusted}
@@ -207,8 +209,8 @@ Algorithm~\ref{alg:kelly-sizing} presents the high‑level steps for position si
 \caption{Kelly‑adjusted position sizing}
 \label{alg:kelly-sizing}
 \begin{algorithmic}
-\State $H_{\text{cur}} \gets$ \texttt{\_calculate\_kelly\_metrics(..., ``height IS NULL'')}
-\State $H_{\text{hist}} \gets$ \texttt{\_calculate\_kelly\_metrics(..., ``height IS NOT NULL'')}
+\State $H_{\text{cur}} \gets$ \texttt{\_calculate\_kelly\_metrics(..., ``new block height'')}
+\State $H_{\text{hist}} \gets$ \texttt{\_calculate\_kelly\_metrics(..., ``existing block heights with positive performance'')}
 \If{$H_{\text{cur}}$ is \texttt{None} \textbf{or} $H_{\text{hist}}$ is \texttt{None}}
     \State $S_{\text{final}} \gets S_{\text{base}}$
 \Else
@@ -230,7 +232,11 @@ Algorithm~\ref{alg:kelly-sizing} presents the high‑level steps for position si
 \section{State Reconciliation Module}
 The State Reconciliation Module functions as a dynamic, portfolio‑level risk manager. Its operation is scheduled at a configured interval (e.g., every 10 minutes) rather than being event-driven by price action. This prevents high-frequency, reactive adjustments and allows positions time to mature.
 
-A key aspect of this module is its symbiotic relationship with the Parameter Optimization Engine. The engine's continuous simulations provide an intelligent, real-time benchmark of expected performance for thousands of alternative parameter configurations. During each reconciliation cycle, the module assesses the aggregate health of all open positions not against a static rule, but against this dynamic benchmark. If the actual portfolio performance deviates significantly from the simulated expectancy of the top-performing virtual configurations, or if the market regime has shifted to 'noisy', the module takes corrective action. This action is based on the simulated success of the best alternative parameter set and may involve reducing or closing a position entirely.
+A key aspect of this module is its symbiotic relationship with the Parameter Optimization Engine. The engine's continuous simulations provide an intelligent, real-time benchmark of expected performance for thousands of alternative parameter configurations. 
+
+During each reconciliation cycle, the module assesses the aggregate health of all open positions not against a static rule, but against a filtered dynamic benchmark that excludes historically unprofitable regime states.
+
+If the actual portfolio performance deviates significantly from the simulated expectancy of the top-performing virtual configurations, or if the market regime has shifted to 'noisy', the module takes corrective action. This action is based on the simulated success of the best alternative parameter set and may involve reducing or closing a position entirely.
 
 This process serves as an intelligent, system-wide stop-loss mechanism. A position is not closed simply because it is losing money, but because the system has discovered, via simulation, that better parameter configurations exist for the current market conditions. To prevent excessive trading fees from minor adjustments ("churn"), the module will only execute a change if the required adjustment in position size is above a minimum financial or percentage threshold. Furthermore, to ensure the reliability of risk-on decisions, multiple observer nodes are utilized to achieve consensus, preventing a runaway process from continuously adjusting a position without checks and balances \cite{lamport1982byzantine}.
 
