@@ -48,7 +48,7 @@ reconciliation_engine:
   rebalance_frequency: 300.0 # in seconds
   
   # Risk position size as a percentage of total balance (golden ratio based)
-  risk_pos_percentage: 0.000053934466291
+  risk_pos_percentage: 0.000026967
 
   # Kelly Strategy Configuration
   kelly_threshold: 0.5  # maximum Kelly performance scaling threshold (ex: 0.5 = 50%)
