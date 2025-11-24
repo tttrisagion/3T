@@ -53,7 +53,17 @@ reconciliation_engine:
   # Kelly Strategy Configuration
   kelly_threshold: 0.5  # maximum Kelly performance scaling threshold (ex: 0.5 = 50%)
   
-  # Symbols to manage 
+  # Symbols to manage
+  # --- DISCLAIMER ---
+  # The symbols listed are for informational purposes only.
+  # This project is not financial, investment, or trading advice, nor is it a
+  # solicitation or recommendation for any asset. The Trisagion project is not a
+  # licensed financial entity.
+  # All users must conduct their own research and consult a qualified financial
+  # advisor before making decisions. Engaging with cryptocurrencies involves
+  # significant risk, including the potential for total loss. By using this
+  # configuration, you acknowledge full responsibility for your financial choices.
+  # ---
   symbols:
     - "BTC/USDC:USDC"
     - "PAXG/USDC:USDC"
