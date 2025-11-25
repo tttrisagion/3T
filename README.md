@@ -113,7 +113,7 @@ Note: Your system must have docker and docker-compose available. The docker serv
    ```bash
    make install
    # or alternatively:
-   docker-compose up -d --build
+   docker compose up -d --build
    ```
 
    This will start all services in detached mode and automatically configure Kibana with Jaeger index patterns.
@@ -123,7 +123,7 @@ Note: Your system must have docker and docker-compose available. The docker serv
    After starting the services for the first time, you need to manually initialize the database schema.
 
    ```bash
-   docker-compose exec -T mariadb mysql -u root -psecret 3t < database/init.sql
+   docker compose exec -T mariadb mysql -u root -psecret 3t < database/init.sql
    ```
 
 5. **Access the dashboards:**
@@ -144,7 +144,7 @@ Note: Your system must have docker and docker-compose available. The docker serv
 
 For development commands, testing procedures, and detailed technical guidance, see [CLAUDE.md](CLAUDE.md). Key commands:
 
-- **Deploy code changes**: `docker-compose restart` (no rebuild needed)
+- **Deploy code changes**: `docker compose restart` (no rebuild needed)
 - **Run tests**: `make test`
 - **Stop and clean**: `make clean`
 
