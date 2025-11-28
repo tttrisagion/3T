@@ -24,7 +24,6 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
-  "id": 1,
   "links": [
     {
       "asDropdown": false,
@@ -173,7 +172,13 @@
           ],
           "show": false
         },
-        "showHeader": true
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "position_value"
+          }
+        ]
       },
       "pluginVersion": "10.2.2",
       "targets": [
@@ -505,7 +510,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "select symbol,\nsum(position_direction) as 'position',\nsum(live_pnl) as 'total_pnl',count(*) as 'runs',\nsum(position_direction)/count(*) as 'size_per_run' \nfrom runs \nwhere exit_run=0 \nand end_time is null \nand live_pnl > 0.1 \nand height IS NULL\nAND update_time >= NOW() - INTERVAL 10 MINUTE\ngroup by symbol \nHAVING total_pnl > 0 AND ABS(position) >= 1\n\n\norder by 3 desc",
+          "rawSql": "select symbol,\nsum(position_direction) as 'position',\nsum(live_pnl) as 'total_pnl',count(*) as 'runs',\nsum(position_direction)/count(*) as 'size_per_run' \nfrom runs \nwhere exit_run=0 \nand end_time is null \nand live_pnl > 0.2\nand height IS NULL\nAND update_time >= NOW() - INTERVAL 10 MINUTE\ngroup by symbol \nHAVING total_pnl > 0 AND ABS(position) >= 1\n\n\norder by 3 desc",
           "refId": "A",
           "sql": {
             "columns": [
@@ -852,7 +857,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT\n\n    CAST(DATE_FORMAT(o.created_at, '%Y-%m-%d %H:00:00') AS DATETIME) AS `hour`,\n\n\n\n    SUM(o.size * p.last_px) AS `total_volume_in_usd`\n\nFROM\n\n    order_execution_log AS o\n\nJOIN\n\n    (SELECT symbol, last_px\n\n     FROM stream_data\n\n     WHERE (symbol, timestamp) IN\n\n     (\n\n         SELECT symbol, MAX(timestamp)\n\n         FROM stream_data\n\n         GROUP BY symbol\n\n     )) AS p\n\nON\n\n    o.product_id = p.symbol\n\n\n\nGROUP BY\n\n    `hour`\n\nORDER BY\n\n    `hour` ASC; ",
+          "rawSql": "SELECT\n\n    CAST(DATE_FORMAT(o.created_at, '%Y-%m-%d %H:%i:00') AS DATETIME) AS `minute`,\n\n\n\n    SUM(o.size * p.last_px) AS `total_volume_in_usd`\n\nFROM\n\n    order_execution_log AS o\n\nJOIN\n\n    (SELECT symbol, last_px\n\n     FROM stream_data\n\n     WHERE (symbol, timestamp) IN\n\n     (\n\n         SELECT symbol, MAX(timestamp)\n\n         FROM stream_data\n\n         GROUP BY symbol\n\n     )) AS p\n\nON\n\n    o.product_id = p.symbol\n\n\n\nGROUP BY\n\n    `minute`\n\nORDER BY\n\n    `minute` ASC; ",
           "refId": "A",
           "sql": {
             "columns": [
@@ -1470,7 +1475,7 @@
     "list": []
   },
   "time": {
-    "from": "now-5d",
+    "from": "now-3h",
     "to": "now"
   },
   "timepicker": {},
