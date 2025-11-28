@@ -5,29 +5,8 @@
 # ==============================================================================
 #
 # This script acts as a safety harness for the main flippycoin trading script.
-# It ensures that the trading process runs continuously in a loop.
+# It ensures that the trading process runs with deps continuously in a loop.
 #
-# How it works:
-# 1. It first checks if the required `example_feed.py` process is running.
-# 2. If the feed is running, it displays a welcome message and waits for user
-#    confirmation to start.
-# 3. It starts the main Python script (`example_flippycoin.py`).
-# 4. The Python script is designed to run for one "block" and then exit.
-# 5. When the Python script exits, this shell script catches it, waits, and
-#    restarts it, ensuring a clean state for the next block.
-#
-
-# --- Dependency Check ---
-# Before doing anything else, ensure the required price feed script is running.
-if ! pgrep -f "example_feed.py" > /dev/null; then
-    echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-    echo "!! ERROR: The 'example_feed.py' price feed is NOT running."
-    echo "!! This script is required to provide price data."
-    echo "!! Please start it in another terminal before running this script."
-    echo "!! Example: python3 examples/example_feed.py"
-    echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-    exit 1 # Exit the script with an error code
-fi
 
 # --- Welcome Message and Confirmation ---
 echo -e "\033[38;5;202m"
@@ -79,6 +58,9 @@ while true; do
     # Execute the main Python application.
     # We use '/usr/bin/env python3' to ensure we use the correct Python interpreter
     # from the user's environment.
+    pkill -f example_feed.py
+    /usr/bin/env python3 /opt/3T/examples/example_feed.py &
+    sleep 5
     /usr/bin/env python3 /opt/3T/examples/example_flippycoin.py
 
     # The script has finished its block. We add a small delay before restarting.

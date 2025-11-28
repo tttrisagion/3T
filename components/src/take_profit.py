@@ -31,6 +31,7 @@ def get_last_balance(db_cnx):
     )
     result = cursor.fetchone()
     cursor.close()
+    db_cnx.commit()
     return float(result["last_balance"]) if result else None
 
 

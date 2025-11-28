@@ -27,8 +27,8 @@ from shared.config import config
 from shared.voms import VOMS
 
 # --- Constants ---
-NUM_CHILDREN = 1750
-DECISION_SLEEP_SECONDS = 777
+NUM_CHILDREN = 1200
+DECISION_SLEEP_SECONDS = 30
 STARTING_BALANCE = 10000
 LEVERAGE = 10
 MARGIN_THRESHOLD = 45
@@ -50,9 +50,9 @@ def get_all_products():
     """
     leverage_map = {
         "BTC/USDC:USDC": 40,
-        "ETH/USDC:USDC": 25,
+        "PAXG/USDC:USDC": 40,
     }
-    default_leverage = 3
+    default_leverage = 2
     try:
         symbols = config.get("reconciliation_engine.symbols")
         if not symbols:
@@ -106,7 +106,7 @@ def get_price_from_shm(symbol: str):
 def child_task():
     POSITION_SIZE = 20  # Fixed dollar amount for each trade
     start_time = time.time()
-    max_duration = random.randint(300, 259200)  # 5 minutes to 72 hours
+    max_duration = random.randint(300, 432000)  # 5 minutes to 5 days
 
     logging.info(
         f"CHILD: New child process started. Max duration: {max_duration / 3600:.2f} hours."
