@@ -1,0 +1,281 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": 5,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "datasource": {
+        "type": "mysql",
+        "uid": "3T-MariaDB-Datasource"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "options": {
+        "candleStyle": "candles",
+        "colorStrategy": "open-close",
+        "colors": {
+          "down": "red",
+          "up": "green"
+        },
+        "includeAllFields": false,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "mode": "candles+volume"
+      },
+      "repeat": "symbol",
+      "repeatDirection": "h",
+      "targets": [
+        {
+          "dataset": "`3t`",
+          "datasource": {
+            "type": "mysql",
+            "uid": "3T-MariaDB-Datasource"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT close, high, low, open, volume, from_unixtime(timestamp/1000) FROM `3t`.market_data where symbol = $symbol and timeframe='1m' group by 6",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [
+                  {
+                    "name": "close",
+                    "type": "functionParameter"
+                  }
+                ],
+                "type": "function"
+              },
+              {
+                "parameters": [
+                  {
+                    "name": "high",
+                    "type": "functionParameter"
+                  }
+                ],
+                "type": "function"
+              },
+              {
+                "parameters": [
+                  {
+                    "name": "low",
+                    "type": "functionParameter"
+                  }
+                ],
+                "type": "function"
+              },
+              {
+                "parameters": [
+                  {
+                    "name": "open",
+                    "type": "functionParameter"
+                  }
+                ],
+                "type": "function"
+              },
+              {
+                "parameters": [
+                  {
+                    "name": "volume",
+                    "type": "functionParameter"
+                  }
+                ],
+                "type": "function"
+              },
+              {
+                "parameters": [
+                  {
+                    "name": "timestamp",
+                    "type": "functionParameter"
+                  }
+                ],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          },
+          "table": "market_data"
+        }
+      ],
+      "title": "$symbol 1m",
+      "type": "candlestick"
+    }
+  ],
+  "refresh": "",
+  "schemaVersion": 38,
+  "tags": [],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "selected": true,
+          "text": [
+            "AAVE/USDC:USDC",
+            "APT/USDC:USDC",
+            "ASTER/USDC:USDC",
+            "AVAX/USDC:USDC",
+            "BNB/USDC:USDC",
+            "BTC/USDC:USDC",
+            "DOGE/USDC:USDC",
+            "ENA/USDC:USDC",
+            "ETH/USDC:USDC",
+            "FARTCOIN/USDC:USDC",
+            "HYPE/USDC:USDC",
+            "MON/USDC:USDC",
+            "PAXG/USDC:USDC",
+            "PUMP/USDC:USDC",
+            "SOL/USDC:USDC",
+            "SUI/USDC:USDC",
+            "UNI/USDC:USDC",
+            "WLFI/USDC:USDC",
+            "XPL/USDC:USDC",
+            "XRP/USDC:USDC",
+            "ZEC/USDC:USDC"
+          ],
+          "value": [
+            "AAVE/USDC:USDC",
+            "APT/USDC:USDC",
+            "ASTER/USDC:USDC",
+            "AVAX/USDC:USDC",
+            "BNB/USDC:USDC",
+            "BTC/USDC:USDC",
+            "DOGE/USDC:USDC",
+            "ENA/USDC:USDC",
+            "ETH/USDC:USDC",
+            "FARTCOIN/USDC:USDC",
+            "HYPE/USDC:USDC",
+            "MON/USDC:USDC",
+            "PAXG/USDC:USDC",
+            "PUMP/USDC:USDC",
+            "SOL/USDC:USDC",
+            "SUI/USDC:USDC",
+            "UNI/USDC:USDC",
+            "WLFI/USDC:USDC",
+            "XPL/USDC:USDC",
+            "XRP/USDC:USDC",
+            "ZEC/USDC:USDC"
+          ]
+        },
+        "datasource": {
+          "type": "mysql",
+          "uid": "3T-MariaDB-Datasource"
+        },
+        "definition": "select symbol from products",
+        "hide": 1,
+        "includeAll": false,
+        "label": "symbol",
+        "multi": true,
+        "name": "symbol",
+        "options": [],
+        "query": "select symbol from products",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 0,
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "title": "1m charts",
+  "uid": "af660d3c-c686-4141-b398-4e07c652b0e2",
+  "version": 1,
+  "weekStart": ""
+}
