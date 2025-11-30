@@ -34,7 +34,6 @@ echo "This script will launch and manage the trading bot."
 echo "The bot will run continuously, restarting with a fresh state for each new 'block'."
 echo "Press CTRL+C in this terminal to stop the bot completely."
 echo ""
-echo "✓ Price feed (example_feed.py) is running."
 
 
 # --- Coin Flip Animation ---
@@ -61,6 +60,16 @@ while true; do
     pkill -f example_feed.py
     /usr/bin/env python3 /opt/3T/examples/example_feed.py &
     sleep 5
+    if ! pgrep -f "example_feed.py" > /dev/null; then
+	    echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+	    echo "!! ERROR: The 'example_feed.py' price feed is NOT running."
+	    echo "!! This script is required to provide price data."
+	    echo "!! Please start it in another terminal before running this script."
+	    echo "!! Example: python3 examples/example_feed.py"
+	    echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+	    exit 1 # Exit the script with an error code
+    fi
+    echo "✓ Price feed (example_feed.py) is running."
     /usr/bin/env python3 /opt/3T/examples/example_flippycoin.py
 
     # The script has finished its block. We add a small delay before restarting.
