@@ -278,7 +278,6 @@ def get_desired_state(symbol: str) -> float:
                 cursor = conn.cursor()
 
                 # Query from the spec using full symbol format
-                # NB: configured as mean revision system
                 query = """
                 SELECT symbol,
                        SUM(position_direction) as position,
