@@ -6,7 +6,7 @@ This script demonstrates a complete, albeit simple, trading strategy loop.
 It forks multiple child processes, each running an independent "coin flip" strategy.
 Each child attempts to claim a symbol based on margin availability before running.
 """
-
+import json
 import logging
 import os
 import random
@@ -27,11 +27,12 @@ from shared.config import config
 from shared.voms import VOMS
 
 # --- Constants ---
-NUM_CHILDREN = 1200
+NUM_CHILDREN = 1
 DECISION_SLEEP_SECONDS = 30
 STARTING_BALANCE = 10000
 LEVERAGE = 10
 MARGIN_THRESHOLD = 45
+max_pos_limit = 100
 
 SHM_PRICE_NAME = "price_data_shm"
 
@@ -104,7 +105,7 @@ def get_price_from_shm(symbol: str):
 
 # --- Child Process Logic ---
 def child_task():
-    POSITION_SIZE = 20  # Fixed dollar amount for each trade
+    POSITION_SIZE = 2  # Fixed dollar amount for each trade
     start_time = time.time()
     max_duration = random.randint(300, 432000)  # 5 minutes to 5 days
 
@@ -158,6 +159,11 @@ def child_task():
     # 3. Create a new run
     run_id = None
     try:
+        symbol = selected_product["symbol"]
+        price = get_price_from_shm(symbol)
+        ann_params = {
+                "pos_scaler": POSITION_SIZE/price
+        }
         run_params = {
             "start_balance": STARTING_BALANCE,
             "symbol": selected_product["symbol"],
@@ -165,6 +171,7 @@ def child_task():
             "controller_seed": random.random(),
             "pid": os.getpid(),
             "host": "flippycoin",
+            "ann_params": json.dumps( ann_params )
         }
         result = app.send_task("worker.tasks.create_run", kwargs=run_params)
         run_id = result.get(timeout=DECISION_SLEEP_SECONDS)
@@ -230,44 +237,48 @@ def child_task():
             current_pos_size = metrics["position_size"] if metrics else 0
             is_winning = metrics is not None and metrics["unrealized_pnl"] > 0
 
-            # Decide trade direction
-            go_long = random.choice([True, False])
-            logging.info(
-                f"CHILD: Coin flip result: {'GO LONG' if go_long else 'GO SHORT'}. Current P&L: {metrics['unrealized_pnl'] if metrics else 0:.4f}"
-            )
+            # Calculate the quantity for a single trade unit based on fixed dollar amount
+            trade_quantity_unit = POSITION_SIZE / price
 
-            # --- New Trading Strategy ---
-            if (
-                current_pos_size != 0
-            ):  # Only apply special logic if there is an open position
+            # --- Enforce position limits ---
+            # Calculate the current 'Magnitude' (How many units do we hold?)
+            # We use abs() because shorts might be negative (short)
+            current_magnitude = 0
+            if trade_quantity_unit > 0:
+                current_magnitude = abs(round(current_pos_size / trade_quantity_unit))
+
+            # Check the LIMIT against the MAGNITUDE
+            if current_magnitude > max_pos_limit:
+                time.sleep(DECISION_SLEEP_SECONDS)
+                logging.info(
+                    f"CHILD: Max position reached P&L: {metrics['unrealized_pnl']:.2f}"
+                )
+                update_pnl(metrics["unrealized_pnl"])
+                continue
+
+            # --- Trading Strategy ---
+            if current_pos_size != 0:  # An open position exists
                 if is_winning:
-                    is_currently_long = current_pos_size > 0
-                    is_currently_short = current_pos_size < 0
-
-                    # If coin flip opposes winning position, hold.
-                    if (is_currently_long and not go_long) or (
-                        is_currently_short and go_long
-                    ):
-                        logging.info(
-                            f"CHILD: Holding winning {'LONG' if is_currently_long else 'SHORT'} position. P&L: {metrics['unrealized_pnl']:.2f}"
-                        )
-                        update_pnl(metrics["unrealized_pnl"])
-                        continue
-
+                    # Hold winning positions
                     logging.info(
-                        f"CHILD: Adding to winning {'LONG' if is_currently_long else 'SHORT'} position."
-                    )
-                else:  # Position is losing
-                    # "when losing just wait"
-                    logging.info(
-                        f"CHILD: Position is losing. Waiting and not trading. P&L: {metrics['unrealized_pnl']:.2f}"
+                        f"CHILD: Position is winning. Holding position. P&L: {metrics['unrealized_pnl']:.2f}"
                     )
                     update_pnl(metrics["unrealized_pnl"])
                     continue
+                else:  # Position is losing
+                    # Add to the losing position (martingale)
+                    is_currently_long = current_pos_size > 0
+                    go_long = is_currently_long  # Overwrite direction
+                    logging.info(
+                        f"CHILD: Adding to losing {'LONG' if is_currently_long else 'SHORT'} position."
+                    )
+            else:  # No open position, so flip a coin
+                go_long = random.choice([True, False])
+                logging.info(
+                    f"CHILD: No position. Coin flip result: {'GO LONG' if go_long else 'GO SHORT'}. Current P&L: {metrics['unrealized_pnl'] if metrics else 0:.4f}"
+                )
 
-            # Execute trade: if no position, or if winning and coin flip agrees
-            # Calculate the quantity for a single trade unit based on fixed dollar amount
-            trade_quantity_unit = POSITION_SIZE / price
+            # Execute trade: if no position (random coin flip), or if losing (adding to position)
 
             if go_long:
                 logging.info(

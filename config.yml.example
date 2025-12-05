@@ -45,15 +45,15 @@ market_data:
 # Reconciliation Engine Configuration
 reconciliation_engine:
   # How often to run reconciliation checks (in seconds)
-  rebalance_frequency: 300.0 # in seconds
+  rebalance_frequency: 600.0 # in seconds
   
-  # Risk position size as a percentage of total balance (golden ratio based)
-  risk_pos_percentage: 0.000026967
+  # Risk position size as a percentage of total balance
+  risk_pos_percentage: 0.0000026967
 
   # Kelly Strategy Configuration
   kelly_threshold: 0.5  # maximum Kelly performance scaling threshold (ex: 0.5 = 50%)
   
-  # Symbols to manage
+  # Symbols to manage 
   # --- DISCLAIMER ---
   # The symbols listed are for informational purposes only.
   # This project is not financial, investment, or trading advice, nor is it a
@@ -67,9 +67,24 @@ reconciliation_engine:
   symbols:
     - "BTC/USDC:USDC"
     - "PAXG/USDC:USDC"
+    - "ETH/USDC:USDC"
+    - "SOL/USDC:USDC"
     - "HYPE/USDC:USDC"
-    - "APT/USDC:USDC"
+    - "XRP/USDC:USDC"
     - "ZEC/USDC:USDC"
+    - "ASTER/USDC:USDC"
+    - "FARTCOIN/USDC:USDC"
+    - "PUMP/USDC:USDC"
+    - "ENA/USDC:USDC"
+    - "MON/USDC:USDC"
+    - "XPL/USDC:USDC"
+    - "BNB/USDC:USDC"
+    - "DOGE/USDC:USDC"
+    - "UNI/USDC:USDC"
+    - "AVAX/USDC:USDC"
+    - "AAVE/USDC:USDC"
+    - "WLFI/USDC:USDC"
+    - "SUI/USDC:USDC"
 
   # Observer nodes for consensus validation
   observer_nodes:
@@ -84,7 +99,7 @@ reconciliation_engine:
   position_staleness_timeout: 60
   
   # Minimum trade value in USD to execute orders (avoids dust trades)
-  minimum_trade_threshold: 150.0
+  minimum_trade_threshold: 15.0
   
   # Order gateway request timeout in seconds
   order_timeout: 30
