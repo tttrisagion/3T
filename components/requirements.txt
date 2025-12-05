@@ -8,7 +8,7 @@ redis
 numba
 numpy
 mysql-connector-python
-ccxt
+ccxt==4.5.2
 pyyaml
 pytest
 eth-account

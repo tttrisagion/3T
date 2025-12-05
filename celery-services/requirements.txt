@@ -7,6 +7,6 @@ opentelemetry-instrumentation-celery
 eventlet
 mysql-connector-python
 pyyaml
-ccxt
+ccxt==4.5.2
 pandas
 numpy
