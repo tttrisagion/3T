@@ -8,7 +8,8 @@ state consensus for safety.
 """
 
 import os
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, timedelta, date
+from zoneinfo import ZoneInfo
 
 import redis
 import requests
@@ -22,6 +23,60 @@ from shared.opentelemetry_config import get_tracer
 # Get a tracer
 tracer = get_tracer(os.environ.get("OTEL_SERVICE_NAME", "celery-worker"))
 
+def is_market_open() -> bool:
+    """
+    Checks if the market is open based on Vatican City time (CET/CEST).
+    Schedule: Continuous from 00:00 Monday to 23:00 Friday.
+    Closed: Friday 23:00 - Monday 00:00.
+    Holidays (Closed All Day): Jan 1, Dec 25, Good Friday.
+    """
+    try:
+        # Vatican uses Central European Time
+        tz = ZoneInfo("Europe/Vatican")
+    except Exception:
+        tz = ZoneInfo("Europe/Rome")
+        
+    now = datetime.now(tz)
+    d = now.date()
+
+    # --- 1. Check Fixed Holidays ---
+    if (d.month == 1 and d.day == 1) or (d.month == 12 and d.day == 25):
+        return False
+
+    # --- 2. Check Variable Holiday (Good Friday) ---
+    # Anonymous Gregorian algorithm for Easter
+    y = d.year
+    a, b, c = y % 19, y // 100, y % 100
+    d_val, e = b // 4, b % 4
+    f = (b + 8) // 25
+    g = (b - f + 1) // 3
+    h = (19 * a + b - d_val - g + 15) % 30
+    i, k = c // 4, c % 4
+    l = (32 + 2 * e + 2 * i - h - k) % 7
+    m = (a + 11 * h + 22 * l) // 451
+    month = (h + l - 7 * m + 114) // 31
+    day = ((h + l - 7 * m + 114) % 31) + 1
+    
+    easter = date(y, month, day)
+    good_friday = easter - timedelta(days=2)
+
+    if d == good_friday:
+        return False
+
+    # --- 3. Check Weekly Schedule ---
+    # Weekdays: Mon=0, Tue=1, Wed=2, Thu=3, Fri=4, Sat=5, Sun=6
+    wd = now.weekday()
+
+    # Closed Saturday (5) and Sunday (6)
+    if wd >= 5:
+        return False
+        
+    # Closed Friday (4) after 23:00
+    if wd == 4 and now.hour >= 23:
+        return False
+        
+    # Otherwise Open (Mon 00:00 -> Fri 22:59)
+    return True
 
 def _calculate_kelly_metrics(
     condition: str, symbol: str
@@ -224,6 +279,33 @@ def calculate_kelly_position_size(base_risk_pos_size: float, symbol: str) -> flo
             print(f"Error calculating Kelly position size: {e}")
             return base_risk_pos_size
 
+def get_latest_margin_usage() -> float | None:
+    """
+    Get the latest cross maintenance margin used from the balance_history table.
+    """
+    with tracer.start_as_current_span("get_latest_margin_usage") as span:
+        try:
+            with get_db_connection() as conn:
+                cursor = conn.cursor()
+                query = """
+                SELECT cross_maintenance_margin_used FROM balance_history
+                ORDER BY timestamp DESC
+                LIMIT 1
+                """
+                cursor.execute(query)
+                result = cursor.fetchone()
+                if result:
+                    margin = float(result[0])
+                    span.set_attribute("margin_usage", margin)
+                    return margin
+                span.add_event("No margin information found in balance_history.")
+                return None
+        except Exception as e:
+            span.record_exception(e)
+            span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
+            print(f"Error getting latest margin usage: {e}")
+            return None
+
 
 def get_latest_balance() -> float | None:
     """
@@ -270,6 +352,12 @@ def get_desired_state(symbol: str) -> float:
     Returns:
         Target position size (positive for long, negative for short, 0 for flat)
     """
+    if not is_market_open():
+        # If market is closed, force desired position to 0.0 (FLAT).
+        # The engine will see (Actual: X) vs (Desired: 0) and generate
+        # orders to liquidate/flatten the position immediately.
+        return 0.0
+
     with tracer.start_as_current_span("get_desired_state") as span:
         span.set_attribute("symbol", symbol)
 
@@ -823,26 +911,71 @@ def reconcile_positions(self):
                         )
 
                         if execute_trade and side and position_delta:
-                            print(
-                                "Reconciliation needed for "
-                                f"{symbol}: {side} {abs(position_delta)}"
+                            trade_allowed = True
+                            # Check if the trade increases exposure
+                            is_increasing_exposure = abs(desired_position) > abs(
+                                actual_position
                             )
 
-                            # Send order to gateway
-                            success = send_order_to_gateway(
-                                symbol, side, abs(position_delta)
-                            )
+                            if is_increasing_exposure:
+                                with tracer.start_as_current_span(
+                                    "margin_check"
+                                ) as margin_span:
+                                    latest_balance = get_latest_balance()
+                                    max_margin = latest_balance * config.get(
+                                        "reconciliation_engine.max_margin_usage_percentage",
+                                        0.01,
+                                    )
+                                    current_margin = get_latest_margin_usage()
 
-                            if success:
-                                symbol_span.add_event(
-                                    "Order executed",
-                                    {"side": side, "size": abs(position_delta)},
+                                    margin_span.set_attribute(
+                                        "max_margin_allowed", max_margin
+                                    )
+
+                                    if current_margin is not None:
+                                        margin_span.set_attribute(
+                                            "current_margin_usage", current_margin
+                                        )
+                                        if current_margin >= max_margin:
+                                            trade_allowed = False
+                                            margin_span.add_event(
+                                                "Margin limit reached. Trade blocked.",
+                                                {
+                                                    "current_margin": current_margin,
+                                                    "max_margin": max_margin,
+                                                },
+                                            )
+                                            print(f"Margin limit of ${max_margin} reached. Current margin: ${current_margin}. Skipping trade for {symbol}.")
+                                    else:
+                                        # Block trade for safety if margin is unknown
+                                        trade_allowed = False
+                                        margin_span.add_event("Could not determine current margin. Trade blocked for safety.")
+                                        print(f"Could not determine current margin for {symbol}. Skipping trade for safety.")
+
+                            if trade_allowed:
+                                print(
+                                    "Reconciliation needed for "
+                                    f"{symbol}: {side} {abs(position_delta)}"
                                 )
+
+                                # Send order to gateway
+                                success = send_order_to_gateway(
+                                    symbol, side, abs(position_delta)
+                                )
+
+                                if success:
+                                    symbol_span.add_event(
+                                        "Order executed",
+                                        {"side": side, "size": abs(position_delta)},
+                                    )
+                                else:
+                                    symbol_span.add_event("Order failed")
                             else:
-                                symbol_span.add_event("Order failed")
+                                symbol_span.add_event(
+                                    "Trade skipped due to margin limit"
+                                )
                         else:
                             symbol_span.add_event("No action needed")
-
                     except Exception as e:
                         symbol_span.record_exception(e)
                         symbol_span.set_status(

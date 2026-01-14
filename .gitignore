@@ -8,3 +8,4 @@ database/migrations/*
 3T-observer.json
 .DS_Store
 database/3T-blocks.sql
+database/runs.sql

@@ -46,9 +46,12 @@ market_data:
 reconciliation_engine:
   # How often to run reconciliation checks (in seconds)
   rebalance_frequency: 600.0 # in seconds
-  
+
+  # Maximum margin allowed as percentage of total balance
+  max_margin_usage_percentage: 0.026
+
   # Risk position size as a percentage of total balance
-  risk_pos_percentage: 0.0000026967
+  risk_pos_percentage: 0.000005
 
   # Kelly Strategy Configuration
   kelly_threshold: 0.5  # maximum Kelly performance scaling threshold (ex: 0.5 = 50%)
@@ -66,25 +69,9 @@ reconciliation_engine:
   # ---
   symbols:
     - "BTC/USDC:USDC"
-    - "PAXG/USDC:USDC"
     - "ETH/USDC:USDC"
     - "SOL/USDC:USDC"
     - "HYPE/USDC:USDC"
-    - "XRP/USDC:USDC"
-    - "ZEC/USDC:USDC"
-    - "ASTER/USDC:USDC"
-    - "FARTCOIN/USDC:USDC"
-    - "PUMP/USDC:USDC"
-    - "ENA/USDC:USDC"
-    - "MON/USDC:USDC"
-    - "XPL/USDC:USDC"
-    - "BNB/USDC:USDC"
-    - "DOGE/USDC:USDC"
-    - "UNI/USDC:USDC"
-    - "AVAX/USDC:USDC"
-    - "AAVE/USDC:USDC"
-    - "WLFI/USDC:USDC"
-    - "SUI/USDC:USDC"
 
   # Observer nodes for consensus validation
   observer_nodes:
@@ -99,14 +86,14 @@ reconciliation_engine:
   position_staleness_timeout: 60
   
   # Minimum trade value in USD to execute orders (avoids dust trades)
-  minimum_trade_threshold: 15.0
+  minimum_trade_threshold: 75.0
   
   # Order gateway request timeout in seconds
   order_timeout: 30
 
 # Take Profit Configuration
 take_profit:
-  threshold: 0.0577215664
+  threshold: 0.1
   reward_multiple: 1
 
 # Health Monitor Configuration (in seconds)
@@ -116,4 +103,4 @@ health_monitor:
 
 observability:
   # Sampling rate for noisy tasks. 1.0 = 100%, 0.001 = 0.1%
-  sampling_rate: 0.000001
+  sampling_rate: 0.0000001

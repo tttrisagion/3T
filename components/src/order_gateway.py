@@ -267,13 +267,13 @@ def send_to_exchange(order_details: dict, client_order_id: str) -> dict:
         exchange = exchange_manager.get_exchange("hyperliquid")
 
         # Prepare order parameters for CCXT
-        order_params = {"clientOrderId": client_order_id, "loadMarkets": False}
+        order_params = {"clientOrderId": client_order_id, "loadMarkets": False, "timeInForce": "Alo"}
 
         # Execute the market order with retry logic
         def place_order():
             return exchange.create_order(
                 symbol=order_details["symbol"],
-                type="market",  # Always market order
+                type="limit",  # Always market order
                 side=order_details["side"],
                 amount=order_details["size"],
                 price=current_price,  # HyperLiquid needs price for slippage calculation
