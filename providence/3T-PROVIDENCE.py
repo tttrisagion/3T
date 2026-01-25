@@ -464,6 +464,7 @@ def child_task(resume_state=None):
     
     # Save initial state immediately upon start/resume
     save_state()
+    last_save_time = time.time()
 
     while True:
         try:
@@ -641,8 +642,13 @@ def child_task(resume_state=None):
             
             asyncio.run(manage_orders(side, instrument_price, symb[choose],pos[choose] ))
             
-            # Continuously update state
-            save_state()
+            # Continuously update state (Throttled)
+            if time.time() - last_save_time > 5:
+                save_state()
+                last_save_time = time.time()
+            
+            # Prevent CPU spinning
+            time.sleep(1)
 
         except TimeoutError:
             format_log( 'E', False, 'C', 'ITERATION TIMEOUT ERROR')
