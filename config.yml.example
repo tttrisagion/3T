@@ -72,6 +72,10 @@ reconciliation_engine:
     - "ETH/USDC:USDC"
     - "SOL/USDC:USDC"
     - "HYPE/USDC:USDC"
+    - "BNB/USDC:USDC"
+    - "XMR/USDC:USDC"
+    - "ZEC/USDC:USDC"
+    - "PAXG/USDC:USDC"
 
   # Observer nodes for consensus validation
   observer_nodes:
@@ -103,4 +107,4 @@ health_monitor:
 
 observability:
   # Sampling rate for noisy tasks. 1.0 = 100%, 0.001 = 0.1%
-  sampling_rate: 0.0000001
+  sampling_rate: 0.00000001

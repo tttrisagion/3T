@@ -6,6 +6,7 @@ from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.sdk.trace.sampling import (
+    ParentBased,
     Sampler,
     SamplingResult,
     TraceIdRatioBased,
@@ -79,14 +80,24 @@ def setup_telemetry(service_name: str):
         "worker.tasks.get_market_weight",
         "worker.tasks.update_pnl",
         "worker.tasks.get_exit_status",
+        "get_market_weight_task",
+        "update_pnl_task",
+        "get_exit_status_task",
+        # Add run/ prefixed tasks for Celery instrumentation
+        "run/worker.tasks.get_market_weight",
+        "run/worker.tasks.update_pnl",
+        "run/worker.tasks.get_exit_status",
     }
 
     # Configure the dispatching sampler
-    sampler = DispatchingSampler(
+    dispatching_sampler = DispatchingSampler(
         target_tasks=noisy_tasks,
         low_rate_sampler=TraceIdRatioBased(sampling_rate),
         default_sampler=TraceIdRatioBased(1.0),  # Sample all other traces
     )
+
+    # Use ParentBased to ensure our sampler is the root and its decision is final
+    sampler = ParentBased(root=dispatching_sampler)
 
     provider = TracerProvider(sampler=sampler, resource=resource)
 
@@ -99,6 +110,7 @@ def setup_telemetry(service_name: str):
 
     trace.set_tracer_provider(provider)
     _TRACER_PROVIDER = provider
+    return provider
 
 
 def get_tracer(service_name: str):

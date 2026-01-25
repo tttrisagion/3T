@@ -17,12 +17,18 @@ from shared.celery_app import app
 from shared.config import config
 from shared.database import get_db_connection, get_redis_connection
 from shared.exchange_manager import exchange_manager
-from shared.opentelemetry_config import get_tracer
+from shared.opentelemetry_config import get_tracer, setup_telemetry
 
-# Get a tracer
+# --- OTel Setup ---
+# It's crucial to set up the tracer provider BEFORE instrumenting.
+# This ensures the instrumentor uses our custom sampler configuration.
+provider = setup_telemetry(os.environ.get("OTEL_SERVICE_NAME", "celery-worker"))
+CeleryInstrumentor().instrument(tracer_provider=provider)
+
+# Get a tracer for manual instrumentation.
+# The setup is already done, so this just retrieves the tracer.
 tracer = get_tracer(os.environ.get("OTEL_SERVICE_NAME", "celery-worker"))
 
-CeleryInstrumentor().instrument()
 
 # Configure Celery Beat schedule
 app.conf.beat_schedule = {
@@ -41,10 +47,6 @@ app.conf.beat_schedule = {
     "reconcile-positions": {
         "task": "worker.reconciliation_engine.reconcile_positions",
         "schedule": config.get("reconciliation_engine.rebalance_frequency", 900.0),
-    },
-    "cleanup-stale-orders": {
-        "task": "worker.tasks.cleanup_stale_orders",
-        "schedule": 300.0, # Run every 5 minutes to check for expired orders
     },
 }
 app.conf.timezone = "UTC"
@@ -917,70 +919,6 @@ def get_all_product_symbols():
             span.record_exception(e)
             print(f"Error in get_all_product_symbols task: {e}")
             raise
-        finally:
-            if db_cnx and db_cnx.is_connected():
-                cursor.close()
-                db_cnx.close()
-
-@app.task(name="worker.tasks.cleanup_stale_orders")
-def cleanup_stale_orders():
-    """
-    Identify and terminate orders exceeding the 15-minute operational window.
-    Target: Orders with status 'CONFIRMED' and no updates > 15 minutes.
-    """
-    with tracer.start_as_current_span("cleanup_stale_orders") as span:
-        db_cnx = None
-        try:
-            db_cnx = get_db_connection()
-            cursor = db_cnx.cursor(dictionary=True)
-
-            # Select orders older than 5 minutes that are ostensibly active (CONFIRMED)
-            # We assume 'CONFIRMED' implies the order was accepted by the exchange and might still be open.
-            query = """
-                SELECT id, client_order_id, exchange_order_id, product_id
-                FROM order_execution_log
-                WHERE status = 'CONFIRMED'
-                  AND exchange_order_id IS NOT NULL
-                  AND created_at >= NOW() - INTERVAL 10 MINUTE
-            """
-            cursor.execute(query)
-            stale_orders = cursor.fetchall()
-
-            if not stale_orders:
-                span.set_attribute("stale_orders.count", 0 )
-                return
-
-            span.set_attribute("stale_orders.count", len(stale_orders))
-            exchange = exchange_manager.get_exchange("hyperliquid")
-
-            for order in stale_orders:
-                symbol = order["product_id"]
-                order_id = order["exchange_order_id"]
-                client_oid = order["client_order_id"]
-
-                try:
-                    # Execute cancellation via CCXT unified API
-                    print(f"Terminating stale order: {order_id} ({symbol})")
-                    exchange.cancel_order(order_id, symbol)
-
-                    # Log the termination in the database
-                    update_query = """
-                        UPDATE order_execution_log
-                        SET status = 'FAILED', error_message = 'Auto-cancelled: Stale > 15m'
-                        WHERE id = %s
-                    """
-                    cursor.execute(update_query, (order["id"],))
-                    db_cnx.commit()
-
-                except Exception as e:
-                    print(f"Failed to cancel order {order_id}: {e}")
-                    # Logic dictates we record the failure but continue processing the batch
-                    span.record_exception(e)
-
-        except Exception as e:
-            span.set_attribute("error", True)
-            span.record_exception(e)
-            print(f"Critical error in cleanup protocol: {e}")
         finally:
             if db_cnx and db_cnx.is_connected():
                 cursor.close()

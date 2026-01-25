@@ -24,6 +24,7 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
+  "id": 7,
   "links": [
     {
       "asDropdown": false,
@@ -428,30 +429,6 @@
                 }
               }
             ]
-          },
-          {
-            "__systemRef": "hideSeriesFrom",
-            "matcher": {
-              "id": "byNames",
-              "options": {
-                "mode": "exclude",
-                "names": [
-                  "position"
-                ],
-                "prefix": "All except:",
-                "readOnly": true
-              }
-            },
-            "properties": [
-              {
-                "id": "custom.hideFrom",
-                "value": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": true
-                }
-              }
-            ]
           }
         ]
       },
@@ -494,7 +471,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "select concat( symbol, ' ', host ) as symbol,\nsum(position_direction) as 'position',\nsum(live_pnl) as 'total_pnl',count(*) as 'runs',\nsum(position_direction)/count(*) as 'size_per_run' \nfrom runs \nwhere exit_run=0 \nand end_time is null \nand live_pnl > 0.2\nand height IS NULL\nAND update_time >= NOW() - INTERVAL 10 MINUTE\ngroup by symbol \nHAVING total_pnl > 0 AND ABS(position) >= 1\n\n\norder by 3 desc",
+          "rawSql": "select symbol,\nsum(position_direction) as 'position',\nsum(live_pnl) as 'total_pnl',count(*) as 'runs',\nsum(position_direction)/count(*) as 'size_per_run' \nfrom runs \nwhere exit_run=0 \nand end_time is null \nand live_pnl > 0.2\nand height IS NULL\nAND update_time >= NOW() - INTERVAL 10 MINUTE\ngroup by symbol\nHAVING total_pnl > 0 AND ABS(position) >= 1\norder by 3 desc",
           "refId": "A",
           "sql": {
             "columns": [
@@ -645,7 +622,7 @@
         ]
       },
       "gridPos": {
-        "h": 5,
+        "h": 6,
         "w": 9,
         "x": 15,
         "y": 8
@@ -881,115 +858,45 @@
           "color": {
             "mode": "thresholds"
           },
-          "custom": {
-            "align": "auto",
-            "cellOptions": {
-              "type": "auto"
-            },
-            "inspect": false
-          },
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "semi-dark-red",
                 "value": null
               },
               {
-                "color": "red",
-                "value": 80
+                "color": "semi-dark-green",
+                "value": 0
               }
             ]
-          }
+          },
+          "unit": "currencyUSD"
         },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "position"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "red",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "total_pnl"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "orange",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "runs"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "yellow",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "size_per_run"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "blue",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          }
-        ]
+        "overrides": []
       },
       "gridPos": {
-        "h": 5,
-        "w": 9,
+        "h": 3,
+        "w": 3,
         "x": 15,
-        "y": 13
+        "y": 14
       },
-      "id": 10,
+      "id": 12,
       "options": {
-        "cellHeight": "sm",
-        "footer": {
-          "countRows": false,
-          "fields": "",
-          "reducer": [
-            "sum"
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
           ],
-          "show": false
+          "fields": "",
+          "values": false
         },
-        "showHeader": true,
-        "sortBy": [
-          {
-            "desc": true,
-            "displayName": "age"
-          }
-        ]
+        "textMode": "auto",
+        "wideLayout": true
       },
       "pluginVersion": "10.2.2",
       "targets": [
@@ -1002,17 +909,12 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "select count(*) as 'total_runs',height,TIMESTAMPDIFF(SECOND, MIN(start_time), MAX(start_time)) / 3600 AS duration_hours, max(start_time) as 'age' from runs where not (height is null\nand exit_run = 1 ) group by 2;\n",
+          "rawSql": "SELECT account_value - (\n        SELECT account_value_ma\n        FROM (\n            SELECT \n                timestamp,\n                AVG(account_value) OVER (\n                    ORDER BY timestamp ASC\n                    ROWS BETWEEN 2000 PRECEDING AND CURRENT ROW\n                ) AS account_value_ma\n            FROM balance_history\n            WHERE timestamp >= NOW() - INTERVAL 2 DAY\n            ORDER BY timestamp DESC\n        ) AS sub\n        LIMIT 1\n    ) as result\nFROM balance_history ORDER BY timestamp DESC LIMIT 1;",
           "refId": "A",
           "sql": {
             "columns": [
               {
-                "parameters": [
-                  {
-                    "name": "*",
-                    "type": "functionParameter"
-                  }
-                ],
+                "parameters": [],
                 "type": "function"
               }
             ],
@@ -1025,12 +927,189 @@
               }
             ],
             "limit": 50
-          },
-          "table": "runs"
+          }
         }
       ],
-      "title": "Blocks",
-      "type": "table"
+      "title": "MA DELTA",
+      "transparent": true,
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "mysql",
+        "uid": "3T-MariaDB-Datasource"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "semi-dark-red",
+                "value": null
+              },
+              {
+                "color": "#EAB839",
+                "value": 1
+              },
+              {
+                "color": "semi-dark-green",
+                "value": 3
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 3,
+        "x": 18,
+        "y": 14
+      },
+      "id": 13,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "10.2.2",
+      "targets": [
+        {
+          "dataset": "`3t`",
+          "datasource": {
+            "type": "mysql",
+            "uid": "3T-MariaDB-Datasource"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH RECURSIVE \nhourly_data AS (\n  -- Step 1: Bucket data into hours\n  SELECT\n    DATE_FORMAT(timestamp, '%Y-%m-%d %H:00:00') as time_bucket,\n    SUBSTRING_INDEX(GROUP_CONCAT(account_value ORDER BY timestamp DESC), ',', 1) as close_balance\n  FROM balance_history\n  WHERE $__timeFilter(timestamp)\n  GROUP BY 1\n),\nreturns_data AS (\n  -- Step 2: Calculate PnL Change\n  SELECT\n    STR_TO_DATE(time_bucket, '%Y-%m-%d %H:%i:%s') as time,\n    CAST(close_balance AS DECIMAL(20,8)) - \n    LAG(CAST(close_balance AS DECIMAL(20,8))) OVER (ORDER BY time_bucket ASC) as pnl_diff\n  FROM hourly_data\n),\nstats_data AS (\n  -- Step 3: Rolling Window Stats\n  SELECT\n    time,\n    AVG(pnl_diff) OVER (\n      ORDER BY time ASC\n      ROWS BETWEEN 720 PRECEDING AND CURRENT ROW\n    ) as mean_pnl,\n    STDDEV(pnl_diff) OVER (\n      ORDER BY time ASC\n      ROWS BETWEEN 720 PRECEDING AND CURRENT ROW\n    ) as stddev_pnl,\n    ROW_NUMBER() OVER (ORDER BY time ASC) as rn\n  FROM returns_data\n)\nSELECT\n  -- Step 4: Return ONLY the calculated ratio\n  CASE \n    WHEN stddev_pnl IS NULL OR stddev_pnl = 0 THEN 0 \n    ELSE (mean_pnl / stddev_pnl) * SQRT(8760) \n  END as sharpe_ratio_annualized\nFROM stats_data\nWHERE rn > 10\nORDER BY time DESC  -- Sort by Newest first\nLIMIT 1;            -- Grab only the top result",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "SHARPE_RATIO",
+      "transparent": true,
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "mysql",
+        "uid": "3T-MariaDB-Datasource"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "fillOpacity": 100,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 0
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "dark-orange",
+                "value": null
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 3,
+        "x": 21,
+        "y": 14
+      },
+      "id": 14,
+      "options": {
+        "bucketOffset": 0,
+        "bucketSize": 2,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        }
+      },
+      "pluginVersion": "10.2.2",
+      "targets": [
+        {
+          "dataset": "`3t`",
+          "datasource": {
+            "type": "mysql",
+            "uid": "3T-MariaDB-Datasource"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT TIMESTAMPDIFF(HOUR, start_time, NOW()) as 'age_hrs'\nfrom runs \nwhere exit_run=0 \nand end_time is null \nand height IS NULL\nAND update_time >= NOW() - INTERVAL 10 MINUTE",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "RUN AGE (hrs)",
+      "transparent": true,
+      "type": "histogram"
     },
     {
       "datasource": {
@@ -1256,13 +1335,79 @@
             ]
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "account_value_ma"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "dark-orange",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "account_value_ma_250"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "dark-blue",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "sharpe_ratio_annualized"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#ffffff",
+                  "mode": "fixed"
+                }
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "dash": [
+                    10,
+                    10
+                  ],
+                  "fill": "dash"
+                }
+              },
+              {
+                "id": "custom.scaleDistribution",
+                "value": {
+                  "type": "linear"
+                }
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
-        "h": 7,
+        "h": 8,
         "w": 9,
         "x": 15,
-        "y": 18
+        "y": 17
       },
       "id": 1,
       "options": {
@@ -1273,7 +1418,7 @@
           "showLegend": true
         },
         "tooltip": {
-          "mode": "single",
+          "mode": "multi",
           "sort": "none"
         }
       },
@@ -1288,6 +1433,96 @@
           "rawQuery": true,
           "rawSql": "SELECT timestamp AS time, account_value FROM balance_history where $__timeFilter(timestamp) ORDER BY timestamp ASC",
           "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        },
+        {
+          "dataset": "`3t`",
+          "datasource": {
+            "type": "mysql",
+            "uid": "3T-MariaDB-Datasource"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "hide": false,
+          "rawQuery": true,
+          "rawSql": "SELECT\n  timestamp AS time,\n  AVG(account_value) OVER (\n    ORDER BY timestamp ASC\n    ROWS BETWEEN 2000 PRECEDING AND CURRENT ROW\n  ) AS account_value_ma\nFROM balance_history\nWHERE $__timeFilter(timestamp)\nORDER BY timestamp ASC",
+          "refId": "B",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        },
+        {
+          "dataset": "`3t`",
+          "datasource": {
+            "type": "mysql",
+            "uid": "3T-MariaDB-Datasource"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "hide": false,
+          "rawQuery": true,
+          "rawSql": "SELECT\n  timestamp AS time,\n  AVG(account_value) OVER (\n    ORDER BY timestamp ASC\n    ROWS BETWEEN 250 PRECEDING AND CURRENT ROW\n  ) AS account_value_ma_250\nFROM balance_history\nWHERE $__timeFilter(timestamp)\nORDER BY timestamp ASC",
+          "refId": "C",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        },
+        {
+          "dataset": "`3t`",
+          "datasource": {
+            "type": "mysql",
+            "uid": "3T-MariaDB-Datasource"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "hide": false,
+          "rawQuery": true,
+          "rawSql": "WITH RECURSIVE \nhourly_data AS (\n  -- Step 1: Bucket data into hours\n  SELECT\n    DATE_FORMAT(timestamp, '%Y-%m-%d %H:00:00') as time_bucket,\n    SUBSTRING_INDEX(GROUP_CONCAT(account_value ORDER BY timestamp DESC), ',', 1) as close_balance\n  FROM balance_history\n  WHERE $__timeFilter(timestamp)\n  GROUP BY 1\n),\nreturns_data AS (\n  -- Step 2: Calculate PnL Change\n  SELECT\n    STR_TO_DATE(time_bucket, '%Y-%m-%d %H:%i:%s') as time,\n    CAST(close_balance AS DECIMAL(20,8)) - \n    LAG(CAST(close_balance AS DECIMAL(20,8))) OVER (ORDER BY time_bucket ASC) as pnl_diff\n  FROM hourly_data\n),\nstats_data AS (\n  -- Step 3: Rolling Window Stats + Row Numbering\n  SELECT\n    time,\n    AVG(pnl_diff) OVER (\n      ORDER BY time ASC\n      ROWS BETWEEN 720 PRECEDING AND CURRENT ROW\n    ) as mean_pnl,\n    STDDEV(pnl_diff) OVER (\n      ORDER BY time ASC\n      ROWS BETWEEN 720 PRECEDING AND CURRENT ROW\n    ) as stddev_pnl,\n    -- Create a counter for every row ordered by time\n    ROW_NUMBER() OVER (ORDER BY time ASC) as rn\n  FROM returns_data\n)\nSELECT\n  time,\n  -- Step 4: Sharpe Calculation\n  CASE \n    WHEN stddev_pnl IS NULL OR stddev_pnl = 0 THEN 0 \n    ELSE (mean_pnl / stddev_pnl) * SQRT(8760) \n  END as sharpe_ratio_annualized\nFROM stats_data\nWHERE rn > 5  -- <--- THIS HIDES THE FIRST 10 NOISY VALUES\nORDER BY time ASC;",
+          "refId": "D",
           "sql": {
             "columns": [
               {
@@ -1438,7 +1673,7 @@
       },
       "gridPos": {
         "h": 9,
-        "w": 24,
+        "w": 15,
         "x": 0,
         "y": 25
       },
@@ -1490,6 +1725,167 @@
       ],
       "title": "Products",
       "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "mysql",
+        "uid": "3T-MariaDB-Datasource"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "position"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "red",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "total_pnl"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "orange",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "runs"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "yellow",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "size_per_run"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 9,
+        "x": 15,
+        "y": 25
+      },
+      "id": 10,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "age"
+          }
+        ]
+      },
+      "pluginVersion": "10.2.2",
+      "targets": [
+        {
+          "dataset": "`3t`",
+          "datasource": {
+            "type": "mysql",
+            "uid": "3T-MariaDB-Datasourc"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "select count(*) as 'total_runs',height,TIMESTAMPDIFF(SECOND, MIN(start_time), MAX(start_time)) / 3600 AS duration_hours, max(start_time) as 'age' from runs where not (height is null\nand exit_run = 1 ) group by 2;\n",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [
+                  {
+                    "name": "*",
+                    "type": "functionParameter"
+                  }
+                ],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          },
+          "table": "runs"
+        }
+      ],
+      "title": "Blocks",
+      "type": "table"
     }
   ],
   "refresh": "5m",
@@ -1499,13 +1895,13 @@
     "list": []
   },
   "time": {
-    "from": "now-3h",
+    "from": "now-2d",
     "to": "now"
   },
   "timepicker": {},
   "timezone": "",
-  "title": "3T Balance & Positions",
-  "uid": "3t-balance-dashboard",
-  "version": 1,
+  "title": "3T Balance & Positions 10% EXPERIMENT",
+  "uid": "c0a21b2b-71ce-4828-a09a-670933464160",
+  "version": 19,
   "weekStart": ""
 }
