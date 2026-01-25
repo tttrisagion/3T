@@ -18,6 +18,13 @@ project_root = '/opt/3T'
 sys.path.append(str(project_root))
 from shared.voms import VOMS
 from shared.config import config
+from shared.providence import (
+    calculate_permutation_entropy,
+    get_price_from_shm,
+    get_volatility,
+    calculate_volatility_goal,
+    SHM_PRICE_NAME
+)
 
 # Define the ANSI escape codes
 ORANGE = '\033[38;5;202m'
@@ -44,66 +51,11 @@ Starting: 3T RC3...
 filename = os.path.basename(__file__)
 print( f"{filename} - Tactical Trend Trader" )
 
-num_children = 2000
+num_children = 10
 decision_sleep = 0
 child_pids = []
 
-SHM_PRICE_NAME = "price_data_shm"
-
 print( f"PARENT: Starting with PID {os.getpid()}" )
-
-def load_perm_entropy_library():
-    """Load the permutation entropy C++ library."""
-    try:
-        lib_path = "/opt/3T/celery-services/cpp/bin/libperm_entropy_cpu.so"
-        lib = ctypes.CDLL(lib_path)
-
-        func = lib.calculate_cpu_perm_entropy
-        func.argtypes = [
-            np.ctypeslib.ndpointer(dtype=np.float64, flags="C_CONTIGUOUS"),
-            ctypes.c_int,
-            ctypes.c_int,
-            ctypes.c_int,
-        ]
-        func.restype = ctypes.c_double
-        print("✅ Successfully loaded permutation entropy library")
-        return func
-    except (OSError, AttributeError) as e:
-        print(f"⚠️ WARNING: Could not load permutation entropy library. Error: {e}")
-        return None
-
-def calculate_permutation_entropy(data):
-    order = 3
-    delay = 1
-    try:
-        if not calculate_cpu_entropy:
-            error_msg = "Permutation entropy library not loaded"
-            span.set_attribute("error", True)
-            span.add_event(error_msg)
-            return {"error": error_msg, "result": None}
-
-        # Convert data to numpy array
-        x_np = np.array(data, dtype=np.float64)
-        n = len(x_np)
-
-        # Validate inputs
-        if n < order:
-            error_msg = f"Data length ({n}) must be >= order ({order})"
-            span.set_attribute("error", True)
-            span.add_event(error_msg)
-            return {"error": error_msg, "result": None}
-
-        result = calculate_cpu_entropy(x_np, n, order, delay)
-
-        return result
-
-    except Exception as e:
-        print(f"Error in calculate_permutation_entropy task: {e}")
-        return None
-
-
-# Load the library on module import
-calculate_cpu_entropy = load_perm_entropy_library()
 
 def child_task():
     # This code is ONLY executed by the child.
@@ -113,7 +65,6 @@ def child_task():
         broker="redis://192.168.2.157:6379/0",
         backend="redis://192.168.2.157:6379/0",
     )
-
 
     #-----------
     # IMPORTANT >~~~~~.
@@ -236,35 +187,6 @@ def child_task():
 
     ###
     # Functional Units
-    def get_price_from_shm(symbol: str):
-        """Gets the latest price for a symbol from shared memory."""
-        try:
-            shm = shared_memory.SharedMemory(name=SHM_PRICE_NAME)
-            resource_tracker.unregister(shm._name, "shared_memory")
-            header_size, entry_size = 8, 24
-            max_symbols = (shm.size - header_size) // entry_size
-            buffer = np.ndarray((shm.size,), dtype=np.uint8, buffer=shm.buf)
-            num_symbols = buffer[:header_size].view(np.uint64)[0]
-
-            import hashlib
-
-            hash_bytes = hashlib.sha256(symbol.encode("utf-8")).digest()
-            symbol_hash = (
-                int.from_bytes(hash_bytes[:8], byteorder="little") & 0x7FFFFFFFFFFFFFFF
-            )
-
-            for i in range(min(num_symbols, max_symbols)):
-                offset = header_size + (i * entry_size)
-                entry_data = buffer[offset : offset + entry_size].tobytes()
-                stored_hash, price, _ = struct.unpack("<Qdd", entry_data)
-                if stored_hash == symbol_hash:
-                    return price
-        except FileNotFoundError:
-            return None
-        finally:
-            if "shm" in locals() and shm:
-                shm.close()
-        return None
 
     def format_log( _, __, red_level, red_value ):
         log_entry = f"{run_id} {os.getpid()} {filename} {symb[choose]} {red_value}"
@@ -272,37 +194,6 @@ def child_task():
             logging.info( log_entry )
         else:
             logging.warning( log_entry )
-
-    MAX_SYMBOLS = 1000
-    ENTRY_SIZE = 24
-    HEADER_SIZE = 8
-    TOTAL_SIZE = HEADER_SIZE + (MAX_SYMBOLS * ENTRY_SIZE)
-
-    # Staleness threshold
-    MAX_AGE_SECONDS = 5
-
-    def symbol_to_hash(symbol):
-        """Convert symbol string to 64-bit hash for fast lookup"""
-        import hashlib
-
-        # Use SHA256 for deterministic hashing across processes
-        hash_bytes = hashlib.sha256(symbol.encode("utf-8")).digest()
-        # Take first 8 bytes as 64-bit integer
-        return int.from_bytes(hash_bytes[:8], byteorder="little") & 0x7FFFFFFFFFFFFFFF
-
-    def get_voms_values_OLD():
-        if len(voms.trades) > 0:
-            metrics = voms.get_metrics( )
-            position_size = metrics['position_size']
-            position_value = metrics['position_value']
-            unrealized_pnl = metrics['unrealized_pnl']
-            account_balance = metrics['account_balance']
-            cross_maintenance_margin_used = metrics['margin_used']
-            return (
-                    position_size, position_value, unrealized_pnl, account_balance, cross_maintenance_margin_used
-                    )
-        else:
-            return ( False, False, False, False, False )
 
     def get_voms_values():
         """
@@ -324,88 +215,6 @@ def child_task():
         else:
             # If metrics is None (no trades yet), return default numeric value
             return (0.0, 0.0, 0.0, 0.0, 0.0)
-
-
-    def calculate_volatility_goal(current_volatility):
-        min_volatility = instrument_price * min_goal_weight
-        max_volatility = instrument_price * max_goal_weight
-        
-        # Scale the current volatility to a value between 0 and 1
-        scaled_volatility = (current_volatility - min_volatility) / (max_volatility - min_volatility)
-        
-        # Apply an exponential function to the scaled volatility
-        goal = np.exp(scaled_volatility * np.log(max_goal / min_goal)) * min_goal
-        
-        if goal < min_goal:
-            return min_goal
-        elif goal > max_goal:
-            return max_goal
-        return goal
-
-    def get_volatility(symbol, max_retries=None):
-        SHM_NAME = "market_data_shm"
-        """
-        Get volatility for a symbol from shared memory.
-        Returns (volatility, timestamp) if found and fresh, otherwise retries.
-        """
-        symbol_hash = symbol_to_hash(symbol)
-        retry_count = 0
-
-        while max_retries is None or retry_count < max_retries:
-            try:
-                # Connect to existing shared memory
-                shm = shared_memory.SharedMemory(name=SHM_NAME)
-
-                # CRITICAL: Unregister from resource tracker to prevent cleanup
-                # This prevents the shared memory from being destroyed when getter exits
-                resource_tracker.unregister(shm._name, "shared_memory")
-
-                try:
-                    # Create numpy array view
-                    buffer = np.ndarray((TOTAL_SIZE,), dtype=np.uint8, buffer=shm.buf)
-
-                    # Read number of symbols
-                    num_symbols = buffer[:HEADER_SIZE].view(np.uint64)[0]
-
-                    # Search for our symbol
-                    current_time = time.time()
-
-                    for i in range(min(num_symbols, MAX_SYMBOLS)):
-                        offset = HEADER_SIZE + (i * ENTRY_SIZE)
-
-                        # Unpack entry
-                        entry_data = buffer[offset : offset + ENTRY_SIZE].tobytes()
-                        stored_hash, volatility, timestamp = struct.unpack("<Qdd", entry_data)
-
-                        if stored_hash == symbol_hash:
-                            # Check staleness
-                            age = current_time - timestamp
-                            if age <= MAX_AGE_SECONDS:
-                                return volatility
-                            else:
-                                print(
-                                    f"Volatility for {symbol} is stale (age: {age:.1f}s), retrying..."
-                                )
-                                break
-
-                    print(f"Symbol {symbol} not found in shared memory, retrying...")
-
-                finally:
-                    shm.close()
-
-            except FileNotFoundError:
-                print("Shared memory not found, setter may not be running. Retrying...")
-            except Exception as e:
-                print(f"Error reading shared memory: {e}")
-
-            retry_count += 1
-            if max_retries is None or retry_count < max_retries:
-                print(f"Sleeping 30 seconds before retry {retry_count}...")
-                time.sleep(30)
-
-        raise TimeoutError(
-            f"Could not get fresh volatility for {symbol} after {retry_count} attempts"
-        )
 
     def get_weight():
         result = app.send_task( "worker.tasks.get_market_weight", args=[symb[choose]] )
@@ -500,9 +309,7 @@ def child_task():
     ###
     # Main
     start_balance, run_id = create_new_run()
-
     start_time = time.time()
-
 
     while True:
         try:
@@ -562,7 +369,7 @@ def child_task():
                     format_log( 'E', False, 'I', "EXIT ON GLOBAL EXTERNAL EXIT SIGNAL")
                     time.sleep(random.random()*100)
                     quit()
-                elif apr > ( float( apr_target ) * float( calculate_volatility_goal( get_volatility( symb[choose] ) ) ) ):
+                elif apr > ( float( apr_target ) * float( calculate_volatility_goal( get_volatility( symb[choose] ), instrument_price, min_goal_weight, max_goal_weight, min_goal, max_goal ) ) ):
                     format_log( 'E', False, 'I', "EXIT APR TARGET")
                     exit_trade = True
                 elif duration > max_duration:
