@@ -5,6 +5,7 @@ config.yml
 .coverage
 tmp
 database/migrations/*
+database/init-hist*
 3T-observer.json
 .DS_Store
 database/3T-blocks.sql

@@ -42,18 +42,20 @@ class TestReconciliationEngine(unittest.TestCase):
         self.assertEqual(get_base_symbol("ENA/USDC:USDC"), "ENA")
         self.assertEqual(get_base_symbol("BTC"), "BTC")  # Already base symbol
 
+    @patch("reconciliation_engine.is_market_open", return_value=True)
     @patch("reconciliation_engine.calculate_kelly_position_size")
     @patch("reconciliation_engine.get_db_connection")
     @patch("reconciliation_engine.get_latest_balance")
     @patch("reconciliation_engine.config")
     @patch("reconciliation_engine.get_current_price")
     def test_get_desired_state_with_active_runs(
-        self, 
-        mock_price, 
-        mock_config, 
-        mock_balance, 
-        mock_db, 
-        mock_kelly_calc
+        self,
+        mock_price,
+        mock_config,
+        mock_balance,
+        mock_db,
+        mock_kelly_calc,
+        mock_market_open,
     ):
         """Test desired state calculation with active runs"""
         # Mock configuration
@@ -64,7 +66,7 @@ class TestReconciliationEngine(unittest.TestCase):
 
         # Mock current price
         mock_price.return_value = 118000.0  # BTC price
-        
+
         # FORCES the Kelly Size to 250.0
         # Base Size = 100,000 * 0.0025 = 250.0
         # We force the calculator to return this base size, bypassing probation logic
@@ -74,10 +76,9 @@ class TestReconciliationEngine(unittest.TestCase):
         mock_cursor = Mock()
         mock_cursor.fetchone.return_value = (
             "BTC",
-            2.0,  # position_direction
-            100.0,
-            5,
-            0.4,
+            2.0,  # position
+            100.0,  # total_pnl
+            5,  # runs
         )
         mock_conn = Mock()
         mock_conn.cursor.return_value = mock_cursor
@@ -215,9 +216,7 @@ class TestReconciliationEngine(unittest.TestCase):
 
     @patch("reconciliation_engine.get_current_price")
     @patch("reconciliation_engine.config")
-    def test_reconciliation_both_short_add_position(
-        self, mock_config, mock_price
-    ):
+    def test_reconciliation_both_short_add_position(self, mock_config, mock_price):
         """Test reconciliation logic: both short, need to add position"""
         mock_config.get.return_value = 11.0  # minimum_trade_threshold
         mock_price.return_value = 118000.0
@@ -276,9 +275,7 @@ class TestReconciliationEngine(unittest.TestCase):
 
     @patch("reconciliation_engine.get_current_price")
     @patch("reconciliation_engine.config")
-    def test_reconciliation_both_long_add_position(
-        self, mock_config, mock_price
-    ):
+    def test_reconciliation_both_long_add_position(self, mock_config, mock_price):
         """Test reconciliation logic: both long, need to add position"""
         mock_config.get.return_value = 11.0  # minimum_trade_threshold
         mock_price.return_value = 118000.0
@@ -451,17 +448,34 @@ class TestReconciliationEngine(unittest.TestCase):
             }
             self.assertEqual(req.json(), expected_data)
 
+    @patch("reconciliation_engine.get_latest_margin_usage")
+    @patch("reconciliation_engine.get_latest_balance")
     @patch("reconciliation_engine.config")
     @patch("reconciliation_engine.get_desired_state")
     @patch("reconciliation_engine.get_actual_state")
     @patch("reconciliation_engine.calculate_reconciliation_action")
     @patch("reconciliation_engine.send_order_to_gateway")
     def test_reconcile_positions_full_cycle(
-        self, mock_gateway, mock_calc, mock_actual, mock_desired, mock_config
+        self,
+        mock_gateway,
+        mock_calc,
+        mock_actual,
+        mock_desired,
+        mock_config,
+        mock_balance,
+        mock_margin,
     ):
         """Test full reconciliation cycle"""
-        # Mock configuration
-        mock_config.get.return_value = ["BTC/USDC:USDC"]
+
+        # Mock config to handle multiple return values
+        def config_get_side_effect(key, default=None):
+            if key == "reconciliation_engine.symbols":
+                return ["BTC/USDC:USDC"]
+            if key == "reconciliation_engine.max_margin_usage_percentage":
+                return 0.01
+            return default
+
+        mock_config.get.side_effect = config_get_side_effect
 
         # Mock desired state
         mock_desired.return_value = 0.001
@@ -471,6 +485,10 @@ class TestReconciliationEngine(unittest.TestCase):
 
         # Mock reconciliation calculation
         mock_calc.return_value = (True, "buy", 0.0005)
+
+        # Mock balance and margin
+        mock_balance.return_value = 100000.0
+        mock_margin.return_value = 100.0
 
         # Mock gateway success
         mock_gateway.return_value = True

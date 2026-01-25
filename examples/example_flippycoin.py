@@ -6,6 +6,7 @@ This script demonstrates a complete, albeit simple, trading strategy loop.
 It forks multiple child processes, each running an independent "coin flip" strategy.
 Each child attempts to claim a symbol based on margin availability before running.
 """
+
 import json
 import logging
 import os
@@ -161,9 +162,7 @@ def child_task():
     try:
         symbol = selected_product["symbol"]
         price = get_price_from_shm(symbol)
-        ann_params = {
-                "pos_scaler": POSITION_SIZE/price
-        }
+        ann_params = {"pos_scaler": POSITION_SIZE / price}
         run_params = {
             "start_balance": STARTING_BALANCE,
             "symbol": selected_product["symbol"],
@@ -171,7 +170,7 @@ def child_task():
             "controller_seed": random.random(),
             "pid": os.getpid(),
             "host": "flippycoin",
-            "ann_params": json.dumps( ann_params )
+            "ann_params": json.dumps(ann_params),
         }
         result = app.send_task("worker.tasks.create_run", kwargs=run_params)
         run_id = result.get(timeout=DECISION_SLEEP_SECONDS)
@@ -188,9 +187,7 @@ def child_task():
     risk_percentage = config.get("reconciliation_engine.risk_pos_percentage", 0.01)
 
     def update_run_position(pos_direction: int):
-        app.send_task(
-            "worker.tasks.update_run_position", args=[run_id, pos_direction]
-        )
+        app.send_task("worker.tasks.update_run_position", args=[run_id, pos_direction])
 
     def update_pnl(pnl: float):
         app.send_task("worker.tasks.update_pnl", args=[run_id, pnl])

@@ -1,8 +1,9 @@
-import struct
-import time
 import hashlib
 import logging
+import struct
+import time
 from multiprocessing import resource_tracker, shared_memory
+
 import numpy as np
 
 logger = logging.getLogger(__name__)
@@ -17,12 +18,14 @@ MAX_AGE_SECONDS = 5
 SHM_PRICE_NAME = "price_data_shm"
 SHM_MARKET_DATA_NAME = "market_data_shm"
 
+
 def symbol_to_hash(symbol: str) -> int:
     """Convert symbol string to 64-bit hash for fast lookup"""
     # Use SHA256 for deterministic hashing across processes
     hash_bytes = hashlib.sha256(symbol.encode("utf-8")).digest()
     # Take first 8 bytes as 64-bit integer
     return int.from_bytes(hash_bytes[:8], byteorder="little") & 0x7FFFFFFFFFFFFFFF
+
 
 def get_price_from_shm(symbol: str, shm_name: str = SHM_PRICE_NAME):
     """Gets the latest price for a symbol from shared memory."""
@@ -32,7 +35,7 @@ def get_price_from_shm(symbol: str, shm_name: str = SHM_PRICE_NAME):
         try:
             resource_tracker.unregister(shm._name, "shared_memory")
         except KeyError:
-            pass # Already unregistered or not tracked
+            pass  # Already unregistered or not tracked
 
         header_size, entry_size = 8, 24
         max_symbols = (shm.size - header_size) // entry_size
@@ -57,7 +60,10 @@ def get_price_from_shm(symbol: str, shm_name: str = SHM_PRICE_NAME):
             shm.close()
     return None
 
-def get_volatility(symbol: str, max_retries: int = None, shm_name: str = SHM_MARKET_DATA_NAME):
+
+def get_volatility(
+    symbol: str, max_retries: int = None, shm_name: str = SHM_MARKET_DATA_NAME
+):
     """
     Get volatility for a symbol from shared memory.
     Returns volatility if found and fresh, otherwise retries.
@@ -92,7 +98,9 @@ def get_volatility(symbol: str, max_retries: int = None, shm_name: str = SHM_MAR
 
                     # Unpack entry
                     entry_data = buffer[offset : offset + ENTRY_SIZE].tobytes()
-                    stored_hash, volatility, timestamp = struct.unpack("<Qdd", entry_data)
+                    stored_hash, volatility, timestamp = struct.unpack(
+                        "<Qdd", entry_data
+                    )
 
                     if stored_hash == symbol_hash:
                         # Check staleness
@@ -105,13 +113,17 @@ def get_volatility(symbol: str, max_retries: int = None, shm_name: str = SHM_MAR
                             )
                             break
                 else:
-                    logger.warning(f"Symbol {symbol} not found in shared memory, retrying...")
+                    logger.warning(
+                        f"Symbol {symbol} not found in shared memory, retrying..."
+                    )
 
             finally:
                 shm.close()
 
         except FileNotFoundError:
-            logger.warning("Shared memory not found, setter may not be running. Retrying...")
+            logger.warning(
+                "Shared memory not found, setter may not be running. Retrying..."
+            )
         except Exception as e:
             logger.error(f"Error reading shared memory: {e}")
 

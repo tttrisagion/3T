@@ -1,22 +1,22 @@
-from flask import Flask, jsonify, render_template_string
-import mysql.connector
 import logging
-from datetime import datetime
+
+import mysql.connector
+from flask import Flask, jsonify, render_template_string
 
 # ==========================================
 # CONFIGURATION
 # ==========================================
 DB_CONFIG = {
-    'user': 'root',         # CHANGE THIS
-    'password': 'secret',   # CHANGE THIS
-    'host': '192.168.2.93', # CHANGE THIS
-    'database': '3t',       # CHANGE THIS
-    'raise_on_warnings': True
+    "user": "root",  # CHANGE THIS
+    "password": "secret",  # CHANGE THIS
+    "host": "192.168.2.93",  # CHANGE THIS
+    "database": "3t",  # CHANGE THIS
+    "raise_on_warnings": True,
 }
 
 app = Flask(__name__)
 # Suppress standard flask logging to keep terminal clean
-log = logging.getLogger('werkzeug')
+log = logging.getLogger("werkzeug")
 log.setLevel(logging.ERROR)
 
 # ==========================================
@@ -203,6 +203,7 @@ HTML_TEMPLATE = """
 </html>
 """
 
+
 # ==========================================
 # BACKEND LOGIC
 # ==========================================
@@ -211,7 +212,7 @@ def get_data_from_db():
     try:
         conn = mysql.connector.connect(**DB_CONFIG)
         cursor = conn.cursor(dictionary=True)
-        
+
         # EXACT QUERY REQUESTED BY USER
         query = """
         SELECT
@@ -238,19 +239,23 @@ FROM (
     GROUP BY host
 ) as sub;
         """
-        
+
         cursor.execute(query)
         rows = cursor.fetchall()
-        
+
         # Transform for JSON response
         results = []
         for row in rows:
-            results.append({
-                'host': row['host'],
-                'value': float(row['final_ratio']) if row['final_ratio'] is not None else 0.0,
-                'count': row['run_count']
-            })
-            
+            results.append(
+                {
+                    "host": row["host"],
+                    "value": float(row["final_ratio"])
+                    if row["final_ratio"] is not None
+                    else 0.0,
+                    "count": row["run_count"],
+                }
+            )
+
         return {"results": results}
 
     except Exception as e:
@@ -261,18 +266,21 @@ FROM (
             cursor.close()
             conn.close()
 
+
 # ==========================================
 # ROUTES
 # ==========================================
-@app.route('/')
+@app.route("/")
 def index():
     return render_template_string(HTML_TEMPLATE)
 
-@app.route('/data.json')
+
+@app.route("/data.json")
 def data():
     json_data = get_data_from_db()
     return jsonify(json_data)
 
-if __name__ == '__main__':
-    print(f"Starting Dashboard on http://localhost:8080")
-    app.run(host='0.0.0.0', port=8080, debug=True)
+
+if __name__ == "__main__":
+    print("Starting Dashboard on http://localhost:8080")
+    app.run(host="0.0.0.0", port=8080, debug=True)

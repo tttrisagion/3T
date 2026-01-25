@@ -202,7 +202,10 @@ def listen_for_balance_updates():
                                             )
                                             trigger_take_profit(db_cnx)
                                             update_last_balance(db_cnx, current_balance)
-                                        elif profit_percentage < -threshold / reward_multiple:
+                                        elif (
+                                            profit_percentage
+                                            < -threshold / reward_multiple
+                                        ):
                                             print(
                                                 f"DRAWDOWN: Threshold of -{threshold / reward_multiple} reached, triggering reset!",
                                                 flush=True,

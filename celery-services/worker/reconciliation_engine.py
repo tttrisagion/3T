@@ -8,7 +8,7 @@ state consensus for safety.
 """
 
 import os
-from datetime import UTC, datetime, timedelta, date
+from datetime import UTC, date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import redis
@@ -23,6 +23,7 @@ from shared.opentelemetry_config import get_tracer
 # Get a tracer
 tracer = get_tracer(os.environ.get("OTEL_SERVICE_NAME", "celery-worker"))
 
+
 def is_market_open() -> bool:
     """
     Checks if the market is open based on Vatican City time (CET/CEST).
@@ -35,7 +36,7 @@ def is_market_open() -> bool:
         tz = ZoneInfo("Europe/Vatican")
     except Exception:
         tz = ZoneInfo("Europe/Rome")
-        
+
     now = datetime.now(tz)
     d = now.date()
 
@@ -56,7 +57,7 @@ def is_market_open() -> bool:
     m = (a + 11 * h + 22 * l) // 451
     month = (h + l - 7 * m + 114) // 31
     day = ((h + l - 7 * m + 114) % 31) + 1
-    
+
     easter = date(y, month, day)
     good_friday = easter - timedelta(days=2)
 
@@ -70,13 +71,14 @@ def is_market_open() -> bool:
     # Closed Saturday (5) and Sunday (6)
     if wd >= 5:
         return False
-        
+
     # Closed Friday (4) after 23:00
     if wd == 4 and now.hour >= 23:
         return False
-        
+
     # Otherwise Open (Mon 00:00 -> Fri 22:59)
     return True
+
 
 def _calculate_kelly_metrics(
     condition: str, symbol: str
@@ -278,6 +280,7 @@ def calculate_kelly_position_size(base_risk_pos_size: float, symbol: str) -> flo
             span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
             print(f"Error calculating Kelly position size: {e}")
             return base_risk_pos_size
+
 
 def get_latest_margin_usage() -> float | None:
     """
@@ -738,9 +741,7 @@ def calculate_reconciliation_action(
                             execute_trade = True
                             side = "buy"
                     elif position_now < position_target:
-                        position_delta = abs(
-                            abs(position_now) - abs(position_target)
-                        )
+                        position_delta = abs(abs(position_now) - abs(position_target))
                         if position_delta * instrument_price >= min_trade_threshold:
                             execute_trade = True
                             side = "sell"
@@ -945,12 +946,18 @@ def reconcile_positions(self):
                                                     "max_margin": max_margin,
                                                 },
                                             )
-                                            print(f"Margin limit of ${max_margin} reached. Current margin: ${current_margin}. Skipping trade for {symbol}.")
+                                            print(
+                                                f"Margin limit of ${max_margin} reached. Current margin: ${current_margin}. Skipping trade for {symbol}."
+                                            )
                                     else:
                                         # Block trade for safety if margin is unknown
                                         trade_allowed = False
-                                        margin_span.add_event("Could not determine current margin. Trade blocked for safety.")
-                                        print(f"Could not determine current margin for {symbol}. Skipping trade for safety.")
+                                        margin_span.add_event(
+                                            "Could not determine current margin. Trade blocked for safety."
+                                        )
+                                        print(
+                                            f"Could not determine current margin for {symbol}. Skipping trade for safety."
+                                        )
 
                             if trade_allowed:
                                 print(

@@ -3,13 +3,12 @@ import struct
 import sys
 import time
 from multiprocessing import shared_memory
-from pathlib import Path
 
 import numpy as np
 import redis
 
 # Add project root to sys.path to allow importing shared modules
-project_root = '/opt/3T'
+project_root = "/opt/3T"
 sys.path.append(str(project_root))
 
 from shared.config import config

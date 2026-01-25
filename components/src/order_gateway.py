@@ -267,7 +267,11 @@ def send_to_exchange(order_details: dict, client_order_id: str) -> dict:
         exchange = exchange_manager.get_exchange("hyperliquid")
 
         # Prepare order parameters for CCXT
-        order_params = {"clientOrderId": client_order_id, "loadMarkets": False, "timeInForce": "Alo"}
+        order_params = {
+            "clientOrderId": client_order_id,
+            "loadMarkets": False,
+            "timeInForce": "Alo",
+        }
 
         # Execute the market order with retry logic
         def place_order():

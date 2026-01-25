@@ -104,7 +104,7 @@ class TestKellyStrategy:
 
         base_size = 100.0
         adjusted_size = calculate_kelly_position_size(base_size, "TEST/USDC:USDC")
-        
+
         # FIX: Expect 10% probation size, not full base size
         # Old: assert adjusted_size == base_size
         assert adjusted_size == base_size * 0.1
