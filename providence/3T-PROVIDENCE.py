@@ -61,6 +61,11 @@ SAVE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "saved_runs"
 if not os.path.exists(SAVE_DIR):
     os.makedirs(SAVE_DIR)
 
+# Ensure completed runs directory exists
+COMPLETED_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "completed_runs")
+if not os.path.exists(COMPLETED_DIR):
+    os.makedirs(COMPLETED_DIR)
+
 print( f"PARENT: Starting with PID {os.getpid()}" )
 
 def child_task(resume_state=None):
@@ -326,13 +331,19 @@ def child_task(resume_state=None):
                     pass
 
     def cleanup_state():
-        """Remove state file on clean exit."""
+        """Move state file to completed_runs on clean exit."""
         file_path = os.path.join(SAVE_DIR, f"run_{run_id}.json")
         if os.path.exists(file_path):
             try:
-                os.remove(file_path)
+                # Create a unique filename for the archived run
+                timestamp = int(time.time())
+                completed_filename = f"run_{run_id}_completed_{timestamp}.json"
+                completed_path = os.path.join(COMPLETED_DIR, completed_filename)
+                
+                os.replace(file_path, completed_path)
+                logging.info(f"Archived run {run_id} to {completed_path}")
             except OSError as e:
-                logging.error(f"Error removing state file {file_path}: {e}")
+                logging.error(f"Error archiving state file {file_path}: {e}")
 
     def get_voms_values():
         """
