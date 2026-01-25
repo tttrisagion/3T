@@ -1,0 +1,9 @@
+celery[redis]
+redis
+numpy
+pandas
+mysql-connector-python
+pyyaml
+ccxt==4.5.2
+hyperliquid-python-sdk
+eth-account

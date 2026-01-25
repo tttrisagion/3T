@@ -98,3 +98,22 @@ class VOMS:
             f"leverage={self.leverage}, trades={len(self.trades)}, "
             f"price={self.current_price})"
         )
+
+    def to_dict(self) -> dict:
+        """Serializes the VOMS state to a dictionary."""
+        return {
+            "starting_balance": self.starting_balance,
+            "leverage": self.leverage,
+            "fee_rate": self.fee_rate,
+            "current_price": self.current_price,
+            "trades": self.trades,
+        }
+
+    def from_dict(self, data: dict):
+        """Restores the VOMS state from a dictionary."""
+        self.starting_balance = data["starting_balance"]
+        self.leverage = data["leverage"]
+        self.fee_rate = data["fee_rate"]
+        self.current_price = data["current_price"]
+        # Convert list of lists back to list of tuples if necessary (JSON load produces lists)
+        self.trades = [tuple(t) for t in data["trades"]]
