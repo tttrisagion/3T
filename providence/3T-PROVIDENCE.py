@@ -90,6 +90,7 @@ def child_task(resume_state=None):
         raise TimeoutError
 
     signal.signal(signal.SIGALRM, _timeout_handler)
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
 
     # GLOBALS
     global weights
@@ -936,6 +937,7 @@ if __name__ == "__main__":
             break
         except KeyboardInterrupt:
             # Handle Ctrl+C to gracefully shut down.
+            signal.signal(signal.SIGINT, signal.SIG_IGN)
             print("\nPARENT: Shutting down. Terminating remaining children...")
             for pid in child_pids:
                 try:
