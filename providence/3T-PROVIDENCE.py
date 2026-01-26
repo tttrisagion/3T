@@ -899,9 +899,31 @@ if __name__ == "__main__":
             # os.wait() blocks here until one of the children exits.
             # It returns the PID of the finished child and its exit status.
             finished_pid, _ = os.wait()
+            exited_children_count = 1
             print(f"\nPARENT: Child with PID {finished_pid} has exited.")
             if finished_pid in child_pids:
                 child_pids.remove(finished_pid)
+
+            # Non-blocking check for any other children that may have exited.
+            while True:
+                try:
+                    # os.WNOHANG makes waitpid non-blocking.
+                    reaped_pid, _ = os.waitpid(-1, os.WNOHANG)
+                    if reaped_pid == 0:
+                        # 0 means no more children have exited.
+                        break
+
+                    exited_children_count += 1
+                    print(f"PARENT: Reaped another child with PID {reaped_pid}.")
+                    if reaped_pid in child_pids:
+                        child_pids.remove(reaped_pid)
+                except ChildProcessError:
+                    # No more children to wait for.
+                    break
+
+            print(
+                f"PARENT: Total exited children in this batch: {exited_children_count}."
+            )
 
             next_height = get_height()
             if next_height > current_height:
@@ -916,18 +938,28 @@ if __name__ == "__main__":
                 )  # needs to increment by one otherwise causes clash across hosts
                 break
 
-            # Respawn a new child to replace the one that finished.
-            # Always spawn fresh child here. Resumed runs that finished are done.
-            # Resumed runs that crashed (unclean exit) will leave a file, but we don't auto-restart them in-session to avoid loops.
-            new_pid = os.fork()
+            # Respawn new children to replace all that finished in this batch.
+            print(f"PARENT: Respawning {exited_children_count} new children.")
+            for i in range(exited_children_count):
+                new_pid = os.fork()
 
-            if new_pid == 0:
-                # New child's code.
-                child_task()
-            else:
-                # Parent's code.
-                print(f"PARENT: Launched new child with PID {new_pid}.")
-                child_pids.append(new_pid)
+                if new_pid == 0:
+                    # --- CHILD PROCESS ---
+                    # Ensure child does not continue parent's management loop.
+                    import multiprocessing.util
+
+                    multiprocessing.util._exit_function()
+                    sys.stdout.flush()
+                    sys.stderr.flush()
+
+                    child_task()
+                    os._exit(0)  # Explicitly exit child process.
+                else:
+                    # --- PARENT PROCESS ---
+                    print(
+                        f"PARENT: Launched new child ({i + 1}/{exited_children_count}) with PID {new_pid}."
+                    )
+                    child_pids.append(new_pid)
 
         except OSError as e:
             print(f"PARENT: Error forking new child: {e}. Will retry.")
