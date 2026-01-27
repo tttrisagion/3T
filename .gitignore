@@ -10,3 +10,5 @@ database/init-hist*
 .DS_Store
 database/3T-blocks.sql
 database/runs.sql
+providence/completed_runs
+providence/saved_runs
