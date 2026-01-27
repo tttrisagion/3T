@@ -103,7 +103,7 @@ def _calculate_kelly_metrics(
                 # entire heights/blocks that lose money on aggregate
                 # preventing a bad null height cohort from looking
                 # better than it should
-                regime_filter = "AND exit_run = 0"
+                regime_filter = ""
                 if "height IS NOT NULL" in condition:
                     regime_filter = f"""
                     AND height IN (
