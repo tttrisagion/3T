@@ -53,10 +53,10 @@ def is_market_open() -> bool:
     g = (b - f + 1) // 3
     h = (19 * a + b - d_val - g + 15) % 30
     i, k = c // 4, c % 4
-    l = (32 + 2 * e + 2 * i - h - k) % 7
-    m = (a + 11 * h + 22 * l) // 451
-    month = (h + l - 7 * m + 114) // 31
-    day = ((h + l - 7 * m + 114) % 31) + 1
+    l_val = (32 + 2 * e + 2 * i - h - k) % 7
+    m = (a + 11 * h + 22 * l_val) // 451
+    month = (h + l_val - 7 * m + 114) // 31
+    day = ((h + l_val - 7 * m + 114) % 31) + 1
 
     easter = date(y, month, day)
     good_friday = easter - timedelta(days=2)
@@ -355,12 +355,6 @@ def get_desired_state(symbol: str) -> float:
     Returns:
         Target position size (positive for long, negative for short, 0 for flat)
     """
-    if not is_market_open():
-        # If market is closed, force desired position to 0.0 (FLAT).
-        # The engine will see (Actual: X) vs (Desired: 0) and generate
-        # orders to liquidate/flatten the position immediately.
-        return 0.0
-
     with tracer.start_as_current_span("get_desired_state") as span:
         span.set_attribute("symbol", symbol)
 
@@ -875,6 +869,13 @@ def reconcile_positions(self):
     Runs the reconciliation loop for all configured symbols.
     """
     with tracer.start_as_current_span("reconcile_positions") as span:
+        # If market is closed, do not perform reconciliation.
+        # This prevents liquidating positions during weekends/holidays.
+        if not is_market_open():
+            span.add_event("Market is closed, skipping reconciliation cycle.")
+            print("Market is closed. Skipping reconciliation cycle.")
+            return
+
         try:
             symbols = config.get("reconciliation_engine.symbols", ["BTC", "ETH"])
             span.set_attribute("symbols_count", len(symbols))
