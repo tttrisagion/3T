@@ -205,7 +205,7 @@ def calculate_kelly_position_size(base_risk_pos_size: float, symbol: str) -> flo
         try:
             # 1. Get Kelly metric for current (null height) runs
             _, _, kelly_current = _calculate_kelly_metrics(
-                "height IS NULL AND exit_run = 0 AND end_time IS NULL", symbol
+                "height IS NULL AND exit_run = 0 AND", symbol
             )
 
             # 2. Get Kelly metric for historical (non-null height) runs
