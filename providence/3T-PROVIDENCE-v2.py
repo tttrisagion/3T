@@ -46,7 +46,7 @@ Starting: 3T Providence Strategy (asyncio v2)...
 filename = os.path.basename(__file__)
 print(f"{filename} - Tactical Trend Trader")
 
-NUM_CHILDREN = 5000
+NUM_CHILDREN = 8000
 DECISION_SLEEP = 0
 CELERY_GET_TIMEOUT = 30
 NUM_RESULT_FETCHERS = 50
@@ -340,7 +340,8 @@ async def trading_task(result_fetcher, resume_state=None):
     except Exception as e:
         format_log("E", False, "C", f"TASK EXCEPTION {traceback.format_exc()}" + str(e))
     finally:
-        logging.info(f"Task for run {run_id} is shutting down.")
+        run_label = f"run {run_id}" if run_id else "uninitialized run"
+        logging.info(f"Task for {run_label} is shutting down.")
 
 async def main():
     loop = asyncio.get_running_loop()
