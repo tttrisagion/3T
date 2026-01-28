@@ -128,6 +128,12 @@ async def trading_task(result_fetcher, resume_state=None):
     # --- Parameter and VOMS Initialization ---
     if resume_state:
         ann_params = resume_state["ann_params"]
+        
+        # --- Single Source of Truth for Balance ---
+        # The top-level 'start_balance' from the JSON is the authoritative value.
+        start_balance = resume_state.get("start_balance", 0)
+        virtual_balance = start_balance # Force virtual_balance to match.
+
         choose = ann_params["choose"]
         weights = resume_state.get("weights", [])
         weights_timestamp = resume_state.get("weights_timestamp", [])
@@ -135,10 +141,21 @@ async def trading_task(result_fetcher, resume_state=None):
         aprs_timestamp = resume_state.get("aprs_timestamp", [])
         position_direction = resume_state.get("position_direction", 0)
         start_time = resume_state.get("start_time", 0)
-        start_balance = resume_state.get("start_balance", 0)
         run_id = resume_state.get("run_id", 0)
-        voms = VOMS(starting_balance=virtual_balance, leverage=symb_leverage[choose])
-        if "voms_state" in resume_state: voms.from_dict(resume_state["voms_state"])
+        
+        # --- Explicit State Reconstruction for VOMS ---
+        voms = VOMS(starting_balance=start_balance, leverage=symb_leverage[choose])
+        if "voms_state" in resume_state and "trades" in resume_state["voms_state"]:
+            saved_trades = resume_state["voms_state"]["trades"]
+            # Replay the trade history to rebuild the VOMS state
+            for trade_price, trade_size in saved_trades:
+                voms.update_price(trade_price)
+                voms.add_trade(trade_size)
+            # Update to the latest price for the first PNL calculation
+            latest_price = get_price_from_shm(symb[choose])
+            if latest_price:
+                voms.update_price(latest_price)
+
         max_duration = ann_params["max_duration"]
         max_direction_reversal = ann_params["max_direction_reversal"]
         balance_divisor = ann_params["balance_divisor"]
@@ -202,16 +219,19 @@ async def trading_task(result_fetcher, resume_state=None):
     update_pnl = lambda pnl: fire_and_forget_app.send_task("worker.tasks.update_pnl", args=[run_id, pnl])
 
     def format_log(_, __, red_level, red_value):
-        log_entry = f"{run_id} {asyncio.current_task().get_name()} {filename} {symb[choose]} {red_value}"
+        try:
+            symbol_name = symb[choose]
+        except IndexError:
+            symbol_name = f"INVALID_INDEX_{choose}"
+        log_entry = f"{run_id} {asyncio.current_task().get_name()} {filename} {symbol_name} {red_value}"
         if red_level == "I": logging.info(log_entry)
         else: logging.warning(log_entry)
 
-    def save_state():
-        state = {"run_id": run_id, "start_time": start_time, "start_balance": start_balance, "ann_params": ann_params, "weights": weights, "weights_timestamp": weights_timestamp, "aprs": aprs, "aprs_timestamp": aprs_timestamp, "position_direction": position_direction, "apr_change": apr_change, "apr_last": apr_last, "voms_state": voms.to_dict(), "pid": os.getpid(), "last_update": time.time()}
+    def save_state(state_to_save):
         file_path = os.path.join(SAVE_DIR, f"run_{run_id}.json")
         temp_file_path = os.path.join(SAVE_DIR, f"run_{run_id}.tmp")
         try:
-            with open(temp_file_path, "w") as f: json.dump(state, f, indent=4); f.flush(); os.fsync(f.fileno())
+            with open(temp_file_path, "w") as f: json.dump(state_to_save, f, indent=4); f.flush(); os.fsync(f.fileno())
             os.replace(temp_file_path, file_path)
         except Exception as e:
             logging.error(f"Failed to save state for run {run_id}: {e}")
@@ -251,7 +271,8 @@ async def trading_task(result_fetcher, resume_state=None):
             logging.warning(f"Run {run_id} has invalid start_balance {start_balance}. Resetting.")
             start_balance = virtual_balance
 
-        await loop.run_in_executor(None, save_state)
+        initial_state = {"run_id": run_id, "start_time": start_time, "start_balance": start_balance, "ann_params": ann_params, "weights": weights, "weights_timestamp": weights_timestamp, "aprs": aprs, "aprs_timestamp": aprs_timestamp, "position_direction": position_direction, "apr_change": apr_change, "apr_last": apr_last, "voms_state": voms.to_dict(), "pid": os.getpid(), "last_update": time.time()}
+        await loop.run_in_executor(None, save_state, initial_state)
         last_save_time = time.time()
         
         # Add Jitter to prevent thundering herd
@@ -331,7 +352,8 @@ async def trading_task(result_fetcher, resume_state=None):
                     format_log("E", False, "W", f"Trade execution failed: {e}")
 
             if time.time() - last_save_time > 5:
-                await loop.run_in_executor(None, save_state)
+                current_state = {"run_id": run_id, "start_time": start_time, "start_balance": start_balance, "ann_params": ann_params, "weights": weights, "weights_timestamp": weights_timestamp, "aprs": aprs, "aprs_timestamp": aprs_timestamp, "position_direction": position_direction, "apr_change": apr_change, "apr_last": apr_last, "voms_state": voms.to_dict(), "pid": os.getpid(), "last_update": time.time()}
+                await loop.run_in_executor(None, save_state, current_state)
                 last_save_time = time.time()
             await asyncio.sleep(1)
 
@@ -389,6 +411,13 @@ async def main():
             done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
             
             for task in done:
+                try:
+                    task.result()
+                except Exception as e:
+                    print(f"MANAGER: Task finished with error: {e}")
+                else:
+                    print("MANAGER: Task finished cleanly.")
+                
                 tasks.remove(task)
                 new_task = asyncio.create_task(trading_task(result_fetcher))
                 tasks.add(new_task)
