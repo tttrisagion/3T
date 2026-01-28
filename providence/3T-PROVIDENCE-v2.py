@@ -40,15 +40,15 @@ print(f"""
               F
   DOCILIS - MITIS - HUMILIS
 {RESET}
-Starting: 3T RC3 (asyncio v2)...
+Starting: 3T Providence Strategy (asyncio v2)...
 """)
 filename = os.path.basename(__file__)
 print(f"{filename} - Tactical Trend Trader")
 
-NUM_CHILDREN = 2000
+NUM_CHILDREN = 5000
 DECISION_SLEEP = 0
 CELERY_GET_TIMEOUT = 30
-NUM_RESULT_FETCHERS = 25
+NUM_RESULT_FETCHERS = 50
 
 # --- Persistence Setup ---
 SAVE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "saved_runs")
