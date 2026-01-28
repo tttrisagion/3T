@@ -9,6 +9,7 @@ import sys
 import time
 import traceback
 import uuid
+import threading
 from concurrent.futures import ThreadPoolExecutor
 
 from celery import Celery
@@ -67,15 +68,18 @@ class ResultFetcher:
         self._executor = executor
         self._request_queue = asyncio.Queue()
         self._future_map = {}
+        self._celery_app = threading.local()
         self._fetchers = [asyncio.create_task(self._fetcher_worker()) for _ in range(num_fetchers)]
         print(f"MANAGER: Launched {num_fetchers} result fetcher workers.")
 
+    def _get_celery_app(self):
+        if not hasattr(self._celery_app, "app"):
+            self._celery_app.app = Celery("showcase_client_rpc", broker="redis://192.168.2.157:6379/0", backend="redis://192.168.2.157:6379/0")
+        return self._celery_app.app
+
     def _sync_get_result(self, task_id):
-        app = Celery("showcase_client_rpc", broker="redis://192.168.2.157:6379/0", backend="redis://192.168.2.157:6379/0")
-        try:
-            return app.AsyncResult(task_id).get(timeout=CELERY_GET_TIMEOUT)
-        finally:
-            app.close()
+        app = self._get_celery_app()
+        return app.AsyncResult(task_id).get(timeout=CELERY_GET_TIMEOUT)
 
     async def _fetcher_worker(self):
         while True:
@@ -102,6 +106,8 @@ class ResultFetcher:
         for fetcher in self._fetchers:
             fetcher.cancel()
         await asyncio.gather(*self._fetchers, return_exceptions=True)
+        if hasattr(self._celery_app, "app"):
+            self._celery_app.app.close()
 
 # --- Main Trading Logic ---
 async def trading_task(result_fetcher, resume_state=None):
@@ -338,15 +344,17 @@ async def trading_task(result_fetcher, resume_state=None):
 
 async def main():
     loop = asyncio.get_running_loop()
-    executor = ThreadPoolExecutor(max_workers=50) 
+    executor = ThreadPoolExecutor(max_workers=NUM_RESULT_FETCHERS + 10) 
     result_fetcher = ResultFetcher(loop, executor, num_fetchers=NUM_RESULT_FETCHERS)
 
     def get_height():
         local_app = Celery("showcase_client_main", broker="redis://192.168.2.157:6379/0", backend="redis://192.168.2.157:6379/0")
-        task = local_app.send_task("worker.tasks.get_max_run_height")
-        res = local_app.AsyncResult(task.id).get(timeout=CELERY_GET_TIMEOUT)
-        local_app.close()
-        return res
+        try:
+            task = local_app.send_task("worker.tasks.get_max_run_height")
+            res = local_app.AsyncResult(task.id).get(timeout=CELERY_GET_TIMEOUT)
+            return res
+        finally:
+            local_app.close()
 
     def exit_runs_by_height(next_height):
         fire_and_forget_app.send_task("worker.tasks.set_exit_for_runs_by_height", args=[next_height])
