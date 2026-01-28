@@ -99,6 +99,23 @@ The reconciliation engine is a key component of the 3T system, responsible for e
 - **Dynamic Position Sizing:** The engine adjusts position sizes based on a configurable percentage of the latest account balance, allowing risk to scale with portfolio health. This is controlled by the `risk_pos_percentage` in `config.yml`.
 - **Configurable:** The engine's behavior, including rebalance frequency and risk parameters, can be configured in `config.yml`.
 
+## Providence Strategy: State Persistence and Resumption
+
+The core autonomous trading logic resides in `providence/3T-PROVIDENCE-v2.py`. To ensure resilience against restarts and crashes, this script persists the state of each active trading run to a corresponding JSON file in `providence/saved_runs/`.
+
+### Key Aspects:
+
+- **Purpose**: Each JSON file acts as a complete snapshot of a run, including its unique ID, parameters, and the full history of its virtual trades stored in a Virtual Order Management System (`VOMS`) object.
+- **Resumption Bug**: A critical bug was identified where, upon restarting the manager, a run would resume but its `live_pnl` (live profit and loss) would be reset to zero. The run's other attributes, like `position_direction`, appeared to be preserved, but the PNL calculation was starting from scratch.
+- **Root Cause**: The issue stemmed from a fragile state deserialization process. While the saved file was correct, the logic for loading the state back into memory was faulty, failing to correctly reconstruct the internal state of the `VOMS` object.
+- **Solution: Explicit State Reconstruction**: The robust solution was to abandon direct object deserialization. The corrected pattern involves:
+    1.  Initializing a fresh, empty `VOMS` object upon resumption.
+    2.  Reading the list of historical trades from the `voms_state` object in the JSON file.
+    3.  Iterating through the saved trades and "replaying" them into the new `VOMS` object by calling the `add_trade` method for each one.
+    4.  Updating the `VOMS` object with the latest market price.
+
+This "Explicit State Reconstruction" method guarantees that the in-memory state of a resumed run is a perfect reflection of its saved history, preventing data corruption and ensuring PNL calculations continue seamlessly across restarts.
+
 ## Troubleshooting
 
 When a service is inaccessible, always run `docker-compose ps` first to check if the container is running. If it is not running, attempt to start it before further troubleshooting.
