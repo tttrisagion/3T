@@ -49,7 +49,7 @@ print(f"{filename} - Tactical Trend Trader")
 NUM_CHILDREN = 16000
 DECISION_SLEEP = 0
 CELERY_GET_TIMEOUT = 30
-NUM_RESULT_FETCHERS = 50
+NUM_RESULT_FETCHERS = 1000
 
 # --- Persistence Setup ---
 SAVE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "saved_runs")
