@@ -46,7 +46,7 @@ Starting: 3T Providence Strategy (asyncio v2)...
 filename = os.path.basename(__file__)
 print(f"{filename} - Tactical Trend Trader")
 
-NUM_CHILDREN = 8000
+NUM_CHILDREN = 16000
 DECISION_SLEEP = 0
 CELERY_GET_TIMEOUT = 30
 NUM_RESULT_FETCHERS = 50
@@ -257,6 +257,30 @@ async def trading_task(result_fetcher, resume_state=None):
     get_balance = lambda: float(get_voms_values()[3])
     get_cross_maintenance_margin_used = lambda: float(get_voms_values()[4])
 
+    def get_close_entropy():
+        x = []
+        now = time.time()
+        # Filter weights within the specified time window
+        for i in range(len(weights)):
+            calc_minutes = (now - weights_timestamp[i]) / 60
+            if calc_minutes < volatility_entropy_window_minutes:
+                if weights[i] > 0:
+                    x.append(1)
+                elif weights[i] < 0:
+                    x.append(-1)
+                elif weights[i] == 0:
+                    x.append(0)
+        
+        # Reverse to get the most recent data first, which is the typical convention for time series analysis
+        x.reverse()
+        
+        # Only calculate entropy if we have enough samples
+        if len(x) > volatility_entropy_window_samples:
+            return calculate_permutation_entropy(x)
+        else:
+            # Return a high entropy value if not enough data, indicating a non-tradable state
+            return 1.0
+
     # --- Main Loop ---
     try:
         if not resume_state:
@@ -323,8 +347,8 @@ async def trading_task(result_fetcher, resume_state=None):
                 update_run(balance)
                 format_log("E", False, "I", "EXIT TRADE SIGNAL"); await loop.run_in_executor(None, cleanup_state); break
             
-            machine_vision_entropy = -1 # Placeholder, get_close_entropy needs to be defined/restored
-            if machine_vision_entropy is not None and machine_vision_entropy < machine_vision_entropy_max:
+            machine_vision_entropy = get_close_entropy()
+            if machine_vision_entropy < machine_vision_entropy_max:
                 try:
                     if system_swing: side = "buy" if side == "sell" else "sell"
                     approve_trade = (position_direction == 0) or \
