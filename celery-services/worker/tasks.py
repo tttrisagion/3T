@@ -17,7 +17,7 @@ from shared.celery_app import app
 from shared.config import config
 from shared.database import get_db_connection, get_redis_connection
 from shared.exchange_manager import exchange_manager
-from shared.opentelemetry_config import get_tracer, setup_telemetry
+from shared.opentelemetry_config import get_tracer, setup_log_sampling, setup_telemetry
 
 # --- OTel Setup ---
 # It's crucial to set up the tracer provider BEFORE instrumenting.
@@ -28,6 +28,11 @@ CeleryInstrumentor().instrument(tracer_provider=provider)
 # Get a tracer for manual instrumentation.
 # The setup is already done, so this just retrieves the tracer.
 tracer = get_tracer(os.environ.get("OTEL_SERVICE_NAME", "celery-worker"))
+
+# --- Log Sampling Setup ---
+# Apply sampling to Celery task logs to reduce noise from high-volume tasks
+# Apply to both celery app logger and celery.worker.strategy (task received/succeeded messages)
+setup_log_sampling(["celery", "celery.app.trace", "celery.worker.strategy"])
 
 
 # Configure Celery Beat schedule
