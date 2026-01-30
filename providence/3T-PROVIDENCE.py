@@ -1,3 +1,5 @@
+# This file is DEPRECATED
+
 import asyncio
 import glob
 import json

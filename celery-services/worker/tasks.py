@@ -38,7 +38,7 @@ app.conf.beat_schedule = {
     },
     "schedule-market-data-fetching": {
         "task": "worker.tasks.schedule_market_data_fetching",
-        "schedule": config.get("celery.schedules.schedule_market_data_fetching", 60.0),
+        "schedule": config.get("celery.schedules.schedule_market_data_fetching", 300.0),
     },
     "update-trading-range": {
         "task": "worker.trading_range.update_trading_range",
@@ -47,6 +47,26 @@ app.conf.beat_schedule = {
     "reconcile-positions": {
         "task": "worker.reconciliation_engine.reconcile_positions",
         "schedule": config.get("reconciliation_engine.rebalance_frequency", 900.0),
+    },
+    "providence-supervisor": {
+        "task": "worker.providence.providence_supervisor",
+        "schedule": 60.0,  # Create new runs
+    },
+    "providence-iteration-scheduler": {
+        "task": "worker.providence.providence_iteration_scheduler",
+        "schedule": 5.0,  # Trigger iterations every 5 seconds
+    },
+    "purge-stale-runs": {
+        "task": "worker.purge.purge_stale_runs",
+        "schedule": 900.0,
+    },
+    "feed-supervisor": {
+        "task": "worker.feed.supervisor",
+        "schedule": 15.0,
+    },
+    "volatility-supervisor": {
+        "task": "worker.volatility.supervisor",
+        "schedule": 15.0,
     },
 }
 app.conf.timezone = "UTC"
@@ -71,9 +91,13 @@ def worker_startup(sender, **kwargs):
             # Trigger initial reconciliation to check positions on startup
             reconcile_positions.delay()
 
+            # Immediately trigger the providence supervisor to start trading tasks
+            from worker.providence import providence_supervisor
+            providence_supervisor.delay()
+
             span.add_event("Successfully triggered startup tasks.")
             print(
-                "Worker startup tasks dispatched: market data backfill, trading range update, and reconciliation."
+                "Worker startup tasks dispatched: market data backfill, trading range update, reconciliation, and providence supervisor."
             )
         except Exception as e:
             span.set_attribute("error", True)
@@ -147,7 +171,7 @@ def schedule_market_data_fetching(is_backfill=False):
                     return
 
                 span.add_event(f"Found {len(jobs_to_run)} new data points to fetch.")
-                concurrency_limit = config.get("market_data.concurrency_limit", 10)
+                concurrency_limit = config.get("market_data.concurrency_limit", 2) # Reduced from 10
                 pool = GreenPool(size=concurrency_limit)
 
                 threads = [
@@ -391,7 +415,7 @@ def fetch_and_store_balance() -> float | None:
 def load_perm_entropy_library():
     """Load the permutation entropy C++ library."""
     try:
-        lib_path = "/opt/3T/celery-services/cpp/bin/libperm_entropy_cpu.so"
+        lib_path = "/usr/local/lib/libperm_entropy_cpu.so"
         lib = ctypes.CDLL(lib_path)
 
         func = lib.calculate_cpu_perm_entropy
@@ -478,6 +502,53 @@ def calculate_permutation_entropy(data, order=3, delay=1, iterations=1000):
             return {"error": str(e), "result": None}
 
 
+def _create_run_impl(
+    start_balance,
+    max_duration,
+    symbol=None,
+    ann_params=None,
+    controller_seed=None,
+    pid=None,
+    host=None,
+):
+    """
+    Internal function to create a new run in the database.
+    Can be called directly from other tasks without going through Celery.
+    No tracing to avoid orphaned spans in long-running tasks.
+    """
+    db_cnx = None
+    try:
+        db_cnx = get_db_connection()
+        cursor = db_cnx.cursor()
+        query = """
+            INSERT INTO runs (start_balance, max_duration, symbol, ann_params, controller_seed, pid, host)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+        """
+        cursor.execute(
+            query,
+            (
+                start_balance,
+                max_duration,
+                symbol,
+                ann_params,
+                controller_seed,
+                pid,
+                host,
+            ),
+        )
+        run_id = cursor.lastrowid
+        db_cnx.commit()
+        return run_id
+    except Exception as e:
+        if db_cnx:
+            db_cnx.rollback()
+        raise
+    finally:
+        if db_cnx and db_cnx.is_connected():
+            cursor.close()
+            db_cnx.close()
+
+
 @app.task(name="worker.tasks.create_run")
 def create_run(
     start_balance,
@@ -489,7 +560,7 @@ def create_run(
     host=None,
 ):
     """
-    Creates a new run in the database and returns the run ID.
+    Celery task wrapper for creating a new run in the database.
 
     Args:
         start_balance (float): The starting balance for the run.
@@ -503,57 +574,9 @@ def create_run(
     Returns:
         int: The ID of the newly created run.
     """
-    with tracer.start_as_current_span("create_run_task") as span:
-        # Record input parameters as span attributes for observability
-        span.set_attribute("task.name", "create_run")
-        span.set_attribute("run.start_balance", start_balance)
-        span.set_attribute("run.max_duration", max_duration)
-        if symbol:
-            span.set_attribute("run.symbol", symbol)
-        if ann_params:
-            span.set_attribute("run.ann_params", ann_params)
-        if controller_seed:
-            span.set_attribute("run.controller_seed", controller_seed)
-        if pid:
-            span.set_attribute("run.pid", pid)
-        if host:
-            span.set_attribute("run.host", host)
-
-        db_cnx = None
-        try:
-            db_cnx = get_db_connection()
-            cursor = db_cnx.cursor()
-            query = """
-                INSERT INTO runs (start_balance, max_duration, symbol, ann_params, controller_seed, pid, host)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
-            """
-            cursor.execute(
-                query,
-                (
-                    start_balance,
-                    max_duration,
-                    symbol,
-                    ann_params,
-                    controller_seed,
-                    pid,
-                    host,
-                ),
-            )
-            run_id = cursor.lastrowid
-            db_cnx.commit()
-            span.set_attribute("run_id", run_id)
-            return run_id
-        except Exception as e:
-            if db_cnx:
-                db_cnx.rollback()
-            span.set_attribute("error", True)
-            span.record_exception(e)
-            # Re-raise the exception to ensure the task is marked as failed
-            raise
-        finally:
-            if db_cnx and db_cnx.is_connected():
-                cursor.close()
-                db_cnx.close()
+    return _create_run_impl(
+        start_balance, max_duration, symbol, ann_params, controller_seed, pid, host
+    )
 
 
 @app.task(name="worker.tasks.update_run_position", ignore_result=True)
@@ -658,10 +681,34 @@ def end_run(run_id, balance):
                 db_cnx.close()
 
 
+def _get_exit_status_impl(run_id):
+    """
+    Internal function to retrieve the exit status for a given run.
+    Can be called directly from other tasks without going through Celery.
+    No tracing to avoid orphaned spans in long-running tasks.
+    """
+    db_cnx = None
+    try:
+        db_cnx = get_db_connection()
+        cursor = db_cnx.cursor()
+        query = "SELECT exit_run FROM runs WHERE id = %s"
+        cursor.execute(query, (run_id,))
+        row = cursor.fetchone()
+        should_exit = bool(row[0]) if row else False
+        return should_exit
+    except Exception as e:
+        print(f"Error in get_exit_status: {e}")
+        raise
+    finally:
+        if db_cnx and db_cnx.is_connected():
+            cursor.close()
+            db_cnx.close()
+
+
 @app.task(name="worker.tasks.get_exit_status")
 def get_exit_status(run_id):
     """
-    Retrieves the exit status for a given run.
+    Celery task wrapper for retrieving the exit status for a given run.
 
     Args:
         run_id (int): The ID of the run to check.
@@ -669,28 +716,7 @@ def get_exit_status(run_id):
     Returns:
         bool: The value of the exit_run flag.
     """
-    with tracer.start_as_current_span("get_exit_status_task") as span:
-        span.set_attribute("task.name", "get_exit_status")
-        span.set_attribute("run_id", run_id)
-        db_cnx = None
-        try:
-            db_cnx = get_db_connection()
-            cursor = db_cnx.cursor()
-            query = "SELECT exit_run FROM runs WHERE id = %s"
-            cursor.execute(query, (run_id,))
-            row = cursor.fetchone()
-            should_exit = bool(row[0]) if row else False
-            span.set_attribute("exit_run", should_exit)
-            return should_exit
-        except Exception as e:
-            span.set_attribute("error", True)
-            span.record_exception(e)
-            print(f"Error in get_exit_status task: {e}")
-            raise
-        finally:
-            if db_cnx and db_cnx.is_connected():
-                cursor.close()
-                db_cnx.close()
+    return _get_exit_status_impl(run_id)
 
 
 @app.task(name="worker.tasks.get_active_run_count")
@@ -767,10 +793,55 @@ def _calculate_weight_from_data(results):
         return 0
 
 
+def _get_market_weight_impl(symbol):
+    """
+    Internal function to fetch market data for a symbol, calculate a weight, and cache the result.
+    Can be called directly from other tasks without going through Celery.
+    No tracing to avoid orphaned spans in long-running tasks.
+    """
+    db_cnx = None
+
+    try:
+        with get_redis_connection() as redis_cnx:
+            current_minute = int(time.time() / 60)
+            cache_key = f"market_weight:{symbol}:{current_minute}"
+
+            cached_data = redis_cnx.get(cache_key)
+            if cached_data:
+                return float(json.loads(cached_data))
+
+            db_cnx = get_db_connection()
+            cursor = db_cnx.cursor(dictionary=True)
+            query = """
+                SELECT from_unixtime(timestamp/1000) as 'timestamp', close as 'close_price'
+                FROM market_data
+                WHERE timeframe='1m' AND symbol=%s  AND timestamp >= (unix_timestamp() - 1800) * 1000
+                ORDER BY timestamp
+            """
+            cursor.execute(query, (symbol,))
+            raw_data = cursor.fetchall()
+
+            # Process the raw data to get the final weight
+            final_weight = _calculate_weight_from_data(raw_data)
+
+            # Store the final float value in cache
+            redis_cnx.set(cache_key, json.dumps(final_weight), ex=60)
+
+            return final_weight
+
+    except Exception as e:
+        print(f"Error in get_market_weight: {e}")
+        raise
+    finally:
+        if db_cnx and db_cnx.is_connected():
+            cursor.close()
+            db_cnx.close()
+
+
 @app.task(name="worker.tasks.get_market_weight")
 def get_market_weight(symbol):
     """
-    Fetches market data for a symbol, calculates a weight, and caches the result.
+    Celery task wrapper for fetching market data and calculating weight.
 
     Args:
         symbol (str): The trading symbol.
@@ -778,55 +849,7 @@ def get_market_weight(symbol):
     Returns:
         float: The calculated average weight.
     """
-    with tracer.start_as_current_span("get_market_weight_task") as span:
-        span.set_attribute("task.name", "get_market_weight")
-        span.set_attribute("symbol", symbol)
-        db_cnx = None
-
-        try:
-            with get_redis_connection() as redis_cnx:
-                current_minute = int(time.time() / 60)
-                cache_key = (
-                    f"market_weight:{symbol}:{current_minute}"  # Renamed cache key
-                )
-                span.set_attribute("cache.key", cache_key)
-
-                cached_data = redis_cnx.get(cache_key)
-                if cached_data:
-                    span.add_event("Cache hit")
-                    return float(json.loads(cached_data))
-
-                span.add_event("Cache miss")
-                db_cnx = get_db_connection()
-                cursor = db_cnx.cursor(dictionary=True)
-                query = """
-                    SELECT from_unixtime(timestamp/1000) as 'timestamp', close as 'close_price'
-                    FROM market_data
-                    WHERE timeframe='1m' AND symbol=%s  AND timestamp >= (unix_timestamp() - 1800) * 1000
-                    ORDER BY timestamp
-                """
-                cursor.execute(query, (symbol,))
-                raw_data = cursor.fetchall()
-
-                # Process the raw data to get the final weight
-                final_weight = _calculate_weight_from_data(raw_data)
-                span.set_attribute("calculated_weight", final_weight)
-
-                # Store the final float value in cache
-                redis_cnx.set(cache_key, json.dumps(final_weight), ex=60)
-                span.add_event("Stored final weight in cache")
-
-                return final_weight
-
-        except Exception as e:
-            span.set_attribute("error", True)
-            span.record_exception(e)
-            print(f"Error in get_market_weight task: {e}")
-            raise
-        finally:
-            if db_cnx and db_cnx.is_connected():
-                cursor.close()
-                db_cnx.close()
+    return _get_market_weight_impl(symbol)
 
 
 @app.task(name="worker.tasks.get_max_run_height")
@@ -918,6 +941,36 @@ def get_all_product_symbols():
             span.set_attribute("error", True)
             span.record_exception(e)
             print(f"Error in get_all_product_symbols task: {e}")
+            raise
+        finally:
+            if db_cnx and db_cnx.is_connected():
+                cursor.close()
+                db_cnx.close()
+
+
+@app.task(name="worker.tasks.save_run_state", ignore_result=True)
+def save_run_state(run_id, state_json):
+    """
+    Saves the complete state of a trading run to the database.
+
+    Args:
+        run_id (int): The ID of the run to update.
+        state_json (str): A JSON string representing the run's state.
+    """
+    with tracer.start_as_current_span("save_run_state_task") as span:
+        span.set_attribute("run_id", run_id)
+        db_cnx = None
+        try:
+            db_cnx = get_db_connection()
+            cursor = db_cnx.cursor()
+            query = "UPDATE runs SET run_state = %s WHERE id = %s"
+            cursor.execute(query, (state_json, run_id))
+            db_cnx.commit()
+        except Exception as e:
+            if db_cnx:
+                db_cnx.rollback()
+            span.record_exception(e)
+            logger.error(f"Error saving state for run_id {run_id}: {e}")
             raise
         finally:
             if db_cnx and db_cnx.is_connected():

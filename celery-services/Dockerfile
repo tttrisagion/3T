@@ -19,3 +19,5 @@ RUN g++ -O3 -shared -fPIC -Wall -std=c++17 /app/cpp/perm_entropy_cpu_lib.cpp -o 
     ldconfig
 
 COPY ./celery-services/worker /app/worker
+COPY ./shared /app/shared
+COPY ./shared /app/shared

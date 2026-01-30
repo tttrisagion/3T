@@ -18,7 +18,7 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
-  "id": 6,
+  "id": 7,
   "links": [],
   "liveNow": false,
   "panels": [
@@ -95,7 +95,7 @@
         ]
       },
       "gridPos": {
-        "h": 4,
+        "h": 3,
         "w": 24,
         "x": 0,
         "y": 0
@@ -216,10 +216,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 7,
+        "h": 5,
         "w": 5,
         "x": 0,
-        "y": 4
+        "y": 3
       },
       "id": 13,
       "options": {
@@ -371,10 +371,10 @@
         ]
       },
       "gridPos": {
-        "h": 7,
+        "h": 5,
         "w": 19,
         "x": 5,
-        "y": 4
+        "y": 3
       },
       "id": 22,
       "options": {
@@ -482,7 +482,8 @@
             "lineWidth": 1,
             "pointSize": 2,
             "scaleDistribution": {
-              "type": "linear"
+              "log": 2,
+              "type": "symlog"
             },
             "showPoints": "auto",
             "spanNulls": false,
@@ -587,10 +588,10 @@
         ]
       },
       "gridPos": {
-        "h": 9,
+        "h": 7,
         "w": 24,
         "x": 0,
-        "y": 11
+        "y": 8
       },
       "id": 1,
       "maxPerRow": 6,
@@ -703,7 +704,8 @@
             "lineWidth": 1,
             "pointSize": 2,
             "scaleDistribution": {
-              "type": "linear"
+              "log": 2,
+              "type": "symlog"
             },
             "showPoints": "auto",
             "spanNulls": false,
@@ -807,10 +809,10 @@
         ]
       },
       "gridPos": {
-        "h": 8,
+        "h": 7,
         "w": 24,
         "x": 0,
-        "y": 20
+        "y": 15
       },
       "id": 4,
       "maxPerRow": 6,
@@ -991,7 +993,7 @@
         "h": 6,
         "w": 24,
         "x": 0,
-        "y": 28
+        "y": 22
       },
       "id": 3,
       "options": {
@@ -1063,16 +1065,98 @@
         "current": {
           "selected": true,
           "text": [
+            "AAVE/USDC:USDC",
+            "ADA/USDC:USDC",
+            "ASTER/USDC:USDC",
+            "AVAX/USDC:USDC",
+            "AXS/USDC:USDC",
+            "BCH/USDC:USDC",
+            "BERA/USDC:USDC",
+            "BNB/USDC:USDC",
             "BTC/USDC:USDC",
+            "CC/USDC:USDC",
+            "CRV/USDC:USDC",
+            "DASH/USDC:USDC",
+            "DOGE/USDC:USDC",
+            "ENA/USDC:USDC",
             "ETH/USDC:USDC",
+            "FARTCOIN/USDC:USDC",
+            "FET/USDC:USDC",
             "HYPE/USDC:USDC",
-            "SOL/USDC:USDC"
+            "ICP/USDC:USDC",
+            "IP/USDC:USDC",
+            "KPEPE/USDC:USDC",
+            "LINK/USDC:USDC",
+            "LIT/USDC:USDC",
+            "LTC/USDC:USDC",
+            "MEME/USDC:USDC",
+            "MON/USDC:USDC",
+            "NEAR/USDC:USDC",
+            "PAXG/USDC:USDC",
+            "PENDLE/USDC:USDC",
+            "PENGU/USDC:USDC",
+            "PUMP/USDC:USDC",
+            "RESOLV/USDC:USDC",
+            "SOL/USDC:USDC",
+            "SPX/USDC:USDC",
+            "SUI/USDC:USDC",
+            "TAO/USDC:USDC",
+            "TRX/USDC:USDC",
+            "UNI/USDC:USDC",
+            "VIRTUAL/USDC:USDC",
+            "WLFI/USDC:USDC",
+            "XMR/USDC:USDC",
+            "XPL/USDC:USDC",
+            "XRP/USDC:USDC",
+            "ZEC/USDC:USDC",
+            "ZRO/USDC:USDC"
           ],
           "value": [
+            "AAVE/USDC:USDC",
+            "ADA/USDC:USDC",
+            "ASTER/USDC:USDC",
+            "AVAX/USDC:USDC",
+            "AXS/USDC:USDC",
+            "BCH/USDC:USDC",
+            "BERA/USDC:USDC",
+            "BNB/USDC:USDC",
             "BTC/USDC:USDC",
+            "CC/USDC:USDC",
+            "CRV/USDC:USDC",
+            "DASH/USDC:USDC",
+            "DOGE/USDC:USDC",
+            "ENA/USDC:USDC",
             "ETH/USDC:USDC",
+            "FARTCOIN/USDC:USDC",
+            "FET/USDC:USDC",
             "HYPE/USDC:USDC",
-            "SOL/USDC:USDC"
+            "ICP/USDC:USDC",
+            "IP/USDC:USDC",
+            "KPEPE/USDC:USDC",
+            "LINK/USDC:USDC",
+            "LIT/USDC:USDC",
+            "LTC/USDC:USDC",
+            "MEME/USDC:USDC",
+            "MON/USDC:USDC",
+            "NEAR/USDC:USDC",
+            "PAXG/USDC:USDC",
+            "PENDLE/USDC:USDC",
+            "PENGU/USDC:USDC",
+            "PUMP/USDC:USDC",
+            "RESOLV/USDC:USDC",
+            "SOL/USDC:USDC",
+            "SPX/USDC:USDC",
+            "SUI/USDC:USDC",
+            "TAO/USDC:USDC",
+            "TRX/USDC:USDC",
+            "UNI/USDC:USDC",
+            "VIRTUAL/USDC:USDC",
+            "WLFI/USDC:USDC",
+            "XMR/USDC:USDC",
+            "XPL/USDC:USDC",
+            "XRP/USDC:USDC",
+            "ZEC/USDC:USDC",
+            "ZRO/USDC:USDC"
           ]
         },
         "datasource": {
@@ -1095,9 +1179,13 @@
       },
       {
         "current": {
-          "selected": false,
-          "text": "0x3497f631d428",
-          "value": "0x3497f631d428"
+          "selected": true,
+          "text": [
+            "0xcc47a3304dc"
+          ],
+          "value": [
+            "0xcc47a3304dc"
+          ]
         },
         "datasource": {
           "type": "mysql",
@@ -1120,13 +1208,13 @@
     ]
   },
   "time": {
-    "from": "now-1h",
+    "from": "now-4d",
     "to": "now"
   },
   "timepicker": {},
   "timezone": "",
-  "title": "3T Run Heath 10% EXPERIMENT",
-  "uid": "a61439a3-9e7c-44e8-a230-de86dbdac5ea",
-  "version": 16,
+  "title": "3T Run Heath 10% EXPERIMENT UPDATES",
+  "uid": "dcdde553-51fc-4f56-a3ce-0e059f8fe951",
+  "version": 4,
   "weekStart": ""
 }
