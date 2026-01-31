@@ -1,0 +1,63 @@
+@startuml Providence Trading System Components
+
+!include <C4/C4_Component.puml>
+
+LAYOUT_WITH_LEGEND()
+LAYOUT_TOP_DOWN()
+
+title Component Diagram for Providence Trading System (v3)
+
+Container_Boundary(celery_worker, "Celery Worker (512 workers, high/low priority queues)") {
+    Component(providence_supervisor, "Providence Supervisor", "Python/Celery Task", "Maintains 2000 active runs. Spawns new runs with random ANN params when count drops.")
+    Component(iteration_scheduler, "Iteration Scheduler", "Python/Celery Task", "Triggers iterations every 5s. Spawns 2000 tasks (400/sec rate) to low_priority queue.")
+    Component(trading_iteration, "Trading Iteration", "Python/Celery Task", "Single iteration per run (1-2ms). Calculates permutation entropy, generates position direction {-1,0,+1}, updates PnL.")
+    Component(entropy_calc, "Permutation Entropy", "Python Module", "Measures disorder in price patterns across block heights (epochs).")
+    Component(trading_logic, "Trading Logic", "Python Module", "Maps entropy signal to position direction. Kelly-scales position size based on performance.")
+    Component(data_gate, "Data Gate", "Python Module", "Aggregates market data and position state for entropy calculation.")
+    Component(state_manager, "State Manager", "Python Module", "Caches run state in Redis (24h TTL), persists to DB. Handles exit signals and completion tracking.")
+}
+
+ContainerDb_Ext(redis, "Redis", "Caches run state, provides streams for prices. Keys: providence:state:{id}, providence:exit:{id}, providence:completed:{id}")
+ContainerDb_Ext(mariadb, "MariaDB", "Persistent storage for runs table with run_state JSON, height (block height/epoch), exit_run flag.")
+Container_Ext(reconciliation_engine, "Reconciliation Engine", "Python/Celery Task", "Reads desired positions from runs table, generates corrective orders.")
+
+Rel(providence_supervisor, mariadb, "Counts active runs (WHERE exit_run=0), spawns new runs with random params", "SQL")
+Rel(iteration_scheduler, mariadb, "Queries active runs, spawns 2000 iteration tasks", "SQL")
+Rel(trading_iteration, state_manager, "Loads state, saves state after iteration", "Function call")
+Rel(state_manager, redis, "Cache read/write with 24h TTL", "Redis KV")
+Rel(state_manager, mariadb, "Persistent state in runs.run_state JSON", "SQL")
+Rel(trading_iteration, data_gate, "Gets market data + position state", "Function call")
+Rel(data_gate, mariadb, "Reads OHLCV market_data (MEMORY table)", "SQL")
+Rel(trading_iteration, entropy_calc, "Calculates H(price_patterns) across block heights", "Function call")
+Rel(trading_iteration, trading_logic, "Maps entropy → direction, scales with Kelly performance", "Function call")
+Rel(reconciliation_engine, mariadb, "Reads position_direction, live_pnl from runs", "SQL")
+
+note right of trading_iteration
+  Executes in 1-2ms per run.
+  Stateless: all state in Redis/DB.
+  Routes to low_priority queue.
+end note
+
+note right of providence_supervisor
+  Routes to high_priority queue.
+  Never waits even if 2000 iterations queued.
+  Spawns runs with random ANN params
+  for clonal adaptation search.
+end note
+
+note right of entropy_calc
+  Permutation Entropy H = -Σ p(π)·ln(p(π))
+  Groups runs into block heights (epochs)
+  for cross-run entropy calculation.
+  Natural log (base e) for time-invariance.
+end note
+
+note right of state_manager
+  Take Profit: Assigns height (epoch),
+  does NOT set exit_run flag.
+
+  Drawdown Reset: Sets exit_run=1,
+  does NOT assign height.
+end note
+
+@enduml

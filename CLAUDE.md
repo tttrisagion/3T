@@ -30,18 +30,31 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Documentation
 - Render PlantUML diagrams: `make render-diagrams`
+- Whitepaper: https://trisagion.xyz/trisagion.pdf
+- GitBook docs: https://trisagion.gitbook.io/
+
+### Git Workflow
+- Feature branches: Use `feature/` prefix (e.g., `feature/providence-v3-celery`)
+- Commit messages: For major features, save message to `commit.txt` and use `git commit -F commit.txt`
+- Branch from main: `git checkout -b feature/your-feature-name`
 
 ## Architecture Overview
 
 3T is a microservices-based automated trading platform with the following key components:
 
 ### Core Services
-- **Celery Workers** (`celery-services/`): Asynchronous task processing for market data fetching, balance updates, and portfolio reconciliation
-  - **Reconciliation Engine** (`reconciliation_engine.py`): The brain of the trading system that continuously compares desired vs actual positions and generates reconciliation orders
+- **Celery Workers** (`celery-services/`): Distributed task queue with priority routing
+  - **Providence System** (`worker/providence.py`): Core trading engine running 2000+ concurrent trading runs
+    - `providence_supervisor`: Spawns and maintains desired run count
+    - `providence_iteration_scheduler`: Triggers iterations every 5 seconds
+    - `providence_trading_iteration`: Executes single iteration per run (1-2ms each)
+  - **Reconciliation Engine** (`worker/reconciliation_engine.py`): Compares desired vs actual positions, generates corrective orders
+  - **Feed/Volatility** (`worker/feed.py`, `worker/volatility.py`): Price feed consumption and volatility calculations
+  - **Purge** (`worker/purge.py`): Stale run cleanup
 - **Components** (`components/`): Real-time services including:
   - Balance update consumers (`example_balance_consumer.py`)
-  - Price streaming producer (`price_stream_producer.py`) - WebSocket connection to HyperLiquid
-  - Price streaming consumer (`price_stream_consumer.py`) - Example consumer for price updates
+  - Price streaming producer (`price_stream_producer.py` / `price_poll_producer.py`) - WebSocket or polling mode
+  - Order Gateway (`order_gateway.py`) - Trade execution service
 - **Shared** (`shared/`): Common utilities including config management, Celery app, HyperLiquid client, and OpenTelemetry setup
 
 ### Infrastructure Services
@@ -71,7 +84,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `positions`: Current trading positions
 - `balance_history`: Account balance over time
 - `market_data`: OHLCV candlestick data (MEMORY table for performance)
-- `runs`: Trading run definitions with position directions and PnL for reconciliation engine
+- `runs`: Providence trading runs with position directions, PnL, and state
+  - `run_state`: JSON state for stateless task execution (cached in Redis)
+  - `height`: Block height/epoch for grouping runs (assigned at take profit events)
+  - `exit_run`: Flag for graceful shutdown (set by drawdown reset only)
 
 ## Development Guidelines
 
@@ -98,10 +114,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - For CI/CD: Copy `secrets.yml.example` which contains safe mock credentials
 - Always validate that secrets exist before attempting to use them
 
-### OpenTelemetry Integration
+### OpenTelemetry Integration & Sampling
 - All services instrumented with OpenTelemetry for distributed tracing
 - Service names configured via `OTEL_SERVICE_NAME` environment variable
 - Traces exported to OTEL collector on port 4318
+- **Sampling Configuration**: High-volume tasks use configurable sampling to reduce noise
+  - Configured via `observability.sampling_rate` in `config.yml` (0.01 = 1%, 1.0 = 100%)
+  - Noisy tasks (providence iterations, get_market_weight, etc.) sampled at configured rate
+  - Critical tasks (supervisor, reconciliation) always fully traced
+  - **Log Sampling**: Parallel log filtering applies same sampling to reduce log volume
+  - Defined in `shared/opentelemetry_config.py` - add new noisy tasks to `noisy_tasks` set
 
 ### Network Resilience
 - **ExchangeManager**: Singleton pattern prevents connection buildup issues
@@ -136,7 +158,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   - **price_producer_selector**: Automatically selects WebSocket or polling mode based on proxy configuration
 - **Testing**: Run `python components/tests/test_proxy_connection.py` to verify proxy setup
 
-### Celery Best Practices
+### Celery Best Practices & Priority Queues
+- **Priority Routing**: System uses two queues to prevent task starvation
+  - `high_priority`: Critical tasks (supervisor, reconciliation, balance updates) - always run immediately
+  - `low_priority`: Trading iterations - use spare capacity without blocking system operations
+- **Task Routes** configured in `shared/celery_app.py` - add new tasks to appropriate queue
+- **Worker Configuration**: Workers listen to both queues with `-Q high_priority,low_priority`
 - Name Beat schedules based on the action they perform (e.g., `update-balance`), not frequency
 - Frequencies should be configured in `config.yml`, not hardcoded
 - Use `eventlet` concurrency pool for I/O-bound tasks with autoscaling
@@ -149,16 +176,68 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Prometheus metrics: http://localhost:9090
 - Elasticsearch API: http://localhost:9200
 
-## Task Scheduling
-- Celery Beat runs on configurable intervals (default 30 seconds) for balance updates and market data scheduling
+## Task Scheduling & Providence System
+- Celery Beat runs on configurable intervals for all scheduled tasks
+- **Providence Iteration**: Runs every 5 seconds, spawns 2000 trading iteration tasks
+  - Each iteration executes in 1-2ms (fast, stateless)
+  - Tasks route to `low_priority` queue to avoid blocking system operations
+- **Providence Supervisor**: Runs every 60 seconds to maintain desired run count (2000 default)
+  - Routes to `high_priority` queue to ensure it never waits
+- **Reconciliation Engine**: Runs every 15 minutes to reconcile desired vs actual positions
 - Market data fetching uses stateful Redis tracking to avoid duplicate fetches
 - Concurrency controlled via `market_data.concurrency_limit` config (default: 10)
-- **Reconciliation Engine**: Runs every 15 minutes (configurable) to reconcile desired vs actual positions
+
+## Providence Trading System
+
+### Overview
+Providence is the core trading engine that executes 2000+ concurrent trading runs using permutation entropy signals and clonal adaptation. It evolved from forking (v1) → async (v2) → Celery distributed architecture (v3).
+
+### Architecture (v3)
+- **Iteration-based**: Short-lived tasks (1-2ms) vs long-running processes
+- **Stateless execution**: Run state cached in Redis with 24h TTL, persisted to DB
+- **Distributed**: 512 workers process iterations in parallel across high/low priority queues
+- **Clonal dynamics**: Successful entropy interpretations compound through Kelly sizing, losers exit
+
+### Key Components
+- **Supervisor** (`providence_supervisor`): Maintains 2000 active runs, spawns new runs with random ANN parameters
+- **Iteration Scheduler** (`providence_iteration_scheduler`): Triggers iterations every 5 seconds (400 tasks/sec spawn rate)
+- **Trading Iteration** (`providence_trading_iteration`): Single iteration per run
+  - Reads state from Redis cache (or DB if not cached)
+  - Calculates permutation entropy from market data
+  - Generates position direction {-1, 0, +1} based on entropy signal
+  - Updates live PnL and Kelly-scaled position size
+  - Saves state back to Redis + DB
+
+### Mathematical Core
+Providence maximizes portfolio **expected geometric growth rate** through parallel search:
+```
+max E[ln(W_total)] = max E[Σ_i ∫ f_i(H_i(s)) · sign(H_i(s) - threshold) · dS_s]
+```
+Where `H_i` is permutation entropy measured by run i, `f_i` is Kelly-scaled position size, and `dS/S` is the market process.
+
+### Block Heights (Epochs)
+- **Height Assignment**: Take profit events assign `height` value to all active runs (groups cohort)
+- **NOT Exit Signal**: `height` assignment does NOT set `exit_run` flag - runs continue trading
+- **Drawdown Reset**: Sets `exit_run=1` without height - runs terminate immediately
+- **Permutation Entropy**: Uses block heights as epochs for calculating cross-run entropy
+
+### State Management
+- **Redis Keys**:
+  - `providence:state:{run_id}` - Run state (24h TTL)
+  - `providence:exit:{run_id}` - Exit signal for graceful shutdown
+  - `providence:completed:{run_id}` - Completion tracking for idempotency
+- **Database**: `runs` table with `run_state` JSON column (persistent)
+
+### Configuration (`config.yml`)
+```yaml
+providence:
+  desired_run_count: 2000  # Number of concurrent runs to maintain
+```
 
 ## Reconciliation Engine
 
 ### Overview
-The reconciliation engine is the brain of the trading system that continuously compares the desired portfolio state with the actual state and generates corrective orders to eliminate any gaps. It operates without explicit locking, relying on idempotent execution and state consensus for safety.
+The reconciliation engine continuously compares the desired portfolio state (from Providence runs) with the actual state and generates corrective orders to eliminate gaps. It operates without explicit locking, relying on idempotent execution and state consensus for safety.
 
 ### Key Components
 - **Desired State Calculation**: Reads active runs from the `runs` table to determine target positions based on `position_direction`, `live_pnl`, and `risk_pos_size`
@@ -205,3 +284,27 @@ reconciliation_engine:
 - Some services have shared dependencies (e.g., flower needs celery-services requirements)
 - **When modifying Python code, just restart services: `docker-compose restart`**
 - Only rebuild if changing dependencies: `docker-compose up -d --build --no-deps <service_name>`
+
+## Critical Architecture Decisions
+
+### Database Connection Management (`shared/database.py`)
+- **NO Connection Pooling**: Direct MySQL connections bypass mysql.connector's 32-connection hard limit
+- **Why**: 512 workers × multiple connections would exceed pool limits
+- **Solution**: Direct connections let MariaDB handle 16K max_connections natively
+- **Redis Pooling**: 1000 connections per pool (separate pools for decoded/raw)
+- **decode_responses Default**: `True` for backward compatibility with order_gateway
+  - Explicit `False` only where bytes needed (state serialization)
+  - **Critical**: Changing this default breaks price lookups in order_gateway
+
+### Task Priority and Queue Starvation
+- **Problem**: High-volume trading iterations (2000 tasks every 5s) can starve critical tasks
+- **Solution**: Priority-based routing prevents supervisor from waiting hours in queue
+- **Monitor**: Check queue depths with `redis-cli LLEN high_priority` / `LLEN low_priority`
+- **Healthy State**: high_priority=0, low_priority<1000
+- **Jaeger Traces**: If supervisor wait time >1 minute, queue starvation is occurring
+
+### Observability Sampling
+- **Problem**: 2000 iterations every 5 seconds = 400 traces/sec floods Jaeger/Elasticsearch
+- **Solution**: Configurable sampling rate reduces noise while preserving critical task traces
+- **Recommendation**: Set `observability.sampling_rate: 0.01` (1%) for production with 2000 runs
+- **Effect**: Iteration task logs/traces sampled at 1%, supervisor/reconciliation always 100%

@@ -17,7 +17,7 @@ System_Ext(uptime_robot, "UptimeRobot", "External 3rd-party monitoring and alert
 System_Ext(github_repo, "GitHub Repository", "Source code with automated CI/CD: pre-commit hooks, GitHub Actions running make test for quality gates.")
 
 System_Boundary(c1, "3T (Tactical Trend Trader)") {
-    System(trisagion, "Trisagion", "An adaptive algorithmic trading system that uses real-time parameter optimization to manage a live portfolio.")
+    System(trisagion, "Trisagion", "A distributed algorithmic trading system using Providence v3: 2000 concurrent runs with permutation entropy signals, Kelly criterion position sizing, and clonal adaptation dynamics.")
 }
 
 Rel(risk_manager, trisagion, "Uses", "Views performance and manages overall strategy")

@@ -12,8 +12,8 @@ System_Ext(hyperliquid, "HyperLiquid Exchange", "Provides market data and trade 
 System_Boundary(trisagion_system, "Trisagion Trading System") {
 
     System_Boundary(celery_services, "Celery Services") {
-        Container(celery_worker, "Worker", "Python/Celery", "Hosts the core trading logic: Parameter Optimization Engine, Trade Evaluation Engine, and Reconciliation Engine.")
-        Container(celery_beat, "Beat", "Python/Celery", "Schedules periodic tasks based on config.yml.")
+        Container(celery_worker, "Worker", "Python/Celery (512 workers)", "Hosts Providence v3 trading system: 2000 concurrent runs with permutation entropy signals, Kelly sizing, and clonal adaptation. Also runs Reconciliation Engine.")
+        Container(celery_beat, "Beat", "Python/Celery", "Schedules periodic tasks: Providence supervisor (60s), iteration scheduler (5s), reconciliation (15m), balance/market data updates.")
     }
     
     System_Boundary(streaming_components, "Real-time Components") {
