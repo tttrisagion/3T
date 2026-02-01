@@ -217,8 +217,9 @@ def _perform_trading_iteration(run_id, state):
     ]
     state['apr_last'] = sum(recent_aprs) / len(recent_aprs) if recent_aprs else 0
 
-    # Update PnL in MySQL every 100 iterations (throttled to reduce DB load)
-    if state['iteration_count'] % 100 == 0:
+    # Update PnL in MySQL at configured frequency (throttled to reduce DB load)
+    mysql_update_freq = config.get("providence.mysql_update_frequency", 50)
+    if state['iteration_count'] % mysql_update_freq == 0:
         update_pnl.delay(run_id, balance - state['start_balance'])
 
     # --- Data Pruning ---
@@ -280,8 +281,8 @@ def _perform_trading_iteration(run_id, state):
 
                 state['position_direction'] += 1 if new_side == "buy" else -1
 
-                # Update position in MySQL every 100 iterations (throttled to reduce DB load)
-                if state['iteration_count'] % 100 == 0:
+                # Update position in MySQL at configured frequency (throttled to reduce DB load)
+                if state['iteration_count'] % mysql_update_freq == 0:
                     update_run_position.delay(run_id, state['position_direction'])
 
                 logger.info(f"Run {run_id}: Trade - {new_side} {pos_size:.6f} @ {instrument_price:.2f}, pos_dir: {state['position_direction']}")
@@ -338,7 +339,8 @@ def _save_state(run_id, state):
         # Optionally persist to MySQL every N iterations for durability
         # (in case Redis fails or server restarts)
         iteration_count = state.get('iteration_count', 0)
-        if iteration_count % 100 == 0:  # Persist every 100 iterations
+        mysql_update_freq = config.get("providence.mysql_update_frequency", 50)
+        if iteration_count % mysql_update_freq == 0:  # Persist at configured frequency
             db_cnx = None
             try:
                 # Calculate current PnL

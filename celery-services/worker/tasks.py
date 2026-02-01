@@ -55,11 +55,11 @@ app.conf.beat_schedule = {
     },
     "providence-supervisor": {
         "task": "worker.providence.providence_supervisor",
-        "schedule": 60.0,  # Create new runs
+        "schedule": 300.0,
     },
     "providence-iteration-scheduler": {
         "task": "worker.providence.providence_iteration_scheduler",
-        "schedule": 5.0,  # Trigger iterations every 5 seconds
+        "schedule": 10.0,
     },
     "purge-stale-runs": {
         "task": "worker.purge.purge_stale_runs",

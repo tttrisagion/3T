@@ -112,3 +112,5 @@ observability:
 providence:
   # Desired number of concurrent trading tasks to be managed by the supervisor
   desired_run_count: 100
+  # How often to persist run state to MySQL (in iterations, e.g., 50 = every 50 iterations)
+  mysql_update_frequency: 50

@@ -2,6 +2,15 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Documentation Guidelines
+
+**IMPORTANT: Configuration Values in Documentation**
+- **NEVER hardcode specific config values in this document** unless using them as illustrative examples
+- Configuration values change frequently and documentation quickly becomes stale and misleading
+- Always reference `config.yml` for current values rather than documenting specific numbers
+- When documenting features, describe what configuration options exist and where to find them, not their current values
+- Exception: You may show example config snippets to illustrate structure/format, but clearly label them as examples
+
 ## Development Commands
 
 ### Testing & Quality
@@ -13,9 +22,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### Docker Operations
 - Start all services: `make install` or `docker-compose up -d --build`
 - Stop and clean: `make clean` (stops containers, removes networks, and prunes Docker system)
-- **Deploy code changes: `docker-compose restart`** (Python files are mounted as volumes - no rebuild needed)
-- Restart services: `make restart`
+- **Deploy code changes: `make install`** (CRITICAL: Always use this, NOT `docker-compose restart` - restart doesn't clear Python bytecode cache)
+- Quick restart (config-only changes): `make restart` (use only for config.yml changes, not code)
 - Rebuild single service: `docker-compose up -d --build --no-deps <service_name>` (only needed for requirements.txt changes)
+
+**IMPORTANT**: Python bytecode caching means `docker-compose restart` will NOT pick up code changes. Always use `make install` after modifying .py files.
 
 ### Automated Setup
 - **Kibana Index Patterns**: Automatically created by `kibana-setup` service on deployment
@@ -44,9 +55,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Core Services
 - **Celery Workers** (`celery-services/`): Distributed task queue with priority routing
-  - **Providence System** (`worker/providence.py`): Core trading engine running 2000+ concurrent trading runs
+  - **Providence System** (`worker/providence.py`): Core trading engine running concurrent trading runs (count configured in `config.yml`)
     - `providence_supervisor`: Spawns and maintains desired run count
-    - `providence_iteration_scheduler`: Triggers iterations every 5 seconds
+    - `providence_iteration_scheduler`: Triggers iterations on configured schedule with jitter to prevent thundering herd
     - `providence_trading_iteration`: Executes single iteration per run (1-2ms each)
   - **Reconciliation Engine** (`worker/reconciliation_engine.py`): Compares desired vs actual positions, generates corrective orders
   - **Feed/Volatility** (`worker/feed.py`, `worker/volatility.py`): Price feed consumption and volatility calculations
@@ -141,15 +152,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Proxy Configuration
 - **Purpose**: Bypass IP restrictions and DDOS protection on exchange APIs
-- **Configuration** (in `config.yml`):
-  ```yaml
-  exchanges:
-    hyperliquid:
-      proxy: "http://3tsgp01.trisagion.xyz:8080/"  # CORS proxy URL (set to null to disable)
-      origin: "https://trisagion.finance"           # Origin header for CORS
-      poll_interval: 1.0   # Polling interval for price updates (seconds)
-      poll_batch_size: 10  # Number of symbols per batch
-  ```
+- **Configuration**: See `config.yml` under `exchanges.hyperliquid` for:
+  - `proxy` - CORS proxy URL (set to null to disable)
+  - `origin` - Origin header for CORS requests
+  - `poll_interval` - Polling interval for price updates (seconds)
+  - `poll_batch_size` - Number of symbols per batch
 - **Automatic Mode Selection**:
   - **With Proxy**: Automatically uses polling-based price producer (REST API)
   - **Without Proxy**: Automatically uses WebSocket streaming for real-time prices
@@ -178,29 +185,31 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Task Scheduling & Providence System
 - Celery Beat runs on configurable intervals for all scheduled tasks
-- **Providence Iteration**: Runs every 5 seconds, spawns 2000 trading iteration tasks
+- **Providence Iteration**: Scheduler triggers iteration tasks for all active runs
   - Each iteration executes in 1-2ms (fast, stateless)
   - Tasks route to `low_priority` queue to avoid blocking system operations
-- **Providence Supervisor**: Runs every 60 seconds to maintain desired run count (2000 default)
+  - Jitter window spreads task execution to prevent thundering herd (configured via `providence.iteration_jitter_seconds`)
+- **Providence Supervisor**: Maintains desired run count (configured via `providence.desired_run_count`)
   - Routes to `high_priority` queue to ensure it never waits
-- **Reconciliation Engine**: Runs every 15 minutes to reconcile desired vs actual positions
+- **Reconciliation Engine**: Reconciles desired vs actual positions (frequency configured via `reconciliation_engine.rebalance_frequency`)
 - Market data fetching uses stateful Redis tracking to avoid duplicate fetches
-- Concurrency controlled via `market_data.concurrency_limit` config (default: 10)
+- Concurrency controlled via `market_data.concurrency_limit` in config
 
 ## Providence Trading System
 
 ### Overview
-Providence is the core trading engine that executes 2000+ concurrent trading runs using permutation entropy signals and clonal adaptation. It evolved from forking (v1) → async (v2) → Celery distributed architecture (v3).
+Providence is the core trading engine that executes concurrent trading runs using permutation entropy signals and clonal adaptation. It evolved from forking (v1) → async (v2) → Celery distributed architecture (v3). Run count configured in `config.yml`.
 
 ### Architecture (v3)
 - **Iteration-based**: Short-lived tasks (1-2ms) vs long-running processes
 - **Stateless execution**: Run state cached in Redis with 24h TTL, persisted to DB
-- **Distributed**: 512 workers process iterations in parallel across high/low priority queues
+- **Distributed**: Worker pool processes iterations in parallel across high/low priority queues
 - **Clonal dynamics**: Successful entropy interpretations compound through Kelly sizing, losers exit
+- **Load Balancing**: Jitter window spreads iteration execution to prevent resource spikes
 
 ### Key Components
-- **Supervisor** (`providence_supervisor`): Maintains 2000 active runs, spawns new runs with random ANN parameters
-- **Iteration Scheduler** (`providence_iteration_scheduler`): Triggers iterations every 5 seconds (400 tasks/sec spawn rate)
+- **Supervisor** (`providence_supervisor`): Maintains configured active run count, spawns new runs with random ANN parameters
+- **Iteration Scheduler** (`providence_iteration_scheduler`): Triggers iterations for all active runs with randomized jitter to spread load
 - **Trading Iteration** (`providence_trading_iteration`): Single iteration per run
   - Reads state from Redis cache (or DB if not cached)
   - Calculates permutation entropy from market data
@@ -228,11 +237,10 @@ Where `H_i` is permutation entropy measured by run i, `f_i` is Kelly-scaled posi
   - `providence:completed:{run_id}` - Completion tracking for idempotency
 - **Database**: `runs` table with `run_state` JSON column (persistent)
 
-### Configuration (`config.yml`)
-```yaml
-providence:
-  desired_run_count: 2000  # Number of concurrent runs to maintain
-```
+### Configuration
+See `config.yml` for Providence configuration options including:
+- `providence.desired_run_count` - Number of concurrent runs to maintain
+- `providence.iteration_jitter_seconds` - Jitter window for spreading task execution
 
 ## Reconciliation Engine
 
@@ -245,24 +253,19 @@ The reconciliation engine continuously compares the desired portfolio state (fro
 - **Reconciliation Logic**: Implements extensively tested logic for all position scenarios (long/short/flat transitions)
 - **Order Execution**: Sends market orders to the Order Gateway for actual trade execution
 
-### Configuration (`config.yml`)
-```yaml
-reconciliation_engine:
-  rebalance_frequency: 900.0  # 15 minutes between reconciliation cycles
-  risk_pos_size: 20.25        # USD equivalent position size per run instance
-  symbols:                    # Symbols to manage
-    - "BTC/USDC:USDC"
-    - "BCH/USDC:USDC"  
-    - "ENA/USDC:USDC"
-  observer_nodes:             # Observer nodes for consensus validation
-    - "http://localhost:8001/3T-observer.json"
-  order_gateway_url: "http://localhost:8002"
-```
+### Configuration
+See `config.yml` for Reconciliation Engine configuration options including:
+- `reconciliation_engine.rebalance_frequency` - Time between reconciliation cycles
+- `reconciliation_engine.risk_pos_percentage` - Position size as percentage of balance
+- `reconciliation_engine.symbols` - List of trading symbols to manage
+- `reconciliation_engine.observer_nodes` - URLs for consensus validation
+- `reconciliation_engine.order_gateway_url` - Order execution service endpoint
+- `reconciliation_engine.minimum_trade_threshold` - Minimum USD value to execute trades
 
 ### Safety Features
 - **Consensus Requirement**: Only trades when at least 2 observers agree on current position
 - **No-Lock Design**: Uses state consensus instead of locking for thread safety
-- **Minimum Trade Threshold**: Only executes trades above $20 USD equivalent to avoid micro-adjustments
+- **Minimum Trade Threshold**: Only executes trades above configured USD threshold to avoid micro-adjustments
 - **Idempotent Operations**: Safe to run multiple times without adverse effects
 
 ## Troubleshooting
@@ -280,31 +283,33 @@ reconciliation_engine:
   ```
 
 ### Development Notes
-- Volume mounts enable live code reloading without rebuilds
+- Volume mounts enable code access but Python bytecode caching requires proper deployment
 - Some services have shared dependencies (e.g., flower needs celery-services requirements)
-- **When modifying Python code, just restart services: `docker-compose restart`**
+- **When modifying Python code, always use: `make install`** (clears bytecode cache and restarts)
 - Only rebuild if changing dependencies: `docker-compose up -d --build --no-deps <service_name>`
 
 ## Critical Architecture Decisions
 
 ### Database Connection Management (`shared/database.py`)
-- **NO Connection Pooling**: Direct MySQL connections bypass mysql.connector's 32-connection hard limit
-- **Why**: 512 workers × multiple connections would exceed pool limits
-- **Solution**: Direct connections let MariaDB handle 16K max_connections natively
-- **Redis Pooling**: 1000 connections per pool (separate pools for decoded/raw)
+- **NO Connection Pooling**: Direct MySQL connections bypass mysql.connector's connection hard limit
+- **Why**: Large worker pools with multiple connections would exceed pool limits
+- **Solution**: Direct connections let MariaDB handle its native max_connections setting
+- **Redis Pooling**: Configured connection pool (separate pools for decoded/raw)
 - **decode_responses Default**: `True` for backward compatibility with order_gateway
   - Explicit `False` only where bytes needed (state serialization)
   - **Critical**: Changing this default breaks price lookups in order_gateway
 
 ### Task Priority and Queue Starvation
-- **Problem**: High-volume trading iterations (2000 tasks every 5s) can starve critical tasks
+- **Problem**: High-volume trading iterations can starve critical tasks without priority queues
 - **Solution**: Priority-based routing prevents supervisor from waiting hours in queue
+- **Load Balancing**: Iteration jitter spreads task spawning to smooth resource usage
 - **Monitor**: Check queue depths with `redis-cli LLEN high_priority` / `LLEN low_priority`
-- **Healthy State**: high_priority=0, low_priority<1000
-- **Jaeger Traces**: If supervisor wait time >1 minute, queue starvation is occurring
+- **Healthy State**: high_priority should be near 0, low_priority manageable relative to worker capacity
+- **Jaeger Traces**: If supervisor wait time >1 minute, queue starvation may be occurring
 
 ### Observability Sampling
-- **Problem**: 2000 iterations every 5 seconds = 400 traces/sec floods Jaeger/Elasticsearch
+- **Problem**: High-volume iteration tasks can flood Jaeger/Elasticsearch with traces
 - **Solution**: Configurable sampling rate reduces noise while preserving critical task traces
-- **Recommendation**: Set `observability.sampling_rate: 0.01` (1%) for production with 2000 runs
-- **Effect**: Iteration task logs/traces sampled at 1%, supervisor/reconciliation always 100%
+- **Configuration**: Set `observability.sampling_rate` in `config.yml` to control sampling (0.01 = 1%, 1.0 = 100%)
+- **Effect**: Iteration task logs/traces sampled at configured rate, supervisor/reconciliation always 100%
+- **Tuning**: Lower sampling rate for higher run counts to keep trace volume manageable
