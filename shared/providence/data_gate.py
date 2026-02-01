@@ -35,9 +35,6 @@ def get_price_from_redis(symbol: str) -> float | None:
         return None
 
 
-
-
-
 def get_volatility_from_redis(symbol: str) -> float | None:
     """Gets the latest volatility for a symbol from Redis stream."""
     try:

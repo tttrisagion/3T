@@ -55,11 +55,7 @@ def calculate_volatility_for_symbol(symbol):
 
 
 @app.task(name="worker.volatility.update_volatility_in_redis")
-
-
 def update_volatility_in_redis():
-
-
     """
 
 
@@ -71,91 +67,46 @@ def update_volatility_in_redis():
 
     """
 
-
     with get_redis_connection(decode_responses=True) as redis_conn:
-
-
         lock = redis_conn.lock("lock:update_volatility_in_redis", timeout=600)
 
-
         if not lock.acquire(blocking=False):
-
-
             logger.info("Another volatility task is already running. Exiting.")
-
 
             return
 
-
-
-
-
         try:
-
-
             symbols = config.get("reconciliation_engine.symbols", [])
 
-
             if not symbols:
-
-
                 logger.warning("No symbols configured for volatility.")
-
 
                 return
 
-
-
-
-
             while True:
-
-
                 for symbol in symbols:
-
-
                     try:
-
-
                         volatility = calculate_volatility_for_symbol(symbol)
 
-
                         if volatility is not None:
-
-
                             redis_conn.set(f"volatility:{symbol}", volatility, ex=600)
 
-
                     except Exception as e:
-
-
-                        logger.error(f"Error processing volatility for {symbol}: {e}", exc_info=True)
-
-
-                
-
+                        logger.error(
+                            f"Error processing volatility for {symbol}: {e}",
+                            exc_info=True,
+                        )
 
                 lock.reacquire()
 
-
-                time.sleep(10) # Calculate every 10 seconds
-
+                time.sleep(10)  # Calculate every 10 seconds
 
         finally:
-
-
             lock.release()
 
 
-
-
-
 @app.task(name="worker.volatility.supervisor")
-
-
 def volatility_supervisor():
-
-
     """
 
 
@@ -164,17 +115,8 @@ def volatility_supervisor():
 
     """
 
-
     with get_redis_connection() as redis_conn:
-
-
         if not redis_conn.exists("lock:update_volatility_in_redis"):
-
-
             logger.info("Volatility task not running. Starting it.")
 
-
             update_volatility_in_redis.delay()
-
-
-

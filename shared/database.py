@@ -1,10 +1,10 @@
 import contextlib
 
 import mysql.connector
-from mysql.connector import pooling
 import redis
 
 from shared.config import config
+
 
 def get_db_connection():
     """
@@ -23,6 +23,7 @@ def get_db_connection():
 # Create Redis connection pools (separate pools for different decode_responses settings)
 _redis_pool = None
 _redis_pool_decoded = None
+
 
 def _get_redis_pool(decode_responses=False):
     """Get or create the Redis connection pool."""
@@ -49,6 +50,7 @@ def _get_redis_pool(decode_responses=False):
             )
         return _redis_pool
 
+
 @contextlib.contextmanager
 def get_redis_connection(decode_responses=True):
     """Gets a connection from the Redis pool."""
@@ -64,6 +66,7 @@ def get_redis_connection(decode_responses=True):
 def save_state_to_redis(run_id: int, state: dict, ttl: int = 86400):
     """Save run state to Redis with TTL (default 24 hours)."""
     import json
+
     with get_redis_connection(decode_responses=True) as r:
         r.setex(f"providence:state:{run_id}", ttl, json.dumps(state))
 
@@ -71,6 +74,7 @@ def save_state_to_redis(run_id: int, state: dict, ttl: int = 86400):
 def load_state_from_redis(run_id: int) -> dict | None:
     """Load run state from Redis."""
     import json
+
     with get_redis_connection(decode_responses=True) as r:
         state_json = r.get(f"providence:state:{run_id}")
         if state_json:

@@ -98,6 +98,7 @@ def worker_startup(sender, **kwargs):
 
             # Immediately trigger the providence supervisor to start trading tasks
             from worker.providence import providence_supervisor
+
             providence_supervisor.delay()
 
             span.add_event("Successfully triggered startup tasks.")
@@ -176,7 +177,9 @@ def schedule_market_data_fetching(is_backfill=False):
                     return
 
                 span.add_event(f"Found {len(jobs_to_run)} new data points to fetch.")
-                concurrency_limit = config.get("market_data.concurrency_limit", 2) # Reduced from 10
+                concurrency_limit = config.get(
+                    "market_data.concurrency_limit", 2
+                )  # Reduced from 10
                 pool = GreenPool(size=concurrency_limit)
 
                 threads = [
@@ -544,7 +547,7 @@ def _create_run_impl(
         run_id = cursor.lastrowid
         db_cnx.commit()
         return run_id
-    except Exception as e:
+    except Exception:
         if db_cnx:
             db_cnx.rollback()
         raise
