@@ -20,8 +20,9 @@ services:
     build:
       context: .
       dockerfile: celery-services/Dockerfile
-    command: celery -A worker.tasks worker --loglevel=info --concurrency=512 --max-tasks-per-child=7000 -Q high_priority,low_priority
-    cpus: 12
+    command: celery -A worker.tasks worker --pool=eventlet --loglevel=info --concurrency=1000 -Q high_priority,low_priority
+    deploy:
+      replicas: 16
     ulimits:
       nofile:
         soft: 65536
@@ -37,6 +38,7 @@ services:
     environment:
       - PYTHONPATH=/app
       - HOSTNAME=celery_worker_dev
+      - CELERY_WORKER_POOL=eventlet
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318/v1/traces
       - OTEL_SERVICE_NAME=celery_worker
     healthcheck:

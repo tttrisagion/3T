@@ -488,7 +488,27 @@ def providence_supervisor(self):
     """
     Ensures the desired number of trading runs exist in the database.
     The iteration scheduler handles executing them.
+    Uses a Redis distributed lock to prevent concurrent execution across replicas.
     """
+    from shared.database import get_redis_connection
+
+    # Distributed lock: only one supervisor runs at a time across all replicas
+    with get_redis_connection(decode_responses=False) as r:
+        lock_acquired = r.set("providence:supervisor:lock", "1", nx=True, ex=300)
+        if not lock_acquired:
+            logger.info("Supervisor: Another instance is running, skipping.")
+            return
+
+    try:
+        _run_supervisor()
+    finally:
+        # Release the lock when done
+        with get_redis_connection(decode_responses=False) as r:
+            r.delete("providence:supervisor:lock")
+
+
+def _run_supervisor():
+    """Core supervisor logic, protected by distributed lock."""
     with tracer.start_as_current_span("providence_supervisor"):
         desired_run_count = config.get("providence.desired_run_count", 100)
         symb = config.get("reconciliation_engine.symbols", [])

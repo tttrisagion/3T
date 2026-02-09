@@ -82,7 +82,15 @@ def worker_startup(sender, **kwargs):
     """
     Triggered once when a worker starts. Performs initial setup tasks including
     market data backfill and portfolio reconciliation.
+    Uses a Redis lock so only the first replica triggers startup tasks.
     """
+    # Only one replica should trigger startup tasks
+    with get_redis_connection(decode_responses=False) as r:
+        is_first = r.set("celery:startup:lock", "1", nx=True, ex=60)
+        if not is_first:
+            print("WORKER READY: Startup tasks already triggered by another replica.")
+            return
+
     with tracer.start_as_current_span("worker_startup") as span:
         print("WORKER READY: Starting worker startup tasks...")
         span.add_event("Starting worker startup tasks")

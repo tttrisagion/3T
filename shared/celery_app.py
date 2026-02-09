@@ -1,3 +1,10 @@
+import os
+
+if os.environ.get("CELERY_WORKER_POOL") == "eventlet":
+    import eventlet
+
+    eventlet.monkey_patch()
+
 from celery import Celery
 
 app = Celery(
