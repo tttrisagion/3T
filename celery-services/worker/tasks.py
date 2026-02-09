@@ -978,7 +978,7 @@ def save_run_state(run_id, state_json):
             if db_cnx:
                 db_cnx.rollback()
             span.record_exception(e)
-            logger.error(f"Error saving state for run_id {run_id}: {e}")
+            print(f"Error saving state for run_id {run_id}: {e}")
             raise
         finally:
             if db_cnx and db_cnx.is_connected():

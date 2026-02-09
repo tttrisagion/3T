@@ -71,7 +71,7 @@ def providence_trading_iteration(self, run_id):
     saves state back to Redis. ZERO MySQL queries during normal operation - fully Redis-based.
     This is called repeatedly by Celery Beat (every 2 seconds per run).
     """
-    tracer = get_tracer(os.environ.get("OTEL_SERVICE_NAME", "celery-worker"))
+    get_tracer(os.environ.get("OTEL_SERVICE_NAME", "celery-worker"))
 
     # Quick check: is this run already completed?
     if is_run_completed_redis(run_id):
@@ -322,8 +322,8 @@ def _perform_trading_iteration(run_id, state):
                 or (apr <= 0 and state["position_direction"] > 0 and new_side == "sell")
             )
 
-            max_pos_limit = 1000
-            if trade_condition and abs(state["position_direction"]) <= max_pos_limit:
+            max_pos_limit = config.get("providence.max_position_direction", 1024)
+            if trade_condition and abs(state["position_direction"]) < max_pos_limit:
                 pos_size = (
                     state["start_balance"]
                     * ann_params["pos_weight"]
