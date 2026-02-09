@@ -2,6 +2,7 @@ import ctypes
 import json
 import os
 import time
+import logging
 from datetime import UTC, datetime
 
 import ccxt
@@ -18,6 +19,8 @@ from shared.config import config
 from shared.database import get_db_connection, get_redis_connection
 from shared.exchange_manager import exchange_manager
 from shared.opentelemetry_config import get_tracer, setup_telemetry
+
+logger = logging.getLogger(__name__)
 
 # --- OTel Setup ---
 # It's crucial to set up the tracer provider BEFORE instrumenting.
@@ -59,7 +62,7 @@ def worker_startup(sender, **kwargs):
     market data backfill and portfolio reconciliation.
     """
     with tracer.start_as_current_span("worker_startup") as span:
-        print("WORKER READY: Starting worker startup tasks...")
+        logger.info("WORKER READY: Starting worker startup tasks...")
         span.add_event("Starting worker startup tasks")
 
         try:
@@ -72,14 +75,13 @@ def worker_startup(sender, **kwargs):
             reconcile_positions.delay()
 
             span.add_event("Successfully triggered startup tasks.")
-            print(
-                "Worker startup tasks dispatched: market data backfill, trading range update, and reconciliation."
-            )
+            logger.info(
+            "Worker startup tasks dispatched: market data backfill, trading range update..."
+        )
         except Exception as e:
             span.set_attribute("error", True)
             span.record_exception(e)
-            print(f"ERROR: Failed to dispatch startup tasks: {e}")
-
+            logger.error(f"Failed to dispatch startup tasks: {e}")
 
 @app.task(name="worker.tasks.schedule_market_data_fetching")
 def schedule_market_data_fetching(is_backfill=False):
@@ -182,7 +184,7 @@ def schedule_market_data_fetching(is_backfill=False):
         except Exception as e:
             span.set_attribute("error", True)
             span.record_exception(e)
-            print(f"Error in {span_name}: {e}")
+            logger.error(f"Error in {span_name}: {e}")
             raise
         finally:
             if db_cnx and db_cnx.is_connected():
@@ -226,8 +228,8 @@ def traced_fetch_and_store_ohlcv(
             except Exception as e:
                 span.set_attribute("otel.status_code", "ERROR")
                 span.record_exception(e)
-                print(
-                    f"ERROR in traced_fetch_and_store_ohlcv for {symbol} ({timeframe}): {e}"
+                logger.error(
+                f"Failed in traced_fetch_and_store_ohlcv for {symbol} ({timeframe}): {e}"
                 )
                 raise
     finally:
@@ -299,7 +301,7 @@ def update_balance():
         except Exception as e:
             span.set_attribute("error", True)
             span.record_exception(e)
-            print(f"Error in update_balance task: {e}")
+            logger.error(f"Error in update_balance task: {e}")
             raise
 
 
@@ -315,7 +317,7 @@ def publish_balance_update_event(account_value: float):
         except Exception as e:
             span.set_attribute("error", True)
             span.record_exception(e)
-            print(f"Error publishing to Redis stream: {e}")
+            logger.error(f"Error publishing to Redis stream: {e}")
             raise
 
 
@@ -377,7 +379,7 @@ def fetch_and_store_balance() -> float | None:
                 db_cnx.rollback()
             span.set_attribute("error", True)
             span.record_exception(e)
-            print(f"Error during fetch_and_store_balance: {e}")
+            logger.error(f"Error during fetch_and_store_balance: {e}")
             raise
         finally:
             if db_cnx and db_cnx.is_connected():
@@ -402,10 +404,10 @@ def load_perm_entropy_library():
             ctypes.c_int,
         ]
         func.restype = ctypes.c_double
-        print("✅ Successfully loaded permutation entropy library")
+        logger.info("Successfully loaded permutation entropy library")
         return func
     except (OSError, AttributeError) as e:
-        print(f"⚠️ WARNING: Could not load permutation entropy library. Error: {e}")
+        logger.warning(f"Could not load permutation entropy library. Error: {e}")
         return None
 
 
@@ -474,7 +476,7 @@ def calculate_permutation_entropy(data, order=3, delay=1, iterations=1000):
         except Exception as e:
             span.set_attribute("error", True)
             span.record_exception(e)
-            print(f"Error in calculate_permutation_entropy task: {e}")
+            logger.error(f"Error in calculate_permutation_entropy task: {e}")
             return {"error": str(e), "result": None}
 
 
@@ -582,7 +584,7 @@ def update_run_position(run_id, pos):
                 db_cnx.rollback()
             span.set_attribute("error", True)
             span.record_exception(e)
-            print(f"Error in update_run_position task: {e}")
+            logger.error(f"Error in update_run_position task: {e}")
             raise
         finally:
             if db_cnx and db_cnx.is_connected():
@@ -616,7 +618,7 @@ def update_pnl(run_id, pnl):
                 db_cnx.rollback()
             span.set_attribute("error", True)
             span.record_exception(e)
-            print(f"Error in update_pnl task: {e}")
+            logger.error(f"Error in update_pnl task: {e}")
             raise
         finally:
             if db_cnx and db_cnx.is_connected():
@@ -650,7 +652,7 @@ def end_run(run_id, balance):
                 db_cnx.rollback()
             span.set_attribute("error", True)
             span.record_exception(e)
-            print(f"Error in end_run task: {e}")
+            logger.error(f"Error in end_run task: {e}")
             raise
         finally:
             if db_cnx and db_cnx.is_connected():
@@ -685,7 +687,7 @@ def get_exit_status(run_id):
         except Exception as e:
             span.set_attribute("error", True)
             span.record_exception(e)
-            print(f"Error in get_exit_status task: {e}")
+            logger.error(f"Error in get_exit_status task: {e}")
             raise
         finally:
             if db_cnx and db_cnx.is_connected():
@@ -719,7 +721,7 @@ def get_active_run_count(symbol):
         except Exception as e:
             span.set_attribute("error", True)
             span.record_exception(e)
-            print(f"Error in get_active_run_count task: {e}")
+            logger.error(f"Error in get_active_run_count task: {e}")
             raise
         finally:
             if db_cnx and db_cnx.is_connected():
@@ -821,7 +823,7 @@ def get_market_weight(symbol):
         except Exception as e:
             span.set_attribute("error", True)
             span.record_exception(e)
-            print(f"Error in get_market_weight task: {e}")
+            logger.error(f"Error in get_market_weight task: {e}")
             raise
         finally:
             if db_cnx and db_cnx.is_connected():
@@ -852,7 +854,7 @@ def get_max_run_height():
         except Exception as e:
             span.set_attribute("error", True)
             span.record_exception(e)
-            print(f"Error in get_max_run_height task: {e}")
+            logger.error(f"Error in get_max_run_height task: {e}")
             raise
         finally:
             if db_cnx and db_cnx.is_connected():
@@ -887,7 +889,7 @@ def set_exit_for_runs_by_height(height):
                 db_cnx.rollback()
             span.set_attribute("error", True)
             span.record_exception(e)
-            print(f"Error in set_exit_for_runs_by_height task: {e}")
+            logger.error(f"Error in set_exit_for_runs_by_height task: {e}")
             raise
         finally:
             if db_cnx and db_cnx.is_connected():
@@ -917,7 +919,7 @@ def get_all_product_symbols():
         except Exception as e:
             span.set_attribute("error", True)
             span.record_exception(e)
-            print(f"Error in get_all_product_symbols task: {e}")
+            logger.error(f"Error in get_all_product_symbols task: {e}")
             raise
         finally:
             if db_cnx and db_cnx.is_connected():
