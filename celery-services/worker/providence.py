@@ -4,6 +4,7 @@ Providence Trading Engine - Celery Worker Implementation
 
 import json
 import os
+import random
 import socket
 import time
 
@@ -158,11 +159,11 @@ def _perform_trading_iteration(run_id, state):
     """
     ann_params = state["ann_params"]
     symb = config.get("reconciliation_engine.symbols")
-    symb_leverage = [80] * 4 + [2] * 54
     choose = ann_params["choose"]
+    leverage = ann_params["leverage"]
 
     # Reconstruct VOMS
-    voms = VOMS(starting_balance=state["start_balance"], leverage=symb_leverage[choose])
+    voms = VOMS(starting_balance=state["start_balance"], leverage=leverage)
     if state.get("voms_state"):
         voms.from_dict(state["voms_state"])
 
@@ -408,11 +409,9 @@ def _save_state(run_id, state):
                     from shared.voms import VOMS
 
                     ann_params = state.get("ann_params", {})
-                    choose = ann_params.get("choose", 0)
-                    symb_leverage = [80] * 4 + [2] * 54
                     voms = VOMS(
                         starting_balance=state["start_balance"],
-                        leverage=symb_leverage[choose],
+                        leverage=ann_params["leverage"],
                     )
                     voms.from_dict(state["voms_state"])
                     metrics = voms.get_metrics()
@@ -507,17 +506,45 @@ def providence_supervisor(self):
             r.delete("providence:supervisor:lock")
 
 
+def _get_leverage_map(cursor, symbols):
+    """Query products table for max_leverage per symbol."""
+    if not symbols:
+        return {}
+    placeholders = ", ".join(["%s"] * len(symbols))
+    cursor.execute(
+        f"SELECT symbol, max_leverage FROM products WHERE symbol IN ({placeholders})",
+        tuple(symbols),
+    )
+    leverage_map = {}
+    for row in cursor.fetchall():
+        lev = float(row["max_leverage"]) if row["max_leverage"] else 1.0
+        leverage_map[row["symbol"]] = max(lev, 1.0)
+    # Warn about symbols missing from products table
+    for s in symbols:
+        if s not in leverage_map:
+            logger.warning(
+                f"Supervisor: Symbol {s} not found in products table, using leverage=1"
+            )
+            leverage_map[s] = 1.0
+    return leverage_map
+
+
 def _run_supervisor():
     """Core supervisor logic, protected by distributed lock."""
     with tracer.start_as_current_span("providence_supervisor"):
         desired_run_count = config.get("providence.desired_run_count", 100)
         symb = config.get("reconciliation_engine.symbols", [])
-        symb_leverage = [80] * 4 + [2] * 54
+        max_margin_threshold = config.get(
+            "providence.max_margin_allocation_threshold", 45
+        )
         virtual_balance = 7000
         db_cnx = None
         try:
             db_cnx = get_db_connection()
             cursor = db_cnx.cursor(dictionary=True)
+
+            # Get max_leverage per symbol from products table
+            leverage_map = _get_leverage_map(cursor, symb)
 
             # Query DB for active runs (runs without end_time)
             cursor.execute(
@@ -526,16 +553,44 @@ def _run_supervisor():
             active_db_runs = cursor.fetchall()
             current_total_runs = len(active_db_runs)
 
+            # Get per-symbol active run counts
+            cursor.execute(
+                "SELECT symbol, COUNT(*) as cnt FROM runs "
+                "WHERE end_time IS NULL AND exit_run = 0 GROUP BY symbol"
+            )
+            symbol_counts = {row["symbol"]: row["cnt"] for row in cursor.fetchall()}
+
             # Create new runs if needed
             needed_runs = desired_run_count - current_total_runs
             spawned_count = 0
             if needed_runs > 0:
                 logger.info(f"Supervisor: Creating {needed_runs} new runs.")
                 for _ in range(needed_runs):
+                    # Margin-normalized prefilter: skip symbols where
+                    # active_runs / max_leverage exceeds threshold
+                    eligible = [
+                        s
+                        for s in symb
+                        if (
+                            symbol_counts.get(s, 0) / leverage_map[s]
+                            <= max_margin_threshold
+                        )
+                    ]
+                    if not eligible:
+                        logger.info(
+                            "Supervisor: All symbols at margin allocation capacity. "
+                            f"Counts: {symbol_counts}, Leverage: {leverage_map}, "
+                            f"Threshold: {max_margin_threshold}"
+                        )
+                        break
+
+                    chosen_symbol = random.choice(eligible)
+                    chosen_leverage = leverage_map[chosen_symbol]
+                    choose_idx = symb.index(chosen_symbol)
+
                     ann_params = generate_ann_params(
-                        symb, symb_leverage, virtual_balance
+                        symb, chosen_leverage, virtual_balance, choose=choose_idx
                     )
-                    choose = ann_params["choose"]
 
                     # Create initial state
                     initial_state = {
@@ -553,7 +608,6 @@ def _run_supervisor():
                         "iteration_count": 0,
                     }
 
-                    # Create run in database with initial state
                     # Use stable hostname (Docker container name) instead of volatile MAC address
                     stable_host = os.environ.get("HOSTNAME", socket.gethostname())
 
@@ -565,7 +619,7 @@ def _run_supervisor():
                         (
                             virtual_balance,
                             ann_params["max_duration"],
-                            symb[choose],
+                            chosen_symbol,
                             json.dumps(ann_params),
                             json.dumps(initial_state),
                             stable_host,
@@ -574,12 +628,22 @@ def _run_supervisor():
                     db_cnx.commit()
                     spawned_count += 1
 
+                    # Update in-memory count for next iteration
+                    symbol_counts[chosen_symbol] = (
+                        symbol_counts.get(chosen_symbol, 0) + 1
+                    )
+
                     logger.info(
-                        f"Supervisor: Created run {cursor.lastrowid} for {symb[choose]}"
+                        f"Supervisor: Created run {cursor.lastrowid} for {chosen_symbol} "
+                        f"(leverage={chosen_leverage}, "
+                        f"margin_ratio={symbol_counts[chosen_symbol] / chosen_leverage:.1f}"
+                        f"/{max_margin_threshold})"
                     )
 
             logger.info(
-                f"Supervisor: Cycle complete. Desired: {desired_run_count}, Active: {current_total_runs}, Spawned: {spawned_count}"
+                f"Supervisor: Cycle complete. Desired: {desired_run_count}, "
+                f"Active: {current_total_runs}, Spawned: {spawned_count}, "
+                f"Per-symbol: {symbol_counts}"
             )
 
         except Exception as e:

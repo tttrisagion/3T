@@ -116,3 +116,5 @@ providence:
   mysql_update_frequency: 50
   # Maximum absolute value for position direction (net trades)
   max_position_direction: 1024
+  # Lower-leverage (more volatile) symbols get fewer runs proportionally
+  max_margin_allocation_threshold: 45

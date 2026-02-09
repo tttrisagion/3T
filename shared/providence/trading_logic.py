@@ -5,11 +5,18 @@ Providence Trading Logic - Core Brains
 import random
 
 
-def generate_ann_params(symb, symb_leverage, virtual_balance=7000):
+def generate_ann_params(symb, leverage, virtual_balance=7000, choose=None):
     """
     Generates a new set of randomized ANN parameters for a trading run.
+
+    Args:
+        symb: List of symbols.
+        leverage: The max leverage for the chosen symbol (from products table).
+        virtual_balance: Starting virtual balance for VOMS.
+        choose: Index into symb for the chosen symbol. Random if None.
     """
-    choose = random.randint(0, len(symb) - 1)
+    if choose is None:
+        choose = random.randint(0, len(symb) - 1)
     system_swing = bool(random.randint(0, 1))
     max_duration = random.randint(300, 86400 * 5)
     max_direction_reversal = int(max_duration / random.randint(1, 10))
@@ -34,6 +41,7 @@ def generate_ann_params(symb, symb_leverage, virtual_balance=7000):
     ann_params = {
         "virtual_balance": virtual_balance,
         "choose": choose,
+        "leverage": leverage,
         "max_duration": max_duration,
         "max_direction_reversal": max_direction_reversal,
         "balance_divisor": balance_divisor,
