@@ -6,7 +6,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 const WEB_SERVICES = [
-    'mission-control', 'grafana', 'flower', 'prometheus', 'kibana', 
+    'mission-control', 'grafana', 'flower', 'prometheus',
     'jaeger', 'exchange-observer', 'order-gateway'
 ];
 
@@ -18,8 +18,6 @@ const ICON_MAP = {
     'mission-control': 'nginx',
     'cors-proxy': 'nginx',
     'node-exporter': 'prometheus',
-    'elasticsearch': 'elasticsearch',
-    'kibana': 'kibana',
     'redis': 'redis',
     'jaeger': 'jaeger',
     'grafana': 'grafana',
@@ -32,8 +30,7 @@ const ICON_MAP = {
     'price_stream_consumer': 'default',
     'health-monitor': 'default',
     'order-gateway': 'default',
-    'exchange-observer': 'default',
-    'kibana-setup': 'default'
+    'exchange-observer': 'default'
 };
 
 async function loadAndRenderConfig() {

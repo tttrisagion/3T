@@ -211,67 +211,19 @@ services:
       - ./database/mariadb.cnf:/etc/mysql/mariadb.conf.d/99-custom.cnf
     restart: unless-stopped
 
-  elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.15
-    environment:
-      - discovery.type=single-node
-      - "ES_JAVA_OPTS=-Xms32g -Xmx32g"
-      - xpack.security.enabled=false
-      - cluster.max_shards_per_node=2000
-    volumes:
-      - elasticsearch_data:/usr/share/elasticsearch/data
-    ports:
-      - "9200:9200"
-    healthcheck:
-      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -vq '\"status\":\"red\"'"]
-      interval: 10s
-      timeout: 5s
-      retries: 12
-    restart: unless-stopped
-
-  kibana:
-    image: docker.elastic.co/kibana/kibana:7.17.15
-    environment:
-      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
-      - xpack.security.enabled=false
-    ports:
-      - "5601:5601"
-    depends_on:
-      elasticsearch:
-        condition: service_healthy
-    restart: unless-stopped
-
-  kibana-setup:
-    image: curlimages/curl:8.4.0
-    depends_on:
-      - kibana
-      - elasticsearch
-    volumes:
-      - ./setup/kibana:/setup
-    command: >
-      sh -c "
-        echo 'Waiting for services to be ready...' &&
-        sleep 30 &&
-        /setup/setup-index-patterns.sh
-      "
-    environment:
-      - KIBANA_URL=http://kibana:5601
-    restart: unless-stopped
-
   jaeger:
     build: ./jaeger
     ports:
       - "16686:16686"
       - "14268:14268"
+    volumes:
+      - jaeger_data:/badger
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:14269/"]
       interval: 10s
       timeout: 5s
       retries: 30
       start_period: 30s
-    depends_on:
-      elasticsearch:
-        condition: service_healthy
     restart: unless-stopped
 
   otel-collector:
@@ -372,4 +324,3 @@ services:
 volumes:
   mariadb_data:
   jaeger_data:
-  elasticsearch_data:

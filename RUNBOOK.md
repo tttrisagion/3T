@@ -3,7 +3,9 @@
 ## 3T Trading Infrastructure
 
 ```
-curl -X DELETE "http://localhost:9200/jaeger-*"
+# Purge Jaeger trace data (Badger backend):
+# docker volume rm 3t_jaeger_data  (requires stopping jaeger first)
+# Or set BADGER_SPAN_STORE_TTL env var for automatic TTL-based cleanup
 
 cd /opt/3T
 docker compose exec mariadb /bin/bash

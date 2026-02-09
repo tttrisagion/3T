@@ -1,25 +1,14 @@
-# Use a builder stage to set permissions
-FROM alpine:latest as builder
-COPY wait-for-es.sh /tmp/wait-for-es.sh
-RUN chmod +x /tmp/wait-for-es.sh
-
-# Final stage
 FROM jaegertracing/all-in-one:1.53
 
-# Install curl for the wait script
+# Install curl for healthcheck and create Badger data dirs with correct ownership
 USER root
-RUN apk add --no-cache curl
+RUN apk add --no-cache curl && \
+    mkdir -p /badger/data /badger/key && \
+    chown -R 10001:10001 /badger
 USER 10001
 
-# Copy the executable script from the builder stage
-COPY --from=builder /tmp/wait-for-es.sh /usr/local/bin/wait-for-es.sh
-
-# The base image's entrypoint is /go/bin/all-in-one-linux
-# We'll use our script as the new entrypoint to wrap the original one.
-ENTRYPOINT ["/usr/local/bin/wait-for-es.sh", "elasticsearch:9200", "/go/bin/all-in-one-linux"]
-
-# Environment variables for Jaeger configuration (cleaner than command line args)
-ENV SPAN_STORAGE_TYPE=elasticsearch
-ENV ES_SERVER_URLS=http://elasticsearch:9200
-
-# No CMD needed as the binary runs with env vars
+# Badger embedded storage (replaces Elasticsearch)
+ENV SPAN_STORAGE_TYPE=badger
+ENV BADGER_EPHEMERAL=false
+ENV BADGER_DIRECTORY_VALUE=/badger/data
+ENV BADGER_DIRECTORY_KEY=/badger/key

@@ -75,9 +75,7 @@ The core of the system is **Providence v3**, a Celery-based distributed trading 
 - **MariaDB**: Persistent storage for trading data, positions, and run state (runs.run_state JSON)
 
 ### Observability & Monitoring Stack
-- **Elasticsearch**: Search and analytics engine providing persistent storage for trace data.
-- **Jaeger**: Distributed tracing system with Elasticsearch backend for monitoring microservices interactions.
-- **Kibana**: Web interface for exploring and visualizing trace data stored in Elasticsearch.
+- **Jaeger**: Distributed tracing system with Badger embedded storage (lightweight, disk-based).
 - **OpenTelemetry Collector**: Receives, processes, and exports telemetry data from services to Jaeger.
 - **Prometheus**: Monitoring and alerting toolkit that collects metrics from various services.
 - **Grafana**: Platform for visualizing metrics with pre-built dashboards for monitoring the 3T system.
@@ -144,7 +142,7 @@ Note: Your system must have docker and docker-compose available. The docker serv
    docker compose up -d --build
    ```
 
-   This will start all services in detached mode and automatically configure Kibana with Jaeger index patterns.
+   This will start all services in detached mode.
 
 4. **Initialize the database:**
 
@@ -158,10 +156,8 @@ Note: Your system must have docker and docker-compose available. The docker serv
 
    - **Grafana**: http://localhost:3000/dashboards
    - **Jaeger**: http://localhost:16686 (distributed tracing UI)
-   - **Kibana**: http://localhost:5601 (trace data exploration)
    - **Flower**: http://localhost:5555 (Celery monitoring)
    - **Prometheus**: http://localhost:9090 (metrics)
-   - **Elasticsearch**: http://localhost:9200 (API access)
 
 # Documentation
 
@@ -192,14 +188,12 @@ For development commands, testing procedures, and detailed technical guidance, s
 The 3T system is designed for high observability, with a comprehensive suite of tools for monitoring, tracing, and debugging.
 
 - **Metrics**: Prometheus scrapes metrics from Flower and other services, visualized in Grafana dashboards.
-- **Distributed Tracing**: All services instrumented with OpenTelemetry, sending traces through OTEL Collector to Jaeger with persistent Elasticsearch storage.
-- **Trace Exploration**: Kibana provides a web interface for exploring trace data with automatically configured index patterns.
+- **Distributed Tracing**: All services instrumented with OpenTelemetry, sending traces through OTEL Collector to Jaeger with Badger embedded storage.
 - **Intelligent Sampling**: Configurable sampling (default 1% for high-volume tasks) reduces noise while preserving critical traces
   - High-volume tasks (providence iterations): sampled at configured rate
   - Critical tasks (supervisor, reconciliation): always 100% traced
   - Log sampling mirrors trace sampling for consistent observability
 - **Real-time Monitoring**: Live trace data with auto-refresh capabilities to monitor system activity.
-- **Automated Setup**: Kibana index patterns automatically created during deployment for immediate use.
 
 ## Quick Reference
 
@@ -208,7 +202,6 @@ The 3T system is designed for high observability, with a comprehensive suite of 
 |---------|-----|---------|
 | Grafana | http://localhost:3000/dashboards | Metrics visualization |
 | Jaeger | http://localhost:16686 | Distributed tracing UI |
-| Kibana | http://localhost:5601 | Trace data exploration |
 | Flower | http://localhost:5555 | Celery monitoring |
 | Prometheus | http://localhost:9090 | Metrics storage |
 | Order Gateway | http://localhost:8002 | Trade execution API |

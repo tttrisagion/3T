@@ -29,9 +29,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **IMPORTANT**: Python bytecode caching means `docker-compose restart` will NOT pick up code changes. Always use `make install` after modifying .py files.
 
 ### Automated Setup
-- **Kibana Index Patterns**: Automatically created by `kibana-setup` service on deployment
 - **Setup Scripts**: Located in `setup/` directory for automated configuration
-- **Fresh Environment**: All necessary index patterns and configurations are created automatically
+- **Fresh Environment**: All necessary configurations are created automatically
 
 ### Database Operations
 - Complete database reset (development only):
@@ -71,9 +70,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### Infrastructure Services
 - **Redis**: Message broker for Celery and streams for real-time events
 - **MariaDB**: Persistent storage for trading data, positions, and balance history
-- **Prometheus + Grafana**: Metrics collection and visualization  
-- **Elasticsearch + Jaeger + OTEL Collector**: Distributed tracing with persistent storage
-- **Kibana**: Web interface for browsing Elasticsearch/Jaeger trace data
+- **Prometheus + Grafana**: Metrics collection and visualization
+- **Jaeger + OTEL Collector**: Distributed tracing with Badger embedded storage (disk-based)
 - **Flower**: Celery monitoring dashboard
 
 ### Configuration Management
@@ -178,10 +176,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Service Access
 - Grafana dashboards: http://localhost:3000/dashboards
 - Jaeger tracing: http://localhost:16686
-- Kibana (Elasticsearch/Jaeger data): http://localhost:5601
 - Flower Celery monitoring: http://localhost:5555
 - Prometheus metrics: http://localhost:9090
-- Elasticsearch API: http://localhost:9200
 
 ## Task Scheduling & Providence System
 - Celery Beat runs on configurable intervals for all scheduled tasks
@@ -308,7 +304,7 @@ See `config.yml` for Reconciliation Engine configuration options including:
 - **Jaeger Traces**: If supervisor wait time >1 minute, queue starvation may be occurring
 
 ### Observability Sampling
-- **Problem**: High-volume iteration tasks can flood Jaeger/Elasticsearch with traces
+- **Problem**: High-volume iteration tasks can flood Jaeger with traces
 - **Solution**: Configurable sampling rate reduces noise while preserving critical task traces
 - **Configuration**: Set `observability.sampling_rate` in `config.yml` to control sampling (0.01 = 1%, 1.0 = 100%)
 - **Effect**: Iteration task logs/traces sampled at configured rate, supervisor/reconciliation always 100%

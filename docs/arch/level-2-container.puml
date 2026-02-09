@@ -38,10 +38,7 @@ System_Boundary(trisagion_system, "Trisagion Trading System") {
         Container(flower, "Flower", "Flower", "Web tool for monitoring Celery jobs.")
         Container(prometheus, "Prometheus", "Prometheus", "Collects and stores metrics.")
         Container(grafana, "Grafana", "Grafana", "Visualizes metrics and logs.")
-        ContainerDb(elasticsearch, "Elasticsearch", "Elasticsearch", "Search engine providing persistent storage for trace data.")
-        Container(jaeger, "Jaeger", "Jaeger", "Distributed tracing system with Elasticsearch backend.")
-        Container(kibana, "Kibana", "Kibana", "Web interface for exploring trace data in Elasticsearch.")
-        Container(kibana_setup, "Kibana Setup", "Shell/Curl", "Automated service that creates index patterns for Jaeger data.")
+        Container(jaeger, "Jaeger", "Jaeger", "Distributed tracing system with Badger embedded storage.")
         Container(otel_collector, "OpenTelemetry Collector", "OTel", "Receives, processes, and exports telemetry data.")
     }
 
@@ -52,7 +49,6 @@ System_Boundary(trisagion_system, "Trisagion Trading System") {
     Rel(developer, flower, "Monitors")
     Rel(developer, grafana, "Views dashboards on")
     Rel(developer, jaeger, "Views traces on")
-    Rel(developer, kibana, "Explores trace data on")
     
     Rel(celery_beat, celery_worker, "Schedules tasks for", "Celery")
     
@@ -93,10 +89,6 @@ System_Boundary(trisagion_system, "Trisagion Trading System") {
     Rel(price_producer, otel_collector, "Sends traces to", "gRPC")
     Rel(price_consumer, otel_collector, "Sends traces to", "gRPC")
     Rel(otel_collector, jaeger, "Exports traces to", "gRPC")
-    Rel(jaeger, elasticsearch, "Stores traces in", "HTTP/REST")
-    Rel(kibana, elasticsearch, "Queries trace data from", "HTTP/REST")
-    Rel(kibana_setup, kibana, "Creates index patterns in", "HTTP/REST")
-    Rel(kibana_setup, elasticsearch, "Waits for indices from", "HTTP/REST")
 }
 
 @enduml
