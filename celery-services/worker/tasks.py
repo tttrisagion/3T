@@ -59,7 +59,7 @@ app.conf.beat_schedule = {
     },
     "providence-iteration-scheduler": {
         "task": "worker.providence.providence_iteration_scheduler",
-        "schedule": 10.0,
+        "schedule": 5.0,
     },
     "purge-stale-runs": {
         "task": "worker.purge.purge_stale_runs",

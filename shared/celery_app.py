@@ -25,6 +25,7 @@ app = Celery(
 # Configure task routing with priorities
 app.conf.update(
     result_expires=3600,
+    worker_prefetch_multiplier=1,
     task_routes={
         # High priority: Critical system tasks
         "worker.tasks.update_balance": {"queue": "high_priority"},
