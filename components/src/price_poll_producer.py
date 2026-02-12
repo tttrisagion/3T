@@ -118,7 +118,7 @@ class PricePollProducer:
                     }
 
                     # Publish to Redis stream
-                    self.redis_client.xadd(self.stream_key, message)
+                    self.redis_client.xadd(self.stream_key, message, maxlen=10000)
                     print(f"Published price update for {symbol}: {price}")
                     published_count += 1
 

@@ -65,7 +65,7 @@ def get_close_entropy(state):
     return 1.0  # High entropy if not enough data
 
 
-@app.task(bind=True)
+@app.task(bind=True, ignore_result=True)
 def providence_trading_iteration(self, run_id):
     """
     Single iteration of a trading run. Loads state from Redis (fast), performs one trading cycle,
@@ -450,7 +450,7 @@ def _save_state(run_id, state):
         logger.error(f"Run {run_id}: Failed to save state to Redis: {e}")
 
 
-@app.task(bind=True)
+@app.task(bind=True, ignore_result=True)
 def providence_iteration_scheduler(self):
     """
     Periodically spawns trading iterations for all active runs.

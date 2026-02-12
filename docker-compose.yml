@@ -11,7 +11,7 @@ services:
 
   redis:
     image: redis:7.2-alpine
-    command: redis-server --maxclients 50000
+    command: redis-server --maxclients 50000 --maxmemory 16gb --maxmemory-policy allkeys-lru
     ports:
       - "6379:6379"
     restart: unless-stopped

@@ -54,7 +54,7 @@ def calculate_volatility_for_symbol(symbol):
             db_cnx.close()
 
 
-@app.task(name="worker.volatility.update_volatility_in_redis")
+@app.task(name="worker.volatility.update_volatility_in_redis", ignore_result=True)
 def update_volatility_in_redis():
     """
 

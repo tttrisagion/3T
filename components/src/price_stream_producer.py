@@ -54,7 +54,7 @@ def publish_price_update(symbol: str, price: float, timestamp: float):
                 "timestamp": str(timestamp),
             }
 
-            r.xadd(stream_name, event_data)
+            r.xadd(stream_name, event_data, maxlen=10000)
 
             span.set_attribute("redis.stream.name", stream_name)
             span.set_attribute("price.symbol", symbol)

@@ -258,7 +258,7 @@ def traced_fetch_and_store_ohlcv(
                         * 1000
                     )
                     last_fetch_key = f"last_fetch:{symbol}:{timeframe}"
-                    redis_cnx.set(last_fetch_key, latest_bar_ts)
+                    redis_cnx.setex(last_fetch_key, 86400, latest_bar_ts)
 
                 span.set_attribute("otel.status_code", "OK")
                 span.add_event("Fetch successful and Redis updated")
@@ -349,7 +349,7 @@ def publish_balance_update_event(account_value: float):
             with get_redis_connection() as r:
                 stream_name = config.get("redis.streams.balance_updates")
                 event_data = {"account_value": account_value}
-                r.xadd(stream_name, event_data)
+                r.xadd(stream_name, event_data, maxlen=10000)
                 span.set_attribute("redis.stream.name", stream_name)
                 span.set_attribute("redis.event.account_value", account_value)
         except Exception as e:

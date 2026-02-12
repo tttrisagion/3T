@@ -16,7 +16,7 @@ logger = get_task_logger(__name__)
 tracer = get_tracer(os.environ.get("OTEL_SERVICE_NAME", "celery-worker"))
 
 
-@app.task(name="worker.feed.update_prices_in_redis")
+@app.task(name="worker.feed.update_prices_in_redis", ignore_result=True)
 def update_prices_in_redis():
     """
 
