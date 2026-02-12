@@ -123,8 +123,8 @@ providence:
 
   # ANN parameter search space - each range is [min, max] for random generation
   ann_params:
-    max_duration: [300, 432000]
-    reversal_divisor: [1, 10]
+    max_duration: [300, 15778800]
+    reversal_divisor: [1, 9]
     balance_divisor: 5
     pos_scaler: [1.618, 3.236]
     pos_scaler_divisor: 1000
