@@ -16,6 +16,12 @@ celery:
   schedules:
     update_balance: 15.0
     schedule_market_data_fetching: 300.0 # Runs every 5 minutes to check for needed updates
+    update_trading_range: 600.0
+    providence_supervisor: 300.0
+    providence_iteration_scheduler: 5.0
+    purge_stale_runs: 900.0
+    feed_supervisor: 15.0
+    volatility_supervisor: 15.0
 
 # Exchange configuration
 exchanges:
@@ -112,6 +118,31 @@ observability:
 providence:
   # Desired number of concurrent trading tasks to be managed by the supervisor
   desired_run_count: 100
+  # Starting virtual balance for VOMS
+  virtual_balance: 7000
+
+  # ANN parameter search space - each range is [min, max] for random generation
+  ann_params:
+    max_duration: [300, 432000]
+    reversal_divisor: [1, 10]
+    balance_divisor: 5
+    pos_scaler: [1.618, 3.236]
+    pos_scaler_divisor: 1000
+    apr_target: [20, 100]
+    apr_target_divisor: 1.618
+    min_goal: [1, 9]
+    max_goal: [1, 10]
+    min_goal_weight: [1, 38]
+    max_goal_weight: [69, 200]
+    goal_weight_divisor: 10000
+    entropy_window_minutes: [1, 15]
+    entropy_window_samples: [5, 20]
+    machine_vision_entropy_max: [5, 15]
+    machine_vision_entropy_divisor: 100
+    rolling_apr_minutes: [1, 30]
+    max_cross_margin_ratio: 0.05
+    pos_weight: 0.032732855219630354
+    pos_weight_divisor: 3
   # How often to persist run state to MySQL (in iterations, e.g., 50 = every 50 iterations)
   mysql_update_frequency: 50
   # Maximum absolute value for position direction (net trades)

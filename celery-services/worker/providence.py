@@ -537,7 +537,8 @@ def _run_supervisor():
         max_margin_threshold = config.get(
             "providence.max_margin_allocation_threshold", 45
         )
-        virtual_balance = 7000
+        virtual_balance = config.get("providence.virtual_balance", 7000)
+        ann_ranges = config.get("providence.ann_params", {})
         db_cnx = None
         try:
             db_cnx = get_db_connection()
@@ -589,7 +590,11 @@ def _run_supervisor():
                     choose_idx = symb.index(chosen_symbol)
 
                     ann_params = generate_ann_params(
-                        symb, chosen_leverage, virtual_balance, choose=choose_idx
+                        symb,
+                        chosen_leverage,
+                        virtual_balance,
+                        choose=choose_idx,
+                        ann_ranges=ann_ranges,
                     )
 
                     # Create initial state

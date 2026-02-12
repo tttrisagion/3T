@@ -47,7 +47,7 @@ app.conf.beat_schedule = {
     },
     "update-trading-range": {
         "task": "worker.trading_range.update_trading_range",
-        "schedule": 600.0,
+        "schedule": config.get("celery.schedules.update_trading_range", 600.0),
     },
     "reconcile-positions": {
         "task": "worker.reconciliation_engine.reconcile_positions",
@@ -55,23 +55,23 @@ app.conf.beat_schedule = {
     },
     "providence-supervisor": {
         "task": "worker.providence.providence_supervisor",
-        "schedule": 300.0,
+        "schedule": config.get("celery.schedules.providence_supervisor", 300.0),
     },
     "providence-iteration-scheduler": {
         "task": "worker.providence.providence_iteration_scheduler",
-        "schedule": 5.0,
+        "schedule": config.get("celery.schedules.providence_iteration_scheduler", 5.0),
     },
     "purge-stale-runs": {
         "task": "worker.purge.purge_stale_runs",
-        "schedule": 900.0,
+        "schedule": config.get("celery.schedules.purge_stale_runs", 900.0),
     },
     "feed-supervisor": {
         "task": "worker.feed.supervisor",
-        "schedule": 15.0,
+        "schedule": config.get("celery.schedules.feed_supervisor", 15.0),
     },
     "volatility-supervisor": {
         "task": "worker.volatility.supervisor",
-        "schedule": 15.0,
+        "schedule": config.get("celery.schedules.volatility_supervisor", 15.0),
     },
 }
 app.conf.timezone = "UTC"

@@ -18,7 +18,7 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
-  "id": 7,
+  "id": 6,
   "links": [],
   "liveNow": false,
   "panels": [
@@ -372,7 +372,7 @@
       },
       "gridPos": {
         "h": 5,
-        "w": 19,
+        "w": 9,
         "x": 5,
         "y": 3
       },
@@ -460,40 +460,200 @@
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "palette-classic"
+            "mode": "thresholds"
           },
           "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": true,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "points",
-            "fillOpacity": 0,
+            "fillOpacity": 80,
             "gradientMode": "none",
             "hideFrom": {
               "legend": false,
               "tooltip": false,
               "viz": false
             },
-            "insertNulls": false,
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 2,
+            "lineWidth": 1
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 5,
+        "x": 14,
+        "y": 3
+      },
+      "id": 23,
+      "options": {
+        "bucketOffset": 0,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        }
+      },
+      "targets": [
+        {
+          "dataset": "`3t`",
+          "datasource": {
+            "type": "mysql",
+            "uid": "3T-MariaDB-Datasource"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT TIMESTAMPDIFF(second, update_time, NOW()) as 'seconds'\nfrom runs \nwhere exit_run=0 \nand end_time is null \nand height IS NULL",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "Run Update Delay (seconds)",
+      "type": "histogram"
+    },
+    {
+      "datasource": {
+        "type": "mysql",
+        "uid": "3T-MariaDB-Datasource"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 5,
+        "x": 19,
+        "y": 3
+      },
+      "id": 24,
+      "options": {
+        "bucketOffset": 0,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        }
+      },
+      "targets": [
+        {
+          "dataset": "`3t`",
+          "datasource": {
+            "type": "mysql",
+            "uid": "3T-MariaDB-Datasource"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT CAST(JSON_EXTRACT(ann_params, '$.max_duration') AS UNSIGNED) as max_duration\nFROM runs\nWHERE end_time IS NULL AND exit_run = 0 AND height IS NULL;",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "Run Max Durations (seconds)",
+      "type": "histogram"
+    },
+    {
+      "datasource": {
+        "type": "mysql",
+        "uid": "3T-MariaDB-Datasource"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "pointSize": {
+              "fixed": 5
+            },
             "scaleDistribution": {
-              "log": 2,
-              "type": "symlog"
+              "type": "linear"
             },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "dashed"
-            }
+            "show": "points"
           },
           "mappings": [],
           "thresholds": {
@@ -560,30 +720,6 @@
                 }
               }
             ]
-          },
-          {
-            "__systemRef": "hideSeriesFrom",
-            "matcher": {
-              "id": "byNames",
-              "options": {
-                "mode": "exclude",
-                "names": [
-                  "active"
-                ],
-                "prefix": "All except:",
-                "readOnly": true
-              }
-            },
-            "properties": [
-              {
-                "id": "custom.hideFrom",
-                "value": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": true
-                }
-              }
-            ]
           }
         ]
       },
@@ -594,7 +730,6 @@
         "y": 8
       },
       "id": 1,
-      "maxPerRow": 6,
       "options": {
         "legend": {
           "calcs": [],
@@ -602,6 +737,8 @@
           "placement": "bottom",
           "showLegend": true
         },
+        "series": [],
+        "seriesMapping": "auto",
         "tooltip": {
           "mode": "single",
           "sort": "none"
@@ -620,38 +757,8 @@
           "format": "table",
           "hide": false,
           "rawQuery": true,
-          "rawSql": "select start_time,live_pnl as 'active' from runs where end_time is null and exit_run = 0 and symbol in ($symbol) and host in ($host) and height is null",
+          "rawSql": "select id,live_pnl as 'active' from runs where end_time is null and exit_run = 0 and symbol in ($symbol) and host in ($host) and height is null",
           "refId": "A",
-          "sql": {
-            "columns": [
-              {
-                "parameters": [],
-                "type": "function"
-              }
-            ],
-            "groupBy": [
-              {
-                "property": {
-                  "type": "string"
-                },
-                "type": "groupBy"
-              }
-            ],
-            "limit": 50
-          }
-        },
-        {
-          "dataset": "`3t`",
-          "datasource": {
-            "type": "mysql",
-            "uid": "3T-MariaDB-Datasource"
-          },
-          "editorMode": "code",
-          "format": "table",
-          "hide": false,
-          "rawQuery": true,
-          "rawSql": "select start_time,live_pnl as 'historical' from runs where symbol in ($symbol) and height is null and host in ($host) ",
-          "refId": "B",
           "sql": {
             "columns": [
               {
@@ -672,7 +779,7 @@
         }
       ],
       "title": "Runs Simulated P&L Health $host",
-      "type": "timeseries"
+      "type": "xychart"
     },
     {
       "datasource": {
@@ -686,36 +793,22 @@
           },
           "custom": {
             "axisBorderShow": false,
-            "axisCenteredZero": true,
+            "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "",
             "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "points",
-            "fillOpacity": 0,
-            "gradientMode": "none",
             "hideFrom": {
               "legend": false,
               "tooltip": false,
               "viz": false
             },
-            "insertNulls": false,
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 2,
+            "pointSize": {
+              "fixed": 5
+            },
             "scaleDistribution": {
-              "log": 2,
-              "type": "symlog"
+              "type": "linear"
             },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "line"
-            }
+            "show": "points"
           },
           "mappings": [],
           "thresholds": {
@@ -781,30 +874,6 @@
                 }
               }
             ]
-          },
-          {
-            "__systemRef": "hideSeriesFrom",
-            "matcher": {
-              "id": "byNames",
-              "options": {
-                "mode": "exclude",
-                "names": [
-                  "active"
-                ],
-                "prefix": "All except:",
-                "readOnly": true
-              }
-            },
-            "properties": [
-              {
-                "id": "custom.hideFrom",
-                "value": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": true
-                }
-              }
-            ]
           }
         ]
       },
@@ -815,7 +884,6 @@
         "y": 15
       },
       "id": 4,
-      "maxPerRow": 6,
       "options": {
         "legend": {
           "calcs": [],
@@ -823,6 +891,8 @@
           "placement": "bottom",
           "showLegend": true
         },
+        "series": [],
+        "seriesMapping": "auto",
         "tooltip": {
           "mode": "single",
           "sort": "none"
@@ -840,38 +910,8 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "select start_time,sum(position_direction) as 'active' from runs where position_direction != 0 and exit_run = 0 and end_time is null and symbol in ($symbol) and height is null and host in ($host)  group by start_time",
+          "rawSql": "select id,position_direction as 'active' from runs where position_direction != 0 and exit_run = 0 and end_time is null and symbol in ($symbol) and height is null and host in ($host)",
           "refId": "A",
-          "sql": {
-            "columns": [
-              {
-                "parameters": [],
-                "type": "function"
-              }
-            ],
-            "groupBy": [
-              {
-                "property": {
-                  "type": "string"
-                },
-                "type": "groupBy"
-              }
-            ],
-            "limit": 50
-          }
-        },
-        {
-          "dataset": "`3t`",
-          "datasource": {
-            "type": "mysql",
-            "uid": "3T-MariaDB-Datasource"
-          },
-          "editorMode": "code",
-          "format": "table",
-          "hide": false,
-          "rawQuery": true,
-          "rawSql": "select start_time,sum(position_direction) as 'historical' from runs where position_direction != 0 and height is null and host in ($host) group by start_time",
-          "refId": "B",
           "sql": {
             "columns": [
               {
@@ -892,7 +932,7 @@
         }
       ],
       "title": "Runs Position Direction $host",
-      "type": "timeseries"
+      "type": "xychart"
     },
     {
       "datasource": {
@@ -1056,7 +1096,7 @@
       "type": "table"
     }
   ],
-  "refresh": "5s",
+  "refresh": "5m",
   "schemaVersion": 38,
   "tags": [],
   "templating": {
@@ -1065,98 +1105,18 @@
         "current": {
           "selected": true,
           "text": [
-            "AAVE/USDC:USDC",
-            "ADA/USDC:USDC",
-            "ASTER/USDC:USDC",
-            "AVAX/USDC:USDC",
-            "AXS/USDC:USDC",
-            "BCH/USDC:USDC",
-            "BERA/USDC:USDC",
-            "BNB/USDC:USDC",
             "BTC/USDC:USDC",
-            "CC/USDC:USDC",
-            "CRV/USDC:USDC",
-            "DASH/USDC:USDC",
-            "DOGE/USDC:USDC",
-            "ENA/USDC:USDC",
             "ETH/USDC:USDC",
-            "FARTCOIN/USDC:USDC",
-            "FET/USDC:USDC",
             "HYPE/USDC:USDC",
-            "ICP/USDC:USDC",
-            "IP/USDC:USDC",
-            "KPEPE/USDC:USDC",
-            "LINK/USDC:USDC",
-            "LIT/USDC:USDC",
-            "LTC/USDC:USDC",
-            "MEME/USDC:USDC",
-            "MON/USDC:USDC",
-            "NEAR/USDC:USDC",
-            "PAXG/USDC:USDC",
-            "PENDLE/USDC:USDC",
-            "PENGU/USDC:USDC",
-            "PUMP/USDC:USDC",
-            "RESOLV/USDC:USDC",
             "SOL/USDC:USDC",
-            "SPX/USDC:USDC",
-            "SUI/USDC:USDC",
-            "TAO/USDC:USDC",
-            "TRX/USDC:USDC",
-            "UNI/USDC:USDC",
-            "VIRTUAL/USDC:USDC",
-            "WLFI/USDC:USDC",
-            "XMR/USDC:USDC",
-            "XPL/USDC:USDC",
-            "XRP/USDC:USDC",
-            "ZEC/USDC:USDC",
-            "ZRO/USDC:USDC"
+            "ZEC/USDC:USDC"
           ],
           "value": [
-            "AAVE/USDC:USDC",
-            "ADA/USDC:USDC",
-            "ASTER/USDC:USDC",
-            "AVAX/USDC:USDC",
-            "AXS/USDC:USDC",
-            "BCH/USDC:USDC",
-            "BERA/USDC:USDC",
-            "BNB/USDC:USDC",
             "BTC/USDC:USDC",
-            "CC/USDC:USDC",
-            "CRV/USDC:USDC",
-            "DASH/USDC:USDC",
-            "DOGE/USDC:USDC",
-            "ENA/USDC:USDC",
             "ETH/USDC:USDC",
-            "FARTCOIN/USDC:USDC",
-            "FET/USDC:USDC",
             "HYPE/USDC:USDC",
-            "ICP/USDC:USDC",
-            "IP/USDC:USDC",
-            "KPEPE/USDC:USDC",
-            "LINK/USDC:USDC",
-            "LIT/USDC:USDC",
-            "LTC/USDC:USDC",
-            "MEME/USDC:USDC",
-            "MON/USDC:USDC",
-            "NEAR/USDC:USDC",
-            "PAXG/USDC:USDC",
-            "PENDLE/USDC:USDC",
-            "PENGU/USDC:USDC",
-            "PUMP/USDC:USDC",
-            "RESOLV/USDC:USDC",
             "SOL/USDC:USDC",
-            "SPX/USDC:USDC",
-            "SUI/USDC:USDC",
-            "TAO/USDC:USDC",
-            "TRX/USDC:USDC",
-            "UNI/USDC:USDC",
-            "VIRTUAL/USDC:USDC",
-            "WLFI/USDC:USDC",
-            "XMR/USDC:USDC",
-            "XPL/USDC:USDC",
-            "XRP/USDC:USDC",
-            "ZEC/USDC:USDC",
-            "ZRO/USDC:USDC"
+            "ZEC/USDC:USDC"
           ]
         },
         "datasource": {
@@ -1179,13 +1139,9 @@
       },
       {
         "current": {
-          "selected": true,
-          "text": [
-            "0xcc47a3304dc"
-          ],
-          "value": [
-            "0xcc47a3304dc"
-          ]
+          "selected": false,
+          "text": "celery_worker_dev",
+          "value": "celery_worker_dev"
         },
         "datasource": {
           "type": "mysql",
@@ -1213,8 +1169,8 @@
   },
   "timepicker": {},
   "timezone": "",
-  "title": "3T Run Heath 10% EXPERIMENT UPDATES",
-  "uid": "dcdde553-51fc-4f56-a3ce-0e059f8fe951",
-  "version": 4,
+  "title": "3T Run Heath 10% EXPERIMENT UPDATES 2",
+  "uid": "ffd5b664-a5a1-4b52-811d-1a9548cbbfa0",
+  "version": 3,
   "weekStart": ""
 }
