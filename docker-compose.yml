@@ -48,9 +48,12 @@ services:
       retries: 3
       start_period: 60s
     depends_on:
-      - redis
-      - mariadb
-      - otel-collector
+      redis:
+        condition: service_started
+      mariadb:
+        condition: service_started
+      otel-collector:
+        condition: service_started
     restart: unless-stopped
 
   celery_beat:
@@ -215,6 +218,8 @@ services:
 
   jaeger:
     build: ./jaeger
+    mem_limit: 12g
+    memswap_limit: 12g
     ports:
       - "16686:16686"
       - "14268:14268"

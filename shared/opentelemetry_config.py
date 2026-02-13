@@ -79,20 +79,38 @@ def setup_telemetry(service_name: str):
 
     # Define the noisy tasks that should be sampled at a lower rate
     noisy_tasks = {
+        # Providence iteration and scheduler (highest volume)
+        "worker.providence.providence_trading_iteration",
+        "providence_trading_iteration",
+        "worker.providence.providence_iteration_scheduler",
+        "providence_iteration_scheduler",
+        # Sub-tasks dispatched from iterations
         "worker.tasks.get_market_weight",
         "worker.tasks.update_pnl",
         "worker.tasks.get_exit_status",
+        "worker.tasks.update_run_position",
+        "worker.tasks.save_run_state",
+        "worker.tasks.calculate_permutation_entropy",
         "get_market_weight_task",
         "update_pnl_task",
         "get_exit_status_task",
-        # Providence iteration tasks (very high volume)
-        "worker.providence.providence_trading_iteration",
-        "providence_trading_iteration",
-        # Add run/ prefixed tasks for Celery instrumentation
+        "update_run_position_task",
+        "save_run_state_task",
+        "calculate_permutation_entropy_task",
+        # Price polling spans (continuous)
+        "fetch_latest_prices",
+        "publish_prices",
+        "publish_price_update",
+        "poll_cycle",
+        # Celery run/ prefixed variants
+        "run/worker.providence.providence_trading_iteration",
+        "run/worker.providence.providence_iteration_scheduler",
         "run/worker.tasks.get_market_weight",
         "run/worker.tasks.update_pnl",
         "run/worker.tasks.get_exit_status",
-        "run/worker.providence.providence_trading_iteration",
+        "run/worker.tasks.update_run_position",
+        "run/worker.tasks.save_run_state",
+        "run/worker.tasks.calculate_permutation_entropy",
     }
 
     # Configure the dispatching sampler

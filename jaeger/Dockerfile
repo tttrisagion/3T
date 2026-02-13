@@ -13,5 +13,5 @@ ENV BADGER_EPHEMERAL=false
 ENV BADGER_DIRECTORY_VALUE=/badger/data
 ENV BADGER_DIRECTORY_KEY=/badger/key
 
-# Auto-prune traces older than 72 hours to prevent unbounded growth
-ENV BADGER_SPAN_STORE_TTL=24h
+# Auto-prune traces older than 3 hours to limit memory usage
+ENV BADGER_SPAN_STORE_TTL=3h
