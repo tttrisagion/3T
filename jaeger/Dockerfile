@@ -14,4 +14,4 @@ ENV BADGER_DIRECTORY_VALUE=/badger/data
 ENV BADGER_DIRECTORY_KEY=/badger/key
 
 # Auto-prune traces older than 3 hours to limit memory usage
-ENV BADGER_SPAN_STORE_TTL=3h
+ENV BADGER_SPAN_STORE_TTL=1h
