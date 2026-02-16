@@ -23,6 +23,8 @@ services:
     command: celery -A worker.tasks worker --pool=eventlet --loglevel=info --concurrency=1000 -Q high_priority,low_priority
     deploy:
       replicas: 16
+    mem_limit: 16g
+    memswap_limit: 16g
     ulimits:
       nofile:
         soft: 65536
@@ -166,7 +168,7 @@ services:
     build:
       context: .
       dockerfile: flower/Dockerfile
-    command: celery -A worker.tasks flower --address=0.0.0.0 --port=5555
+    command: celery -A worker.tasks flower --address=0.0.0.0 --port=5555 --max_tasks=10000
     volumes:
       - ./celery-services/worker:/app/worker
       - ./shared:/app/shared
