@@ -218,8 +218,8 @@ services:
 
   jaeger:
     build: ./jaeger
-    mem_limit: 12g
-    memswap_limit: 12g
+    mem_limit: 16g
+    memswap_limit: 16g
     ports:
       - "16686:16686"
       - "14268:14268"
