@@ -63,15 +63,15 @@ def get_next_height(db_cnx):
 
 
 def trigger_take_profit(db_cnx):
-    """Sets exit_run = 1 for all active runs and triggers immediate reconciliation."""
+    """Assigns block height and flags all active runs to exit, then triggers reconciliation."""
     cursor = db_cnx.cursor()
 
     # Get the next height value
     next_height = get_next_height(db_cnx)
 
-    # Assign height to runs that contributed to take profit event
+    # Assign height and flag runs to exit so supervisor spawns fresh batch
     cursor.execute(
-        "UPDATE runs SET height = %s WHERE exit_run = 0 AND height IS NULL",
+        "UPDATE runs SET height = %s, exit_run = 1 WHERE exit_run = 0 AND height IS NULL",
         (next_height,),
     )
     db_cnx.commit()
