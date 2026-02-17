@@ -18,7 +18,6 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
-  "id": 6,
   "links": [],
   "liveNow": false,
   "panels": [
@@ -157,7 +156,7 @@
           "format": "table",
           "hide": false,
           "rawQuery": true,
-          "rawSql": "select sum(abs(position_direction))*7100*0.00001/0.5 as 'max_pos',count(*) as 'ttl_runs' from runs where exit_run=0 and height is null and end_time is null;",
+          "rawSql": "select sum(abs(position_direction))*(SELECT\n      account_value\n    FROM\n      balance_history\n    ORDER BY\n      timestamp DESC\n    LIMIT 1)*0.00001/0.5 as 'max_pos',\ncount(*) as 'ttl_runs' \nfrom runs \nwhere exit_run=0 and height is null and end_time is null;",
           "refId": "B",
           "sql": {
             "columns": [
@@ -1096,7 +1095,7 @@
       "type": "table"
     }
   ],
-  "refresh": "5m",
+  "refresh": "auto",
   "schemaVersion": 38,
   "tags": [],
   "templating": {
@@ -1169,8 +1168,8 @@
   },
   "timepicker": {},
   "timezone": "",
-  "title": "3T Run Heath 10% EXPERIMENT UPDATES 2",
+  "title": "3T Run Heath 10%",
   "uid": "ffd5b664-a5a1-4b52-811d-1a9548cbbfa0",
-  "version": 3,
+  "version": 1,
   "weekStart": ""
 }
