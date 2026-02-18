@@ -7,7 +7,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 const WEB_SERVICES = [
     'mission-control', 'grafana', 'flower', 'prometheus',
-    'jaeger', 'exchange-observer', 'order-gateway'
+    'tempo', 'exchange-observer', 'order-gateway'
 ];
 
 const ICON_MAP = {
@@ -19,7 +19,7 @@ const ICON_MAP = {
     'cors-proxy': 'nginx',
     'node-exporter': 'prometheus',
     'redis': 'redis',
-    'jaeger': 'jaeger',
+    'tempo': 'grafana',
     'grafana': 'grafana',
     'prometheus': 'prometheus',
     'flower': 'celery',

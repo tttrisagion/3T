@@ -71,7 +71,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Redis**: Message broker for Celery and streams for real-time events
 - **MariaDB**: Persistent storage for trading data, positions, and balance history
 - **Prometheus + Grafana**: Metrics collection and visualization
-- **Jaeger + OTEL Collector**: Distributed tracing with Badger embedded storage (disk-based)
+- **Grafana Tempo + OTEL Collector**: Distributed tracing with disk-based block storage
 - **Flower**: Celery monitoring dashboard
 
 ### Configuration Management
@@ -175,7 +175,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Service Access
 - Grafana dashboards: http://localhost:3000/dashboards
-- Jaeger tracing: http://localhost:16686
+- Tempo tracing (via Grafana): http://localhost:3000/explore (select Tempo datasource)
 - Flower Celery monitoring: http://localhost:5555
 - Prometheus metrics: http://localhost:9090
 
@@ -301,10 +301,10 @@ See `config.yml` for Reconciliation Engine configuration options including:
 - **Load Balancing**: Iteration jitter spreads task spawning to smooth resource usage
 - **Monitor**: Check queue depths with `redis-cli LLEN high_priority` / `LLEN low_priority`
 - **Healthy State**: high_priority should be near 0, low_priority manageable relative to worker capacity
-- **Jaeger Traces**: If supervisor wait time >1 minute, queue starvation may be occurring
+- **Tempo Traces**: If supervisor wait time >1 minute, queue starvation may be occurring
 
 ### Observability Sampling
-- **Problem**: High-volume iteration tasks can flood Jaeger with traces
+- **Problem**: High-volume iteration tasks can flood the trace backend with traces
 - **Solution**: Configurable sampling rate reduces noise while preserving critical task traces
 - **Configuration**: Set `observability.sampling_rate` in `config.yml` to control sampling (0.01 = 1%, 1.0 = 100%)
 - **Effect**: Iteration task logs/traces sampled at configured rate, supervisor/reconciliation always 100%

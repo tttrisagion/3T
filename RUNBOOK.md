@@ -3,9 +3,8 @@
 ## 3T Trading Infrastructure
 
 ```
-# Purge Jaeger trace data (Badger backend):
-# docker volume rm 3t_jaeger_data  (requires stopping jaeger first)
-# Or set BADGER_SPAN_STORE_TTL env var for automatic TTL-based cleanup
+# Trace data is managed by Grafana Tempo with automatic block retention (1h).
+# To purge manually: docker volume rm 3t_tempo_data (requires stopping tempo first)
 
 cd /opt/3T
 docker compose exec mariadb /bin/bash

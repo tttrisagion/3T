@@ -186,6 +186,9 @@ services:
 
   prometheus:
     image: prom/prometheus:v2.47.2
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--web.enable-remote-write-receiver'
     ports:
       - "9090:9090"
     volumes:
@@ -218,25 +221,28 @@ services:
       - ./database/mariadb.cnf:/etc/mysql/mariadb.conf.d/99-custom.cnf
     restart: unless-stopped
 
-  jaeger:
-    build: ./jaeger
-    mem_limit: 16g
-    memswap_limit: 16g
-    ports:
-      - "16686:16686"
-      - "14268:14268"
+  tempo:
+    image: grafana/tempo:2.6.1
+    mem_limit: 4g
+    memswap_limit: 4g
     volumes:
-      - jaeger_data:/badger
+      - ./tempo/tempo.yml:/etc/tempo.yml
+      - tempo_data:/var/tempo
+    command: ["-config.file=/etc/tempo.yml"]
+    ports:
+      - "3200:3200"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:14269/"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3200/ready"]
       interval: 10s
       timeout: 5s
-      retries: 30
-      start_period: 120s
+      retries: 10
+      start_period: 30s
     restart: unless-stopped
 
   otel-collector:
     image: otel/opentelemetry-collector-contrib:0.88.0
+    mem_limit: 1g
+    memswap_limit: 1g
     volumes:
       - ./otel-collector.yml:/etc/otel-collector.yml
     command: ["--config=/etc/otel-collector.yml"]
@@ -244,7 +250,7 @@ services:
       - "4317:4317"
       - "4318:4318"
     depends_on:
-      jaeger:
+      tempo:
         condition: service_healthy
     restart: unless-stopped
 
@@ -332,4 +338,4 @@ services:
 
 volumes:
   mariadb_data:
-  jaeger_data:
+  tempo_data:

@@ -75,7 +75,7 @@ pre-commit install
 
 ## Observability
 
-The system will be instrumented with OpenTelemetry for distributed tracing. Traces will be sent to a Jaeger instance via an OpenTelemetry Collector.
+The system is instrumented with OpenTelemetry for distributed tracing. Traces are sent to Grafana Tempo via an OpenTelemetry Collector, and viewed through the Grafana Explore UI.
 
 ## Testing
 

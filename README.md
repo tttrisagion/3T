@@ -35,7 +35,7 @@ Read the latest [whitepaper](https://trisagion.xyz/trisagion.pdf) and documentat
 - ⚖️ **Priority Queuing**: Prevents task starvation - critical tasks never wait
 - 🔄 **Stateless Design**: Redis state caching (24h TTL) enables horizontal scalability
 - 📈 **Consensus Trading**: Observer nodes validate positions before reconciliation
-- 🔍 **Full Observability**: Distributed tracing (Jaeger), metrics (Prometheus), log sampling
+- 🔍 **Full Observability**: Distributed tracing (Grafana Tempo), metrics (Prometheus), log sampling
 
 
 ### 📖 Table of Contents
@@ -75,8 +75,8 @@ The core of the system is **Providence v3**, a Celery-based distributed trading 
 - **MariaDB**: Persistent storage for trading data, positions, and run state (runs.run_state JSON)
 
 ### Observability & Monitoring Stack
-- **Jaeger**: Distributed tracing system with Badger embedded storage (lightweight, disk-based).
-- **OpenTelemetry Collector**: Receives, processes, and exports telemetry data from services to Jaeger.
+- **Grafana Tempo**: Distributed tracing system with disk-based block storage (lightweight, bounded memory).
+- **OpenTelemetry Collector**: Receives, processes, and exports telemetry data from services to Tempo.
 - **Prometheus**: Monitoring and alerting toolkit that collects metrics from various services.
 - **Grafana**: Platform for visualizing metrics with pre-built dashboards for monitoring the 3T system.
 - **Flower**: Web-based tool for monitoring and administering Celery jobs and workers.
@@ -155,7 +155,7 @@ Note: Your system must have docker and docker-compose available. The docker serv
 5. **Access the dashboards:**
 
    - **Grafana**: http://localhost:3000/dashboards
-   - **Jaeger**: http://localhost:16686 (distributed tracing UI)
+   - **Tempo Traces**: http://localhost:3000/explore (select Tempo datasource in Grafana)
    - **Flower**: http://localhost:5555 (Celery monitoring)
    - **Prometheus**: http://localhost:9090 (metrics)
 
@@ -188,7 +188,7 @@ For development commands, testing procedures, and detailed technical guidance, s
 The 3T system is designed for high observability, with a comprehensive suite of tools for monitoring, tracing, and debugging.
 
 - **Metrics**: Prometheus scrapes metrics from Flower and other services, visualized in Grafana dashboards.
-- **Distributed Tracing**: All services instrumented with OpenTelemetry, sending traces through OTEL Collector to Jaeger with Badger embedded storage.
+- **Distributed Tracing**: All services instrumented with OpenTelemetry, sending traces through OTEL Collector to Grafana Tempo with disk-based block storage.
 - **Intelligent Sampling**: Configurable sampling (default 1% for high-volume tasks) reduces noise while preserving critical traces
   - High-volume tasks (providence iterations): sampled at configured rate
   - Critical tasks (supervisor, reconciliation): always 100% traced
@@ -201,7 +201,7 @@ The 3T system is designed for high observability, with a comprehensive suite of 
 | Service | URL | Purpose |
 |---------|-----|---------|
 | Grafana | http://localhost:3000/dashboards | Metrics visualization |
-| Jaeger | http://localhost:16686 | Distributed tracing UI |
+| Tempo (via Grafana) | http://localhost:3000/explore | Distributed tracing UI |
 | Flower | http://localhost:5555 | Celery monitoring |
 | Prometheus | http://localhost:9090 | Metrics storage |
 | Order Gateway | http://localhost:8002 | Trade execution API |
