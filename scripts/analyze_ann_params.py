@@ -21,7 +21,6 @@ from datetime import datetime
 from pathlib import Path
 
 import mysql.connector
-import numpy as np
 import pandas as pd
 import yaml
 
@@ -48,7 +47,10 @@ REVERSE_TRANSFORMS = {
     # apr_target: stored = config_val / (balance_divisor * apr_target_divisor)
     # reverse: stored * balance_divisor * apr_target_divisor = config_val
     # balance_divisor=5, apr_target_divisor=1.618 → multiplier = 8.09
-    "apr_target": {"multiplier": None, "config_key": "apr_target"},  # computed at runtime
+    "apr_target": {
+        "multiplier": None,
+        "config_key": "apr_target",
+    },  # computed at runtime
     "min_goal": {"multiplier": 10, "config_key": "min_goal"},
     "max_goal": {"multiplier": 1, "config_key": "max_goal"},
     "min_goal_weight": {"multiplier": 10000, "config_key": "min_goal_weight"},
@@ -210,15 +212,19 @@ def section_height_analysis(df):
 
     if len(with_height) > 0:
         height_groups = with_height.groupby("height")
-        lines.append(f"\n  {'Height':<10} {'Runs':>8} {'Profitable%':>13} {'Avg PnL':>12} {'Sum PnL':>14}")
-        lines.append(f"  {'-'*10} {'-'*8} {'-'*13} {'-'*12} {'-'*14}")
+        lines.append(
+            f"\n  {'Height':<10} {'Runs':>8} {'Profitable%':>13} {'Avg PnL':>12} {'Sum PnL':>14}"
+        )
+        lines.append(f"  {'-' * 10} {'-' * 8} {'-' * 13} {'-' * 12} {'-' * 14}")
 
         for height, group in sorted(height_groups, key=lambda x: x[0]):
             n = len(group)
             pct = (group["profitable"].sum() / n * 100) if n > 0 else 0
             avg = group["live_pnl"].mean()
             total = group["live_pnl"].sum()
-            lines.append(f"  {int(height):<10} {n:>8,} {pct:>12.1f}% {avg:>12.4f} {total:>14.4f}")
+            lines.append(
+                f"  {int(height):<10} {n:>8,} {pct:>12.1f}% {avg:>12.4f} {total:>14.4f}"
+            )
     else:
         lines.append("  No completed height cohorts found.")
 
@@ -227,7 +233,9 @@ def section_height_analysis(df):
         pct = (active["profitable"].sum() / n * 100) if n > 0 else 0
         avg = active["live_pnl"].mean()
         total = active["live_pnl"].sum()
-        lines.append(f"\n  {'(active)':<10} {n:>8,} {pct:>12.1f}% {avg:>12.4f} {total:>14.4f}")
+        lines.append(
+            f"\n  {'(active)':<10} {n:>8,} {pct:>12.1f}% {avg:>12.4f} {total:>14.4f}"
+        )
 
     lines.append("")
     return "\n".join(lines)
@@ -245,15 +253,19 @@ def section_symbol_breakdown(df):
         lines.append("")
         return "\n".join(lines)
 
-    lines.append(f"\n  {'Symbol':<20} {'Runs':>8} {'Profitable%':>13} {'Avg PnL':>12} {'Sum PnL':>14}")
-    lines.append(f"  {'-'*20} {'-'*8} {'-'*13} {'-'*12} {'-'*14}")
+    lines.append(
+        f"\n  {'Symbol':<20} {'Runs':>8} {'Profitable%':>13} {'Avg PnL':>12} {'Sum PnL':>14}"
+    )
+    lines.append(f"  {'-' * 20} {'-' * 8} {'-' * 13} {'-' * 12} {'-' * 14}")
 
     for symbol, group in sorted(df.groupby("symbol"), key=lambda x: x[0]):
         n = len(group)
         pct = (group["profitable"].sum() / n * 100) if n > 0 else 0
         avg = group["live_pnl"].mean()
         total = group["live_pnl"].sum()
-        lines.append(f"  {symbol:<20} {n:>8,} {pct:>12.1f}% {avg:>12.4f} {total:>14.4f}")
+        lines.append(
+            f"  {symbol:<20} {n:>8,} {pct:>12.1f}% {avg:>12.4f} {total:>14.4f}"
+        )
 
     lines.append("")
     return "\n".join(lines)
@@ -302,7 +314,9 @@ def section_parameter_analysis(df):
 
         header = f"  {'Group':<14} {'Count':>7} {'P10':>12} {'P25':>12} {'P50':>12} {'P75':>12} {'P90':>12} {'Mean':>12}"
         lines.append(header)
-        lines.append(f"  {'-'*14} {'-'*7} {'-'*12} {'-'*12} {'-'*12} {'-'*12} {'-'*12} {'-'*12}")
+        lines.append(
+            f"  {'-' * 14} {'-' * 7} {'-' * 12} {'-' * 12} {'-' * 12} {'-' * 12} {'-' * 12} {'-' * 12}"
+        )
 
         for stats in [all_stats, prof_stats, unprof_stats]:
             if stats:
@@ -366,8 +380,10 @@ def section_pareto_frontier(df):
     lines.append(f"  Population avg PnL:   {df['live_pnl'].mean():.4f}")
 
     params_to_compare = TUNABLE_PARAMS + ["reversal_divisor"]
-    lines.append(f"\n  {'Parameter':<38} {'Population P10-P90':>22} {'Frontier P10-P90':>22}")
-    lines.append(f"  {'-'*38} {'-'*22} {'-'*22}")
+    lines.append(
+        f"\n  {'Parameter':<38} {'Population P10-P90':>22} {'Frontier P10-P90':>22}"
+    )
+    lines.append(f"  {'-' * 38} {'-' * 22} {'-' * 22}")
 
     for param in params_to_compare:
         if param not in df.columns or param not in frontier.columns:
@@ -391,7 +407,9 @@ def section_suggested_ranges(df, cfg):
     lines.append("=" * 70)
     lines.append("6. SUGGESTED CONFIG RANGES")
     lines.append("=" * 70)
-    lines.append("  Based on P10-P90 of profitable runs, reverse-transformed to config space.")
+    lines.append(
+        "  Based on P10-P90 of profitable runs, reverse-transformed to config space."
+    )
     lines.append("  Compare with current config.yml ranges.\n")
 
     profitable = df[df["profitable"]]
@@ -442,16 +460,27 @@ def section_suggested_ranges(df, cfg):
             current_str = "not set"
 
         # Format as integers if the config values are integers
-        if param in ("max_duration", "max_goal", "volatility_entropy_window_minutes",
-                      "volatility_entropy_window_samples", "rolling_apr_minutes"):
-            lines.append(f"    {config_key}: [{int(round(cfg_p10))}, {int(round(cfg_p90))}]"
-                         f"  # current: {current_str}")
+        if param in (
+            "max_duration",
+            "max_goal",
+            "volatility_entropy_window_minutes",
+            "volatility_entropy_window_samples",
+            "rolling_apr_minutes",
+        ):
+            lines.append(
+                f"    {config_key}: [{int(round(cfg_p10))}, {int(round(cfg_p90))}]"
+                f"  # current: {current_str}"
+            )
         elif param == "reversal_divisor":
-            lines.append(f"    {config_key}: [{cfg_p10:.1f}, {cfg_p90:.1f}]"
-                         f"  # current: {current_str}")
+            lines.append(
+                f"    {config_key}: [{cfg_p10:.1f}, {cfg_p90:.1f}]"
+                f"  # current: {current_str}"
+            )
         else:
-            lines.append(f"    {config_key}: [{cfg_p10:.3f}, {cfg_p90:.3f}]"
-                         f"  # current: {current_str}")
+            lines.append(
+                f"    {config_key}: [{cfg_p10:.3f}, {cfg_p90:.3f}]"
+                f"  # current: {current_str}"
+            )
 
     lines.append("")
     return "\n".join(lines)
@@ -521,13 +550,19 @@ def section_recommendations(df, frontier):
     n_frontier = len(frontier) if frontier is not None and len(frontier) > 0 else 0
 
     if total < 1000:
-        lines.append(f"    WARNING: Only {total:,} total runs. Results may be unreliable.")
+        lines.append(
+            f"    WARNING: Only {total:,} total runs. Results may be unreliable."
+        )
     if n_prof < 50:
-        lines.append(f"    WARNING: Only {n_prof:,} profitable runs. Narrow ranges are speculative.")
+        lines.append(
+            f"    WARNING: Only {n_prof:,} profitable runs. Narrow ranges are speculative."
+        )
     if n_frontier < 20:
         lines.append(f"    WARNING: Pareto frontier has only {n_frontier:,} runs.")
     if total >= 1000 and n_prof >= 50:
-        lines.append(f"    OK: {total:,} total runs, {n_prof:,} profitable. Sample size adequate.")
+        lines.append(
+            f"    OK: {total:,} total runs, {n_prof:,} profitable. Sample size adequate."
+        )
 
     # Symbol-specific notes
     lines.append("\n  Per-symbol profitability ranking:")
@@ -539,7 +574,9 @@ def section_recommendations(df, frontier):
         sym_stats.append((symbol, n, pct, avg_pnl))
     sym_stats.sort(key=lambda x: x[2], reverse=True)
     for symbol, n, pct, avg_pnl in sym_stats:
-        lines.append(f"    {symbol:<20} {pct:>6.1f}% profitable ({n:>6,} runs, avg PnL: {avg_pnl:.4f})")
+        lines.append(
+            f"    {symbol:<20} {pct:>6.1f}% profitable ({n:>6,} runs, avg PnL: {avg_pnl:.4f})"
+        )
 
     lines.append("")
     return "\n".join(lines)
@@ -549,9 +586,13 @@ def main():
     parser = argparse.ArgumentParser(
         description="Analyze Providence ANN parameters for optimization"
     )
-    parser.add_argument("--host", default="localhost", help="Database host (default: localhost)")
+    parser.add_argument(
+        "--host", default="localhost", help="Database host (default: localhost)"
+    )
     parser.add_argument("--symbol", default=None, help="Filter to one symbol")
-    parser.add_argument("--min-runs", type=int, default=100, help="Minimum runs required (default: 100)")
+    parser.add_argument(
+        "--min-runs", type=int, default=100, help="Minimum runs required (default: 100)"
+    )
     parser.add_argument("-o", "--output", default=None, help="Write report to file")
     args = parser.parse_args()
 
@@ -582,7 +623,7 @@ def main():
 
     # Build report
     report_parts = []
-    report_parts.append(f"Providence ANN Parameter Analysis Report")
+    report_parts.append("Providence ANN Parameter Analysis Report")
     report_parts.append(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     if args.symbol:
         report_parts.append(f"Filtered to symbol: {args.symbol}")
