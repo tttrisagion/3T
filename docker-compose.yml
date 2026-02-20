@@ -23,8 +23,8 @@ services:
     command: celery -A worker.tasks worker --pool=eventlet --loglevel=info --concurrency=1000 -Q high_priority,low_priority
     deploy:
       replicas: 16
-    mem_limit: 32g
-    memswap_limit: 32g
+    mem_limit: 4g
+    memswap_limit: 4g
     ulimits:
       nofile:
         soft: 65536
