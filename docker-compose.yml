@@ -20,7 +20,7 @@ services:
     build:
       context: .
       dockerfile: celery-services/Dockerfile
-    command: celery -A worker.tasks worker --pool=eventlet --loglevel=info --concurrency=1000 -Q high_priority,low_priority
+    command: celery -A worker.tasks worker --pool=eventlet --loglevel=info --concurrency=50 -Q high_priority,low_priority
     deploy:
       replicas: 16
     mem_limit: 4g
@@ -228,7 +228,7 @@ services:
     volumes:
       - ./tempo/tempo.yml:/etc/tempo.yml
       - tempo_data:/var/tempo
-    command: ["-config.file=/etc/tempo.yml"]
+    entrypoint: ["/bin/sh", "-c", "rm -rf /var/tempo/wal/* /var/tempo/traces/* /var/tempo/generator/wal/* 2>/dev/null; exec /tempo -config.file=/etc/tempo.yml"]
     ports:
       - "3200:3200"
     healthcheck:
