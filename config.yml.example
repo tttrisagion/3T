@@ -147,7 +147,8 @@ providence:
   purge_age_minutes: 180
   # How often to persist run state to MySQL (in iterations, e.g., 50 = every 50 iterations)
   mysql_update_frequency: 50
-  # Maximum absolute value for position direction (net trades)
-  max_position_direction: 1024
+  # Margin-normalized per-symbol run cap: active_runs / max_leverage must not exceed this
   # Lower-leverage (more volatile) symbols get fewer runs proportionally
   max_margin_allocation_threshold: 45
+  # Maximum absolute value for position direction (net trades)
+  max_position_direction: 1024
