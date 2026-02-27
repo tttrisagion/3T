@@ -4,11 +4,12 @@ config.yml
 **/__pycache__/
 .coverage
 tmp
-database/migrations/*
-database/init-hist*
 3T-observer.json
 .DS_Store
 database/3T-blocks.sql
 database/runs.sql
+database/migrations/*
+database/init-hist*
+database/internal-*
 providence/completed_runs
 providence/saved_runs

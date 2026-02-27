@@ -70,7 +70,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "take_profit_balance"
+              "options": "starting_balance"
             },
             "properties": [
               {
@@ -126,7 +126,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT\n  latest_balance.account_value AS current_balance,\n  take_profit.last_balance AS take_profit_balance,\n  ((latest_balance.account_value - take_profit.last_balance) / take_profit.last_balance) * 100 AS percentage_change\nFROM\n  (\n    SELECT\n      account_value\n    FROM\n      balance_history\n    ORDER BY\n      timestamp DESC\n    LIMIT 1\n  ) AS latest_balance,\n  (\n    SELECT\n      last_balance\n    FROM\n      take_profit_state\n    ORDER BY\n      id DESC\n    LIMIT 1\n  ) AS take_profit;",
+          "rawSql": "SELECT\n  latest_balance.account_value AS current_balance,\n  take_profit.last_balance AS starting_balance,\n  ((latest_balance.account_value - take_profit.last_balance) / take_profit.last_balance) * 100 AS percentage_change\nFROM\n  (\n    SELECT\n      account_value\n    FROM\n      balance_history\n    ORDER BY\n      timestamp DESC\n    LIMIT 1\n  ) AS latest_balance,\n  (\n    SELECT\n      last_balance\n    FROM\n      take_profit_state\n    ORDER BY\n      id DESC\n    LIMIT 1\n  ) AS take_profit;",
           "refId": "A",
           "sql": {
             "columns": [
@@ -156,7 +156,7 @@
           "format": "table",
           "hide": false,
           "rawQuery": true,
-          "rawSql": "select sum(abs(position_direction))*(SELECT\n      account_value\n    FROM\n      balance_history\n    ORDER BY\n      timestamp DESC\n    LIMIT 1)*0.00001/0.5 as 'max_pos',\ncount(*) as 'ttl_runs' \nfrom runs \nwhere exit_run=0 and height is null and end_time is null;",
+          "rawSql": "select count(*) as 'ttl_runs' \nfrom runs \nwhere exit_run=0 and height is null and end_time is null;",
           "refId": "B",
           "sql": {
             "columns": [
@@ -179,97 +179,6 @@
       ],
       "transparent": true,
       "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "mysql",
-        "uid": "3T-MariaDB-Datasource"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "max": 0.2,
-          "min": 0,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "dark-red",
-                "value": null
-              },
-              {
-                "color": "#EAB839",
-                "value": 0.05
-              },
-              {
-                "color": "dark-green",
-                "value": 0.1
-              }
-            ]
-          },
-          "unit": "percentunit"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 5,
-        "w": 5,
-        "x": 0,
-        "y": 3
-      },
-      "id": 13,
-      "options": {
-        "minVizHeight": 75,
-        "minVizWidth": 75,
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "/.*/",
-          "values": false
-        },
-        "showThresholdLabels": false,
-        "showThresholdMarkers": true
-      },
-      "pluginVersion": "10.2.2",
-      "targets": [
-        {
-          "dataset": "`3t`",
-          "datasource": {
-            "type": "mysql",
-            "uid": "3T-MariaDB-Datasource"
-          },
-          "editorMode": "code",
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "SELECT\n  0.1+(((latest_balance.account_value - take_profit.last_balance) / take_profit.last_balance)) AS percentage_change\nFROM\n  (\n    SELECT\n      account_value\n    FROM\n      balance_history\n    ORDER BY\n      timestamp DESC\n    LIMIT 1\n  ) AS latest_balance,\n  (\n    SELECT\n      last_balance\n    FROM\n      take_profit_state\n    ORDER BY\n      id DESC\n    LIMIT 1\n  ) AS take_profit;",
-          "refId": "A",
-          "sql": {
-            "columns": [
-              {
-                "parameters": [],
-                "type": "function"
-              }
-            ],
-            "groupBy": [
-              {
-                "property": {
-                  "type": "string"
-                },
-                "type": "groupBy"
-              }
-            ],
-            "limit": 50
-          }
-        }
-      ],
-      "title": "RUN RISK REMAINING",
-      "transparent": true,
-      "type": "gauge"
     },
     {
       "datasource": {
@@ -371,8 +280,8 @@
       },
       "gridPos": {
         "h": 5,
-        "w": 9,
-        "x": 5,
+        "w": 11,
+        "x": 0,
         "y": 3
       },
       "id": 22,
@@ -490,8 +399,8 @@
       },
       "gridPos": {
         "h": 5,
-        "w": 5,
-        "x": 14,
+        "w": 7,
+        "x": 11,
         "y": 3
       },
       "id": 23,
@@ -577,8 +486,8 @@
       },
       "gridPos": {
         "h": 5,
-        "w": 5,
-        "x": 19,
+        "w": 6,
+        "x": 18,
         "y": 3
       },
       "id": 24,
@@ -1095,7 +1004,7 @@
       "type": "table"
     }
   ],
-  "refresh": "auto",
+  "refresh": "5s",
   "schemaVersion": 38,
   "tags": [],
   "templating": {

@@ -324,6 +324,18 @@ services:
 
 
 
+  metrics-exporter:
+    build:
+      context: .
+      dockerfile: metrics-exporter/Dockerfile
+    volumes:
+      - ./config.yml:/app/config.yml
+      - ./secrets.yml:/app/secrets.yml
+    depends_on:
+      - mariadb
+      - redis
+    restart: unless-stopped
+
   node-exporter:
     image: prom/node-exporter:v1.7.0
     container_name: node_exporter
