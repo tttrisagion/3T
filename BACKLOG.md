@@ -13,12 +13,13 @@ This list combines items from the official Roadmap, active development branches,
 
 ### 🛠 Refinement & Tech Debt
 - [ ] **Database Initialization**: Refine `init.sql` to avoid destructive `DROP TABLE` calls on accidental re-runs, while maintaining schema integrity.
-- [ ] **Clonal Adaptation**: Refine evolutionary search parameters based on `analyze_ann_params.py` findings.
-- [ ] **Risk Model**: Implement the "Risk Model Money Management" allocation logic (from feature branch).
+- [ ] **Prediction & Adaptation**: Revisit earlier work on bootstrap-aggregated ensemble models and prediction frameworks cited in `trisagion.tex`.
+    - Explore hybrid approaches combining stochastic engines with lightweight predictive models.
+    - Investigate Hurst processes to complement entropy thresholds for oscillatory market conditions.
 
 ### 🚀 Feature Roadmap
-- [ ] **Expanded Exchange Support**: Add support beyond HyperLiquid (Binance, Bybit).
-- [ ] **Advanced Analytics**: Integrate ML models for signal filtering (Regime detection).
+- [ ] **Expanded Exchange Support**: Implement support for **FIX Protocol** and **Interactive Brokers API**.
+- [ ] **Regime Detection**: Integrate ML models to enhance market state classification (Predictable vs. Stochastic) beyond basic permutation entropy.
 - [ ] **Real-time Portfolio Management**: Enhanced dashboard for multi-account tracking.
 
 ## 🔍 System Review & Design Verification
@@ -34,7 +35,7 @@ The following items were identified during review and confirmed as intentional d
 *   **Verification**: During these periods, the Reconciliation Engine remains static, while safety mechanisms like Take Profit handle emergencies.
 
 ### Resource Management & Scalability
-*   **Design Choice**: MySQL connection management is optimized for large-scale worker pools (up to 12k+ workers) by avoiding library-level pooling and centralizing via Celery queues to prevent database thrashing.
+*   **Design Choice**: MySQL connection management is optimized for large-scale worker pools (up to 12,000 workers) by avoiding library-level pooling and centralizing via Celery queues to prevent database thrashing.
 *   **Verification**: Observability sampling is aggressively configured (`0.00000001`) to maintain performance at extreme telemetry volumes.
 
 ---
