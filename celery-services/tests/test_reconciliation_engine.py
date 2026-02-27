@@ -448,6 +448,7 @@ class TestReconciliationEngine(unittest.TestCase):
             }
             self.assertEqual(req.json(), expected_data)
 
+    @patch("reconciliation_engine.is_market_open", return_value=True)
     @patch("reconciliation_engine.get_latest_margin_usage")
     @patch("reconciliation_engine.get_latest_balance")
     @patch("reconciliation_engine.config")
@@ -464,6 +465,7 @@ class TestReconciliationEngine(unittest.TestCase):
         mock_config,
         mock_balance,
         mock_margin,
+        mock_market_open,
     ):
         """Test full reconciliation cycle"""
 
@@ -502,11 +504,12 @@ class TestReconciliationEngine(unittest.TestCase):
         mock_calc.assert_called_once_with(0.0005, 0.001, "BTC/USDC:USDC")
         mock_gateway.assert_called_once_with("BTC/USDC:USDC", "buy", 0.0005)
 
+    @patch("reconciliation_engine.is_market_open", return_value=True)
     @patch("reconciliation_engine.config")
     @patch("reconciliation_engine.get_desired_state")
     @patch("reconciliation_engine.get_actual_state")
     def test_reconcile_positions_no_consensus(
-        self, mock_actual, mock_desired, mock_config
+        self, mock_actual, mock_desired, mock_config, mock_market_open
     ):
         """Test reconciliation skips when no consensus"""
         # Mock configuration
