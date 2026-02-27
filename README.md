@@ -1,5 +1,5 @@
-> ⚠️ **Warning: Highly Experimental Project**
-> This project is currently in a highly experimental and pre-alpha state. It is **not ready for production use** and may contain significant bugs, breaking changes, or incomplete features. Use with caution.
+> 🎉 **Official 0.1.0 Release**
+> This marks the first ever official release (v0.1.0) of the Tactical Trend Trader (3T) project, unifying all components (including the Providence strategy) under a single version. *Disclaimer:* The 3T project is in a highly experimental and pre-alpha state. It is **not ready for production use** and may contain significant bugs, breaking changes, or incomplete features. Proceed with use under extreme levels of caution and avoid allocating anything more than a small amount of test funds for live scenarios.
 
 # Tactical Trend Trader (3T)
 
@@ -18,7 +18,7 @@
 
 ## Introduction
 
-Tactical Trend Trader (3T) is a sophisticated, distributed trading platform powered by **Providence v3** - a massively parallel trading engine that executes concurrent runs using permutation entropy signals, Kelly criterion position sizing, and evolutionary clonal adaptation. The system leverages a microservices architecture with priority-based task queuing to analyze market data, execute trades, and provide comprehensive observability.
+Tactical Trend Trader (3T) is a sophisticated, distributed trading platform powered by **Providence** - a massively parallel trading engine that executes concurrent runs using permutation entropy signals, Kelly criterion position sizing, and evolutionary clonal adaptation. The system leverages a microservices architecture with priority-based task queuing to analyze market data, execute trades, and provide comprehensive observability.
 
 Read the latest [whitepaper](https://trisagion.xyz/trisagion.pdf) and documentation at [trisagion.gitbook.io](https://trisagion.gitbook.io/trisagion-docs/).
 
@@ -40,6 +40,7 @@ Read the latest [whitepaper](https://trisagion.xyz/trisagion.pdf) and documentat
 
 ### 📖 Table of Contents
 
+- [System Requirements](#system-requirements)
 - [Architecture](#architecture)
 - [Observability & Monitoring Stack](#observability--monitoring-stack)
 - [Data Pipeline](#data-pipeline)
@@ -53,13 +54,21 @@ Read the latest [whitepaper](https://trisagion.xyz/trisagion.pdf) and documentat
 - [Disclaimer](#disclaimer)
 - [License](#license)
 
+## System Requirements
+
+To achieve optimal performance for concurrent trading runs and microservices, the following system specifications are recommended based on our reference deployment:
+
+- **CPU:** 32 Threads
+- **Memory:** 128 GB RAM
+- **GPU:** Not required (no inference/training performed)
+
 ## Architecture
 
 The 3T system is built on a microservices architecture, with each component containerized using Docker for portability and scalability.
 
-### Providence v3 Trading Engine
+### Providence Trading Engine
 
-The core of the system is **Providence v3**, a Celery-based distributed trading engine:
+The core of the system is **Providence**, a Celery-based distributed trading engine:
 
 - **Concurrent Runs**: Each run explores different permutation entropy interpretations of market structure
 - **Iteration-Based**: Short-lived tasks (1-2ms) execute every 5 seconds, enabling massive parallelism
@@ -71,7 +80,7 @@ The core of the system is **Providence v3**, a Celery-based distributed trading 
 
 - **Celery Services**: Worker (512 concurrent) and beat services for distributed task processing with priority routing
 - **Python Components**: Real-time services for price streaming, balance monitoring, and order execution
-- **Redis**: Message broker, state cache (providence:state:*), and real-time event streams
+- **Redis**: Message broker, state cache (providence:state:*) and real-time event streams
 - **MariaDB**: Persistent storage for trading data, positions, and run state (runs.run_state JSON)
 
 ### Observability & Monitoring Stack
@@ -134,7 +143,7 @@ To get started with the 3T system, you will need to have Docker and Docker Compo
 
 3. **Start the services:**
 
-Note: Your system must have docker and docker-compose available. The docker service must be running and you may need elevated sudo permissions. It is also reccomended to prepare your environment with `pip install -r requirements-dev.txt` before proceeding further.
+Note: Your system must have docker and docker-compose available. The docker service must be running and you may need elevated sudo permissions. It is also recommended to prepare your environment with `pip install -r requirements-dev.txt` before proceeding further.
 
    ```bash
    make install
@@ -177,7 +186,7 @@ For development commands, testing procedures, and detailed technical guidance, s
 **Architecture Diagrams** (C4 Model):
 - **Level 1**: [System Context](docs/arch/level-1-context.puml) - External actors and systems
 - **Level 2**: [Container](docs/arch/level-2-container.puml) - Microservices and infrastructure
-- **Level 3**: [Providence System](docs/arch/level-3-providence.puml) - Trading engine components (NEW)
+- **Level 3**: [Providence System](docs/arch/level-3-providence.puml) - Trading engine components
 - **Level 3**: [Reconciliation Engine](docs/arch/level-3-reconciliation-service.puml) - Position reconciliation
 - **Level 3**: [Order Gateway](docs/arch/level-3-order-gateway.puml) - Trade execution service
 
