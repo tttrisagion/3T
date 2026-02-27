@@ -1,42 +1,55 @@
 # Tactical Trend Trader (3T) - v0.1.0 Release Review & Backlog
 
-This document synthesizes findings from a thorough review of the v0.1.0 release, incorporating existing roadmap items and known open issues.
+This document synthesizes findings from the v0.1.0 release review and consolidates them into actionable "tickets" for the next phase of development.
 
-## 📋 Synthesized Backlog (Open Items)
+## 📋 Open Tickets & Tasks
 
-This list combines items from the official Roadmap, active development branches, and the v0.1.0 review.
+### [3T-001] Prediction Models & Regime Detection Expansion
+**Description**: Revisit the earlier work cited in `trisagion.tex` regarding the bootstrap-aggregated ensemble of heterogeneous learners (MLP, LightGBM, CatBoost, XGBoost, etc.).
+**Tasks**:
+- [ ] Evaluate a hybrid approach: Use lightweight predictive models to complement the online stochastic optimization engine.
+- [ ] Implement Hurst processes to complement existing Permutation Entropy thresholds.
+- [ ] Research correlation between market oscillation and system maximum adverse excursions (MAE).
+**Context**: This is a broad expansion of the "Clonal Adaptation" and "Regime Detection" items, moving beyond simple signal filtering to robust market state classification.
 
-### 🚨 Known Active Issues
-- [ ] **Issue #13**: Fix Proxy Failover logic in Order Gateway.
-- [ ] **Issue #4**: Fix CI/CD pipeline failures (GitHub Actions).
-- [ ] **GEM-5**: Implement Take Profit Resilience (handling restarts during TP events).
+### [3T-002] Multi-Terminal Exchange Support (FIX & IB)
+**Description**: Pivot exchange support focus from retail crypto APIs to institutional-grade interfaces.
+**Tasks**:
+- [ ] Implement support for **FIX Protocol** (Financial Information eXchange).
+- [ ] Implement support for **Interactive Brokers (IBKR) API**.
+**Note**: Retail crypto exchanges (Binance, Bybit) are deprioritized in favor of FIX/IB.
 
-### 🛠 Refinement & Tech Debt
-- [ ] **Database Initialization**: Refine `init.sql` to avoid destructive `DROP TABLE` calls on accidental re-runs, while maintaining schema integrity.
-- [ ] **Prediction & Adaptation**: Revisit earlier work on bootstrap-aggregated ensemble models and prediction frameworks cited in `trisagion.tex`.
-    - Explore hybrid approaches combining stochastic engines with lightweight predictive models.
-    - Investigate Hurst processes to complement entropy thresholds for oscillatory market conditions.
+### [3T-003] Database Initialization Safety Refinement
+**Description**: The current `init.sql` is destructive (`DROP TABLE IF EXISTS`).
+**Tasks**:
+- [ ] Refine the database initialization process to prevent accidental data loss while maintaining schema integrity for fresh deployments.
 
-### 🚀 Feature Roadmap
-- [ ] **Expanded Exchange Support**: Implement support for **FIX Protocol** and **Interactive Brokers API**.
-- [ ] **Regime Detection**: Integrate ML models to enhance market state classification (Predictable vs. Stochastic) beyond basic permutation entropy.
-- [ ] **Real-time Portfolio Management**: Enhanced dashboard for multi-account tracking.
+### [3T-004] Order Gateway: Issue #13 (Proxy Failover)
+**Description**: Address the bug where proxy failover is not operating correctly on the order gateway.
+**Tasks**:
+- [ ] Fix logic in `order_gateway.py` to ensure reliable failover across the configured proxy list.
 
-## 🔍 System Review & Design Verification
+### [3T-005] CI/CD Infrastructure: Issue #4 (Fix Failures)
+**Description**: Resolve persistent failures in GitHub Actions workflows.
+**Tasks**:
+- [ ] Debug and fix CI/CD pipeline in `.github/workflows/`.
 
-The following items were identified during review and confirmed as intentional design choices for v0.1.0:
-
-### Order Execution (Maker-Only)
-*   **Design Choice**: The Order Gateway utilizes `Post-Only` (`Alo`) limit orders to avoid excessive taker fees.
-*   **Verification**: `order_gateway.py` correctly implements this strategy to ensure trades only execute as makers.
-
-### Market Hours & Rest
-*   **Design Choice**: The system enforces rest periods (Vatican City time) via `is_market_open()`.
-*   **Verification**: During these periods, the Reconciliation Engine remains static, while safety mechanisms like Take Profit handle emergencies.
-
-### Resource Management & Scalability
-*   **Design Choice**: MySQL connection management is optimized for large-scale worker pools (up to 12,000 workers) by avoiding library-level pooling and centralizing via Celery queues to prevent database thrashing.
-*   **Verification**: Observability sampling is aggressively configured (`0.00000001`) to maintain performance at extreme telemetry volumes.
+### [3T-006] Providence Engine: GEM-5 (Take Profit Resilience)
+**Description**: Ensure take-profit events are resilient to system restarts.
+**Tasks**:
+- [ ] Implement state persistence/resumption logic for TP events to prevent "stuck" positions or lost gains during crashes.
 
 ---
-*Generated by Jules (AI Assistant) during v0.1.0 Review.*
+
+## 🔍 Design Verification (Closed/Intentional)
+
+The following items were audited and verified as **intended behavior** for v0.1.0:
+
+*   **Maker-Only Execution**: The use of `limit` + `Alo` (Post-Only) in `order_gateway.py` is an intentional design choice to avoid excessive taker fees.
+*   **Rest Periods**: The hardcoded market hours (Vatican City time) in `reconciliation_engine.py` are intentional "times of rest" for the system.
+*   **MySQL Strategy**: Direct connections and centralized Celery queuing are intentional to avoid thrashing/pooling overhead at a scale of 12,000+ workers.
+*   **Observability Sampling**: The aggressive sampling rate (`0.00000001`) is a necessary performance constraint for extreme telemetry volumes.
+*   **Manual Migrations**: The project favors manual SQL updates over the complexity of migration tools for the current development phase.
+
+---
+*Generated by Jules (AI Assistant) - v0.1.0 Audit.*
