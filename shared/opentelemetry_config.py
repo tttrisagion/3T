@@ -1,4 +1,6 @@
+import logging
 import os
+import random
 
 from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
@@ -77,16 +79,38 @@ def setup_telemetry(service_name: str):
 
     # Define the noisy tasks that should be sampled at a lower rate
     noisy_tasks = {
+        # Providence iteration and scheduler (highest volume)
+        "worker.providence.providence_trading_iteration",
+        "providence_trading_iteration",
+        "worker.providence.providence_iteration_scheduler",
+        "providence_iteration_scheduler",
+        # Sub-tasks dispatched from iterations
         "worker.tasks.get_market_weight",
         "worker.tasks.update_pnl",
         "worker.tasks.get_exit_status",
+        "worker.tasks.update_run_position",
+        "worker.tasks.save_run_state",
+        "worker.tasks.calculate_permutation_entropy",
         "get_market_weight_task",
         "update_pnl_task",
         "get_exit_status_task",
-        # Add run/ prefixed tasks for Celery instrumentation
+        "update_run_position_task",
+        "save_run_state_task",
+        "calculate_permutation_entropy_task",
+        # Price polling spans (continuous)
+        "fetch_latest_prices",
+        "publish_prices",
+        "publish_price_update",
+        "poll_cycle",
+        # Celery run/ prefixed variants
+        "run/worker.providence.providence_trading_iteration",
+        "run/worker.providence.providence_iteration_scheduler",
         "run/worker.tasks.get_market_weight",
         "run/worker.tasks.update_pnl",
         "run/worker.tasks.get_exit_status",
+        "run/worker.tasks.update_run_position",
+        "run/worker.tasks.save_run_state",
+        "run/worker.tasks.calculate_permutation_entropy",
     }
 
     # Configure the dispatching sampler
@@ -119,3 +143,73 @@ def get_tracer(service_name: str):
     """
     setup_telemetry(service_name)
     return trace.get_tracer(service_name)
+
+
+# --- Log Sampling ---
+
+
+class SamplingLogFilter(logging.Filter):
+    """
+    Filters log records based on sampling rate for noisy tasks.
+    Applies the same noisy task detection as telemetry sampling.
+    Works for both application logs and Celery internal task logs.
+    """
+
+    def __init__(self, noisy_patterns: set[str], sampling_rate: float):
+        """
+        Args:
+            noisy_patterns: Set of task name patterns to sample
+            sampling_rate: Probability of logging (0.0 to 1.0)
+        """
+        super().__init__()
+        self.noisy_patterns = noisy_patterns
+        self.sampling_rate = sampling_rate
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        """
+        Returns True if the record should be logged, False otherwise.
+        """
+        # Check if this is a noisy task by examining the log message
+        message = record.getMessage()
+
+        # Check if any noisy pattern appears in the message
+        # This catches both application logs and Celery's "Task X received/succeeded" messages
+        for pattern in self.noisy_patterns:
+            if pattern in message:
+                # Sample based on configured rate
+                return random.random() < self.sampling_rate
+
+        # Not a noisy task, always log
+        return True
+
+
+def setup_log_sampling(logger_names: list[str] = None):
+    """
+    Configures log sampling for noisy tasks.
+    Should be called after logger configuration.
+
+    Args:
+        logger_names: List of logger names to apply sampling to (None for root logger)
+    """
+    sampling_rate = config.get("observability.sampling_rate", 1.0)
+
+    # Use same noisy task patterns as telemetry
+    noisy_patterns = {
+        "providence_trading_iteration",
+        "get_market_weight",
+        "update_pnl",
+        "get_exit_status",
+    }
+
+    # Create the sampling filter
+    sampling_filter = SamplingLogFilter(noisy_patterns, sampling_rate)
+
+    # Apply to specified loggers (or root if None)
+    if logger_names is None:
+        logger_names = [None]
+
+    for logger_name in logger_names:
+        logger = logging.getLogger(logger_name)
+        logger.addFilter(sampling_filter)
+
+    return sampling_filter

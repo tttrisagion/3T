@@ -11,7 +11,7 @@ services:
 
   redis:
     image: redis:7.2-alpine
-    command: redis-server --maxclients 50000
+    command: redis-server --maxclients 50000 --maxmemory 16gb --maxmemory-policy allkeys-lru
     ports:
       - "6379:6379"
     restart: unless-stopped
@@ -20,11 +20,16 @@ services:
     build:
       context: .
       dockerfile: celery-services/Dockerfile
-    command: celery -A worker.tasks worker --loglevel=info --concurrency=16 --max-tasks-per-child=7000
-    cpus: 12
+    command: celery -A worker.tasks worker --pool=eventlet --loglevel=info --concurrency=50 -Q high_priority,low_priority
+    deploy:
+      replicas: 16
+    mem_limit: 4g
+    memswap_limit: 4g
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
     volumes:
-      - ./celery-services/worker:/app/worker
-      - ./shared:/app/shared
       - ./config.yml:/app/config.yml
       - ./secrets.yml:/app/secrets.yml
     logging:
@@ -34,6 +39,8 @@ services:
         max-file: "5"
     environment:
       - PYTHONPATH=/app
+      - HOSTNAME=celery_worker_dev
+      - CELERY_WORKER_POOL=eventlet
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318/v1/traces
       - OTEL_SERVICE_NAME=celery_worker
     healthcheck:
@@ -43,9 +50,12 @@ services:
       retries: 3
       start_period: 60s
     depends_on:
-      - redis
-      - mariadb
-      - otel-collector
+      redis:
+        condition: service_started
+      mariadb:
+        condition: service_started
+      otel-collector:
+        condition: service_started
     restart: unless-stopped
 
   celery_beat:
@@ -158,7 +168,7 @@ services:
     build:
       context: .
       dockerfile: flower/Dockerfile
-    command: celery -A worker.tasks flower --address=0.0.0.0 --port=5555
+    command: celery -A worker.tasks flower --address=0.0.0.0 --port=5555 --max_tasks=10000
     volumes:
       - ./celery-services/worker:/app/worker
       - ./shared:/app/shared
@@ -176,6 +186,9 @@ services:
 
   prometheus:
     image: prom/prometheus:v2.47.2
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--web.enable-remote-write-receiver'
     ports:
       - "9090:9090"
     volumes:
@@ -208,71 +221,28 @@ services:
       - ./database/mariadb.cnf:/etc/mysql/mariadb.conf.d/99-custom.cnf
     restart: unless-stopped
 
-  elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.15
-    environment:
-      - discovery.type=single-node
-      - "ES_JAVA_OPTS=-Xms32g -Xmx32g"
-      - xpack.security.enabled=false
-      - cluster.max_shards_per_node=2000
+  tempo:
+    image: grafana/tempo:2.6.1
+    mem_limit: 4g
+    memswap_limit: 4g
     volumes:
-      - elasticsearch_data:/usr/share/elasticsearch/data
+      - ./tempo/tempo.yml:/etc/tempo.yml
+      - tempo_data:/var/tempo
+    entrypoint: ["/bin/sh", "-c", "rm -rf /var/tempo/wal/* /var/tempo/traces/* /var/tempo/generator/wal/* 2>/dev/null; exec /tempo -config.file=/etc/tempo.yml"]
     ports:
-      - "9200:9200"
+      - "3200:3200"
     healthcheck:
-      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -vq '\"status\":\"red\"'"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3200/ready"]
       interval: 10s
       timeout: 5s
-      retries: 12
-    restart: unless-stopped
-
-  kibana:
-    image: docker.elastic.co/kibana/kibana:7.17.15
-    environment:
-      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
-      - xpack.security.enabled=false
-    ports:
-      - "5601:5601"
-    depends_on:
-      elasticsearch:
-        condition: service_healthy
-    restart: unless-stopped
-
-  kibana-setup:
-    image: curlimages/curl:8.4.0
-    depends_on:
-      - kibana
-      - elasticsearch
-    volumes:
-      - ./setup/kibana:/setup
-    command: >
-      sh -c "
-        echo 'Waiting for services to be ready...' &&
-        sleep 30 &&
-        /setup/setup-index-patterns.sh
-      "
-    environment:
-      - KIBANA_URL=http://kibana:5601
-    restart: unless-stopped
-
-  jaeger:
-    build: ./jaeger
-    ports:
-      - "16686:16686"
-      - "14268:14268"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:14269/"]
-      interval: 10s
-      timeout: 5s
-      retries: 30
+      retries: 10
       start_period: 30s
-    depends_on:
-      elasticsearch:
-        condition: service_healthy
     restart: unless-stopped
 
   otel-collector:
     image: otel/opentelemetry-collector-contrib:0.88.0
+    mem_limit: 1g
+    memswap_limit: 1g
     volumes:
       - ./otel-collector.yml:/etc/otel-collector.yml
     command: ["--config=/etc/otel-collector.yml"]
@@ -280,7 +250,7 @@ services:
       - "4317:4317"
       - "4318:4318"
     depends_on:
-      jaeger:
+      tempo:
         condition: service_healthy
     restart: unless-stopped
 
@@ -354,6 +324,18 @@ services:
 
 
 
+  metrics-exporter:
+    build:
+      context: .
+      dockerfile: metrics-exporter/Dockerfile
+    volumes:
+      - ./config.yml:/app/config.yml
+      - ./secrets.yml:/app/secrets.yml
+    depends_on:
+      - mariadb
+      - redis
+    restart: unless-stopped
+
   node-exporter:
     image: prom/node-exporter:v1.7.0
     container_name: node_exporter
@@ -368,5 +350,4 @@ services:
 
 volumes:
   mariadb_data:
-  jaeger_data:
-  elasticsearch_data:
+  tempo_data:

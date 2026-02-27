@@ -24,7 +24,7 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
-  "id": 7,
+  "id": 6,
   "links": [
     {
       "asDropdown": false,
@@ -137,6 +137,7 @@
             "cellOptions": {
               "type": "auto"
             },
+            "filterable": false,
             "inspect": false
           },
           "mappings": [],
@@ -167,11 +168,14 @@
         "cellHeight": "sm",
         "footer": {
           "countRows": false,
-          "fields": "",
+          "fields": [
+            "position_value",
+            "unrealized_pnl"
+          ],
           "reducer": [
             "sum"
           ],
-          "show": false
+          "show": true
         },
         "showHeader": true,
         "sortBy": [
@@ -1659,8 +1663,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -1748,8 +1751,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -1895,13 +1897,13 @@
     "list": []
   },
   "time": {
-    "from": "now-2d",
+    "from": "now-6h",
     "to": "now"
   },
   "timepicker": {},
   "timezone": "",
-  "title": "3T Balance & Positions 10% EXPERIMENT",
-  "uid": "c0a21b2b-71ce-4828-a09a-670933464160",
-  "version": 19,
+  "title": "3T Balance & Positions 10% EXPERIMENT UPDATES",
+  "uid": "c17913a4-c440-432e-827c-35bc7ac43ae6",
+  "version": 1,
   "weekStart": ""
 }

@@ -19,7 +19,7 @@ Deployment_Node(developer_machine, "Developer Machine", "Docker Desktop") {
         Container(flower, "Flower", "Docker Container")
         Container(prometheus, "Prometheus", "Docker Container")
         Container(grafana, "Grafana", "Docker Container")
-        Container(jaeger, "Jaeger", "Docker Container")
+        Container(tempo, "Grafana Tempo", "Docker Container")
         Container(otel_collector, "OpenTelemetry Collector", "Docker Container")
         Container(mariadb, "MariaDB", "Docker Container")
     }
@@ -43,7 +43,7 @@ Rel(celery_worker, mariadb, "Data storage", "TCP/IP")
 Rel(order_gateway, mariadb, "Order logging", "TCP/IP")
 Rel(price_stream_producer, mariadb, "Instrument queries", "TCP/IP")
 
-Rel(otel_collector, jaeger, "Exports traces to", "gRPC")
+Rel(otel_collector, tempo, "Exports traces to", "gRPC")
 Rel(balance_consumer, otel_collector, "Sends traces to", "gRPC")
 Rel(price_stream_producer, otel_collector, "Sends traces to", "gRPC")
 Rel(price_stream_consumer, otel_collector, "Sends traces to", "gRPC")

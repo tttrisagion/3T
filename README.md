@@ -1,5 +1,5 @@
-> ⚠️ **Warning: Highly Experimental Project**
-> This project is currently in a highly experimental and pre-alpha state. It is **not ready for production use** and may contain significant bugs, breaking changes, or incomplete features. Use with caution.
+> 🎉 **Official 0.1.0 Release**
+> This marks the first ever official release (v0.1.0) of the Tactical Trend Trader (3T) project, unifying all components (including the Providence strategy) under a single version. *Disclaimer:* The 3T project is in a highly experimental and pre-alpha state. It is **not ready for production use** and may contain significant bugs, breaking changes, or incomplete features. Proceed with use under extreme levels of caution and avoid allocating anything more than a small amount of test funds for live scenarios.
 
 # Tactical Trend Trader (3T)
 
@@ -18,16 +18,29 @@
 
 ## Introduction
 
-Tactical Trend Trader (3T) is a sophisticated, service-oriented platform designed for automated trend trading. It leverages a robust architecture to analyze market data, execute trades, and provide real-time observability into its operations. Read the latest [draft whiepaper](https://trisagion.xyz/TTT.pdf) and the semi-out of date documentation microsite [here](https://trisagion.gitbook.io/trisagion-docs/).
+Tactical Trend Trader (3T) is a sophisticated, distributed trading platform powered by **Providence** - a massively parallel trading engine that executes concurrent runs using permutation entropy signals, Kelly criterion position sizing, and evolutionary clonal adaptation. The system leverages a microservices architecture with priority-based task queuing to analyze market data, execute trades, and provide comprehensive observability.
+
+Read the latest [whitepaper](https://trisagion.xyz/trisagion.pdf) and documentation at [trisagion.gitbook.io](https://trisagion.gitbook.io/trisagion-docs/).
 
 [![LOC][loc-badge]][loc-report]
 
 [loc-badge]: https://tokei.rs/b1/github/tttrisagion/3T
 [loc-report]: https://github.com/tttrisagion/3T
 
+### ✨ Key Features
+
+- 🚀 **Massive Parallelism**: concurrent trading runs executing core strategy
+- 🧬 **Clonal Adaptation**: Evolutionary search through entropy signal space with Kelly criterion
+- 📊 **Permutation Entropy**: Natural logarithm-based disorder measurement for time-invariant patterns
+- ⚖️ **Priority Queuing**: Prevents task starvation - critical tasks never wait
+- 🔄 **Stateless Design**: Redis state caching (24h TTL) enables horizontal scalability
+- 📈 **Consensus Trading**: Observer nodes validate positions before reconciliation
+- 🔍 **Full Observability**: Distributed tracing (Grafana Tempo), metrics (Prometheus), log sampling
+
 
 ### 📖 Table of Contents
 
+- [System Requirements](#system-requirements)
 - [Architecture](#architecture)
 - [Observability & Monitoring Stack](#observability--monitoring-stack)
 - [Data Pipeline](#data-pipeline)
@@ -41,20 +54,38 @@ Tactical Trend Trader (3T) is a sophisticated, service-oriented platform designe
 - [Disclaimer](#disclaimer)
 - [License](#license)
 
+## System Requirements
+
+To achieve optimal performance for concurrent trading runs and microservices, the following system specifications are recommended based on our reference deployment:
+
+- **CPU:** 32 Threads
+- **Memory:** 128 GB RAM
+- **GPU:** Not required (no inference/training performed)
+
 ## Architecture
 
-The 3T system is built on a microservices architecture, with each component containerized using Docker for portability and scalability. The primary components are:
+The 3T system is built on a microservices architecture, with each component containerized using Docker for portability and scalability.
 
-- **Celery Services**: A directory containing the Celery worker and beat services for asynchronous task processing.
-- **Python Components**: A directory containing various Python services that are not part of the Celery cluster.
-- **Redis**: A high-performance in-memory data store used for message brokering, caching, and real-time event streams.
-- **MariaDB**: A relational database used for persistent storage of trading data, positions, and configuration.
+### Providence Trading Engine
+
+The core of the system is **Providence**, a Celery-based distributed trading engine:
+
+- **Concurrent Runs**: Each run explores different permutation entropy interpretations of market structure
+- **Iteration-Based**: Short-lived tasks (1-2ms) execute every 5 seconds, enabling massive parallelism
+- **Priority Queuing**: High-priority (supervisor, reconciliation) and low-priority (iterations) queues prevent task starvation
+- **Stateless Execution**: Run state cached in Redis (24h TTL) with persistent DB backup
+- **Clonal Adaptation**: Successful entropy signals compound through Kelly sizing, unsuccessful runs exit
+
+### Infrastructure Components
+
+- **Celery Services**: Worker (512 concurrent) and beat services for distributed task processing with priority routing
+- **Python Components**: Real-time services for price streaming, balance monitoring, and order execution
+- **Redis**: Message broker, state cache (providence:state:*) and real-time event streams
+- **MariaDB**: Persistent storage for trading data, positions, and run state (runs.run_state JSON)
 
 ### Observability & Monitoring Stack
-- **Elasticsearch**: Search and analytics engine providing persistent storage for trace data.
-- **Jaeger**: Distributed tracing system with Elasticsearch backend for monitoring microservices interactions.
-- **Kibana**: Web interface for exploring and visualizing trace data stored in Elasticsearch.
-- **OpenTelemetry Collector**: Receives, processes, and exports telemetry data from services to Jaeger.
+- **Grafana Tempo**: Distributed tracing system with disk-based block storage (lightweight, bounded memory).
+- **OpenTelemetry Collector**: Receives, processes, and exports telemetry data from services to Tempo.
 - **Prometheus**: Monitoring and alerting toolkit that collects metrics from various services.
 - **Grafana**: Platform for visualizing metrics with pre-built dashboards for monitoring the 3T system.
 - **Flower**: Web-based tool for monitoring and administering Celery jobs and workers.
@@ -63,11 +94,15 @@ The system architecture is documented using the C4 model, and the diagrams can b
 
 ### Data Pipeline
 
-The system features two main data pipelines:
+The system features several integrated data pipelines:
 
-1.  **Price Data**: The `price_stream_producer` service connects to the HyperLiquid exchange via WebSocket and streams real-time price data to a Redis stream. The `price_stream_consumer` service then consumes this data for further processing.
-2.  **Balance Data**: The `celery_worker` periodically fetches balance and position data from the exchange and publishes it to a Redis stream. The `balance_consumer` service consumes this data to log and monitor the system's financial status.
-3.  **Portfolio Reconciliation**: The `reconciliation_engine` within the `celery_worker` periodically compares the desired portfolio state (defined in the `runs` table) with the actual state (from the local database and external observer nodes). It generates and executes corrective orders via the `order_gateway` to ensure the portfolio remains aligned with the target strategy.
+1.  **Price Data**: Auto-selects WebSocket (`price_stream_producer`) or polling (`price_poll_producer`) based on proxy config. Streams real-time prices to Redis for consumption.
+2.  **Balance Data**: Celery workers periodically fetch balance/position data and publish to Redis streams. Balance consumers log and monitor financial status.
+3.  **Providence Trading**:
+    - **Supervisor** (high-priority): Spawns/maintains active runs with random ANN parameters
+    - **Iteration Scheduler** (high-priority): Triggers iteration tasks
+    - **Trading Iterations** (low-priority): Calculate permutation entropy, generate position directions, update PnL
+4.  **Portfolio Reconciliation**: Reconciliation engine (high-priority) compares desired positions (from Providence runs) with actual state (local DB + observer consensus) and generates corrective orders via order_gateway.
 
 ### Networking
 
@@ -108,7 +143,7 @@ To get started with the 3T system, you will need to have Docker and Docker Compo
 
 3. **Start the services:**
 
-Note: Your system must have docker and docker-compose available. The docker service must be running and you may need elevated sudo permissions. It is also reccomended to prepare your environment with `pip install -r requirements-dev.txt` before proceeding further.
+Note: Your system must have docker and docker-compose available. The docker service must be running and you may need elevated sudo permissions. It is also recommended to prepare your environment with `pip install -r requirements-dev.txt` before proceeding further.
 
    ```bash
    make install
@@ -116,7 +151,7 @@ Note: Your system must have docker and docker-compose available. The docker serv
    docker compose up -d --build
    ```
 
-   This will start all services in detached mode and automatically configure Kibana with Jaeger index patterns.
+   This will start all services in detached mode.
 
 4. **Initialize the database:**
 
@@ -129,11 +164,9 @@ Note: Your system must have docker and docker-compose available. The docker serv
 5. **Access the dashboards:**
 
    - **Grafana**: http://localhost:3000/dashboards
-   - **Jaeger**: http://localhost:16686 (distributed tracing UI)
-   - **Kibana**: http://localhost:5601 (trace data exploration)
+   - **Tempo Traces**: http://localhost:3000/explore (select Tempo datasource in Grafana)
    - **Flower**: http://localhost:5555 (Celery monitoring)
    - **Prometheus**: http://localhost:9090 (metrics)
-   - **Elasticsearch**: http://localhost:9200 (API access)
 
 # Documentation
 
@@ -142,24 +175,73 @@ Note: Your system must have docker and docker-compose available. The docker serv
 
 ## Development
 
-For development commands, testing procedures, and detailed technical guidance, see [CLAUDE.md](CLAUDE.md). Key commands:
+For development commands, testing procedures, and detailed technical guidance, see [GEMINI.md](GEMINI.md) and [CLAUDE.md](CLAUDE.md). Key commands:
 
 - **Deploy code changes**: `docker compose restart` (no rebuild needed)
 - **Run tests**: `make test`
 - **Stop and clean**: `make clean`
 
 ![context](docs/arch/level-1-context.png)
-*See full set of C4 diagrams in [docs/arch](docs/arch)*
+
+**Architecture Diagrams** (C4 Model):
+- **Level 1**: [System Context](docs/arch/level-1-context.puml) - External actors and systems
+- **Level 2**: [Container](docs/arch/level-2-container.puml) - Microservices and infrastructure
+- **Level 3**: [Providence System](docs/arch/level-3-providence.puml) - Trading engine components
+- **Level 3**: [Reconciliation Engine](docs/arch/level-3-reconciliation-service.puml) - Position reconciliation
+- **Level 3**: [Order Gateway](docs/arch/level-3-order-gateway.puml) - Trade execution service
+
+*Render diagrams: `make render-diagrams` or use PlantUML extension*
 
 ### Observability
 
 The 3T system is designed for high observability, with a comprehensive suite of tools for monitoring, tracing, and debugging.
 
 - **Metrics**: Prometheus scrapes metrics from Flower and other services, visualized in Grafana dashboards.
-- **Distributed Tracing**: All services are instrumented with OpenTelemetry, sending traces through the OTEL Collector to Jaeger with persistent Elasticsearch storage.
-- **Trace Exploration**: Kibana provides a web interface for exploring trace data with automatically configured index patterns.  
-- **Real-time Monitoring**: Live trace data can be viewed in Kibana with auto-refresh capabilities to monitor system activity.
-- **Automated Setup**: Kibana index patterns are automatically created during deployment for immediate use.
+- **Distributed Tracing**: All services instrumented with OpenTelemetry, sending traces through OTEL Collector to Grafana Tempo with disk-based block storage.
+- **Intelligent Sampling**: Configurable sampling (default 1% for high-volume tasks) reduces noise while preserving critical traces
+  - High-volume tasks (providence iterations): sampled at configured rate
+  - Critical tasks (supervisor, reconciliation): always 100% traced
+  - Log sampling mirrors trace sampling for consistent observability
+- **Real-time Monitoring**: Live trace data with auto-refresh capabilities to monitor system activity.
+
+## Quick Reference
+
+### Service URLs (localhost)
+| Service | URL | Purpose |
+|---------|-----|---------|
+| Grafana | http://localhost:3000/dashboards | Metrics visualization |
+| Tempo (via Grafana) | http://localhost:3000/explore | Distributed tracing UI |
+| Flower | http://localhost:5555 | Celery monitoring |
+| Prometheus | http://localhost:9090 | Metrics storage |
+| Order Gateway | http://localhost:8002 | Trade execution API |
+
+### Key Commands
+```bash
+# Deploy code changes (no rebuild)
+docker compose restart
+
+# Full system restart
+make install
+
+# Run tests with linting
+make test
+
+# Stop and clean
+make clean
+
+# Check queue health
+docker compose exec redis redis-cli LLEN high_priority
+docker compose exec redis redis-cli LLEN low_priority
+
+# View logs with filtering
+docker compose logs celery_worker --tail=100 | grep providence_supervisor
+```
+
+### Configuration Files
+- **config.yml**: Application settings (schedules, symbols, run count)
+- **secrets.yml**: API keys and passwords (copy from secrets.yml.example)
+- **GEMINI.md** and **CLAUDE.md**: Technical guidance for agentic code development
+- **commit.txt**: Detailed commit message template for major features
 
 ## Roadmap
 

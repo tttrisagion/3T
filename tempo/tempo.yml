@@ -1,0 +1,45 @@
+stream_over_http_enabled: true
+
+server:
+  http_listen_port: 3200
+
+overrides:
+  max_bytes_per_trace: 20000000  # 20 MB per trace (scheduler traces can be large)
+  metrics_generator_processors:
+    - service-graphs
+
+distributor:
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: "0.0.0.0:4317"
+        http:
+          endpoint: "0.0.0.0:4318"
+
+storage:
+  trace:
+    backend: local
+    local:
+      path: /var/tempo/traces
+    wal:
+      path: /var/tempo/wal
+    block:
+      bloom_filter_false_positive: 0.05
+
+compactor:
+  compaction:
+    block_retention: 1h
+
+metrics_generator:
+  registry:
+    external_labels:
+      source: tempo
+  processor:
+    service_graphs:
+      wait: 10s
+      max_items: 10000
+  storage:
+    path: /var/tempo/generator/wal
+    remote_write:
+      - url: http://prometheus:9090/api/v1/write

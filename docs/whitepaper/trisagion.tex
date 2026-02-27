@@ -202,6 +202,7 @@ A long entry is considered if the current price exceeds the highest high of the 
 \end{itemize}
 
 \subsection{Performance Epochs and the Portfolio Lifecycle}
+\label{sec:epochs}
 To manage its continuous, massively parallel simulations, the system groups them into discrete \textbf{performance epochs}. These epochs can be thought of as distinct generations of trading strategies, each with a defined beginning and end. This mechanism is fundamental to how the system crystallizes gains and learns from its own history.
 
 At any given time, thousands of independent simulations are active. This entire population represents the \textbf{live cohort}, a generation of strategies collectively testing hypotheses against current market conditions. This cohort is unique because it has not yet been finalized or assigned to a historical epoch.
@@ -225,8 +226,20 @@ The primary measure of a run's performance is its APR, calculated as follows:
 \end{equation}
 where $B_{cur}$ is the current virtual balance, $B_{start}$ is the starting balance, and $D_{h}$ is the duration of the run in hours. This metric annualizes the run's return, providing a standardized way to compare the performance of runs with different lifespans.
 
-\subsubsection{APR Gating Condition}
-A core rule of the risk management framework is that position size will \textbf{only} be increased if the system's rolling APR is trending positively and is above the dynamically calculated APR target. This ensures that risk is escalated only during periods of sustained, proven profitability.
+\subsubsection{Dual APR Gating Condition}
+The system enforces a two-layer gating mechanism that provides defense in depth against increasing exposure during adverse conditions. Both layers must be satisfied for a position-increasing trade to execute.
+
+\paragraph{Layer 1: APR Momentum Gate}
+The first gate examines the \textit{rate of change} of APR. Position size will \textbf{only} be increased if the system's rolling APR is trending positively (i.e., the rate of change of APR is positive). This condition, measured by comparing the current APR to the recent rolling average, ensures that risk is escalated only when performance is improving. Conversely, when APR change is negative or zero, the system will only approve trades that reduce or reverse existing positions, never add to them.
+
+\paragraph{Layer 2: Absolute APR Gate}
+The second gate examines the \textit{absolute level} of APR. Even if a trade passes the momentum gate, the system further restricts execution based on whether the run is currently profitable:
+\begin{itemize}
+    \item When $\text{APR} \geq 0$ (profitable): the system may open or increase its position in the prevailing direction.
+    \item When $\text{APR} < 0$ (unprofitable): the system may only execute trades that \textit{reduce} the current position toward flat.
+    \item When $\text{APR} < 0$ and the position is flat: no trade is permitted.
+\end{itemize}
+This dual-gating architecture ensures that a losing strategy can never compound its losses. APR naturally decays over time for underperforming strategies, making it progressively harder to justify additional risk exposure at both the momentum and absolute level.
 
 \subsubsection{Performance‑Based Sizing Heuristic}
 If the APR gating condition is met, the system calculates the appropriate position size. It deliberately eschews a direct implementation of the Kelly Criterion, which can be sensitive to estimation errors in its inputs. Instead, it employs a novel performance‑based heuristic that modulates a base risk position size ($S_{\text{base}}$) based on the relative performance of current versus historical simulations.
@@ -319,7 +332,8 @@ Algorithm~\ref{alg:kelly-sizing} presents the high‑level steps for symbol leve
 
 \subsubsection{Execution and Risk Management}
 \begin{enumerate}
-    \item \textbf{Take‑Profit}: A take‑profit goal is calculated dynamically based on market conditions. The base \texttt{apr\_target} is scaled by a "volatility goal," a multiplier derived from the market's recent volatility. This allows the system to set more ambitious profit targets during periods of high volatility and more conservative targets when the market is calm. The calculation is governed by several key parameters: \texttt{min\_goal}, \texttt{max\_goal}, \texttt{min\_goal\_weight}, and \texttt{max\_goal\_weight}. A run is exited if its APR exceeds this dynamically adjusted target.
+    \item \textbf{Simulated Take‑Profit (Per‑Run)}: At the individual run level, a simulated take‑profit goal is calculated dynamically based on market conditions. The base \texttt{apr\_target} is scaled by a "volatility goal," a multiplier derived from the market's recent volatility. This allows the system to set more ambitious profit targets during periods of high volatility and more conservative targets when the market is calm. The calculation is governed by several key parameters: \texttt{min\_goal}, \texttt{max\_goal}, \texttt{min\_goal\_weight}, and \texttt{max\_goal\_weight}. A run is exited if its APR exceeds this dynamically adjusted target. Note: this APR target serves as an \textit{exit condition} for the individual simulation only and is distinct from the dual APR gating condition used for position sizing, which examines both the rate of change and the absolute level of APR.
+    \item \textbf{Global Take‑Profit (System‑Wide)}: A separate, independent process monitors the aggregate profit‑and‑loss across all active runs. When the portfolio as a whole reaches a predefined profit objective, this process finalizes the current live cohort by assigning a new block height (performance epoch), as described in Section~\ref{sec:epochs}. This system‑wide mechanism is responsible for crystallizing gains across the entire population of strategies and is distinct from the per‑run simulated take‑profit above.
 \item \textbf{Risk Management}: The 3T explicitly omits traditional, per‑trade stop‑loss orders, which are susceptible to transient volatility.
 Instead, risk is managed holistically through State Reconciliation.
 \end{enumerate}

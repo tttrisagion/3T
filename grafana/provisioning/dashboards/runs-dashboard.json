@@ -18,7 +18,6 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
-  "id": 6,
   "links": [],
   "liveNow": false,
   "panels": [
@@ -71,7 +70,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "take_profit_balance"
+              "options": "starting_balance"
             },
             "properties": [
               {
@@ -95,7 +94,7 @@
         ]
       },
       "gridPos": {
-        "h": 4,
+        "h": 3,
         "w": 24,
         "x": 0,
         "y": 0
@@ -127,7 +126,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT\n  latest_balance.account_value AS current_balance,\n  take_profit.last_balance AS take_profit_balance,\n  ((latest_balance.account_value - take_profit.last_balance) / take_profit.last_balance) * 100 AS percentage_change\nFROM\n  (\n    SELECT\n      account_value\n    FROM\n      balance_history\n    ORDER BY\n      timestamp DESC\n    LIMIT 1\n  ) AS latest_balance,\n  (\n    SELECT\n      last_balance\n    FROM\n      take_profit_state\n    ORDER BY\n      id DESC\n    LIMIT 1\n  ) AS take_profit;",
+          "rawSql": "SELECT\n  latest_balance.account_value AS current_balance,\n  take_profit.last_balance AS starting_balance,\n  ((latest_balance.account_value - take_profit.last_balance) / take_profit.last_balance) * 100 AS percentage_change\nFROM\n  (\n    SELECT\n      account_value\n    FROM\n      balance_history\n    ORDER BY\n      timestamp DESC\n    LIMIT 1\n  ) AS latest_balance,\n  (\n    SELECT\n      last_balance\n    FROM\n      take_profit_state\n    ORDER BY\n      id DESC\n    LIMIT 1\n  ) AS take_profit;",
           "refId": "A",
           "sql": {
             "columns": [
@@ -157,7 +156,7 @@
           "format": "table",
           "hide": false,
           "rawQuery": true,
-          "rawSql": "select sum(abs(position_direction))*7100*0.00001/0.5 as 'max_pos',count(*) as 'ttl_runs' from runs where exit_run=0 and height is null and end_time is null;",
+          "rawSql": "select count(*) as 'ttl_runs' \nfrom runs \nwhere exit_run=0 and height is null and end_time is null;",
           "refId": "B",
           "sql": {
             "columns": [
@@ -180,97 +179,6 @@
       ],
       "transparent": true,
       "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "mysql",
-        "uid": "3T-MariaDB-Datasource"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "max": 0.2,
-          "min": 0,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "dark-red",
-                "value": null
-              },
-              {
-                "color": "#EAB839",
-                "value": 0.05
-              },
-              {
-                "color": "dark-green",
-                "value": 0.1
-              }
-            ]
-          },
-          "unit": "percentunit"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 7,
-        "w": 5,
-        "x": 0,
-        "y": 4
-      },
-      "id": 13,
-      "options": {
-        "minVizHeight": 75,
-        "minVizWidth": 75,
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "/.*/",
-          "values": false
-        },
-        "showThresholdLabels": false,
-        "showThresholdMarkers": true
-      },
-      "pluginVersion": "10.2.2",
-      "targets": [
-        {
-          "dataset": "`3t`",
-          "datasource": {
-            "type": "mysql",
-            "uid": "3T-MariaDB-Datasource"
-          },
-          "editorMode": "code",
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "SELECT\n  0.1+(((latest_balance.account_value - take_profit.last_balance) / take_profit.last_balance)) AS percentage_change\nFROM\n  (\n    SELECT\n      account_value\n    FROM\n      balance_history\n    ORDER BY\n      timestamp DESC\n    LIMIT 1\n  ) AS latest_balance,\n  (\n    SELECT\n      last_balance\n    FROM\n      take_profit_state\n    ORDER BY\n      id DESC\n    LIMIT 1\n  ) AS take_profit;",
-          "refId": "A",
-          "sql": {
-            "columns": [
-              {
-                "parameters": [],
-                "type": "function"
-              }
-            ],
-            "groupBy": [
-              {
-                "property": {
-                  "type": "string"
-                },
-                "type": "groupBy"
-              }
-            ],
-            "limit": 50
-          }
-        }
-      ],
-      "title": "RUN RISK REMAINING",
-      "transparent": true,
-      "type": "gauge"
     },
     {
       "datasource": {
@@ -371,10 +279,10 @@
         ]
       },
       "gridPos": {
-        "h": 7,
-        "w": 19,
-        "x": 5,
-        "y": 4
+        "h": 5,
+        "w": 11,
+        "x": 0,
+        "y": 3
       },
       "id": 22,
       "options": {
@@ -460,39 +368,200 @@
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "palette-classic"
+            "mode": "thresholds"
           },
           "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": true,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "points",
-            "fillOpacity": 0,
+            "fillOpacity": 80,
             "gradientMode": "none",
             "hideFrom": {
               "legend": false,
               "tooltip": false,
               "viz": false
             },
-            "insertNulls": false,
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 2,
+            "lineWidth": 1
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 7,
+        "x": 11,
+        "y": 3
+      },
+      "id": 23,
+      "options": {
+        "bucketOffset": 0,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        }
+      },
+      "targets": [
+        {
+          "dataset": "`3t`",
+          "datasource": {
+            "type": "mysql",
+            "uid": "3T-MariaDB-Datasource"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT TIMESTAMPDIFF(second, update_time, NOW()) as 'seconds'\nfrom runs \nwhere exit_run=0 \nand end_time is null \nand height IS NULL",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "Run Update Delay (seconds)",
+      "type": "histogram"
+    },
+    {
+      "datasource": {
+        "type": "mysql",
+        "uid": "3T-MariaDB-Datasource"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 18,
+        "y": 3
+      },
+      "id": 24,
+      "options": {
+        "bucketOffset": 0,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        }
+      },
+      "targets": [
+        {
+          "dataset": "`3t`",
+          "datasource": {
+            "type": "mysql",
+            "uid": "3T-MariaDB-Datasource"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT CAST(JSON_EXTRACT(ann_params, '$.max_duration') AS UNSIGNED) as max_duration\nFROM runs\nWHERE end_time IS NULL AND exit_run = 0 AND height IS NULL;",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "Run Max Durations (seconds)",
+      "type": "histogram"
+    },
+    {
+      "datasource": {
+        "type": "mysql",
+        "uid": "3T-MariaDB-Datasource"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "pointSize": {
+              "fixed": 5
+            },
             "scaleDistribution": {
               "type": "linear"
             },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "dashed"
-            }
+            "show": "points"
           },
           "mappings": [],
           "thresholds": {
@@ -559,41 +628,16 @@
                 }
               }
             ]
-          },
-          {
-            "__systemRef": "hideSeriesFrom",
-            "matcher": {
-              "id": "byNames",
-              "options": {
-                "mode": "exclude",
-                "names": [
-                  "active"
-                ],
-                "prefix": "All except:",
-                "readOnly": true
-              }
-            },
-            "properties": [
-              {
-                "id": "custom.hideFrom",
-                "value": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": true
-                }
-              }
-            ]
           }
         ]
       },
       "gridPos": {
-        "h": 9,
+        "h": 7,
         "w": 24,
         "x": 0,
-        "y": 11
+        "y": 8
       },
       "id": 1,
-      "maxPerRow": 6,
       "options": {
         "legend": {
           "calcs": [],
@@ -601,6 +645,8 @@
           "placement": "bottom",
           "showLegend": true
         },
+        "series": [],
+        "seriesMapping": "auto",
         "tooltip": {
           "mode": "single",
           "sort": "none"
@@ -619,38 +665,8 @@
           "format": "table",
           "hide": false,
           "rawQuery": true,
-          "rawSql": "select start_time,live_pnl as 'active' from runs where end_time is null and exit_run = 0 and symbol in ($symbol) and host in ($host) and height is null",
+          "rawSql": "select id,live_pnl as 'active' from runs where end_time is null and exit_run = 0 and symbol in ($symbol) and host in ($host) and height is null",
           "refId": "A",
-          "sql": {
-            "columns": [
-              {
-                "parameters": [],
-                "type": "function"
-              }
-            ],
-            "groupBy": [
-              {
-                "property": {
-                  "type": "string"
-                },
-                "type": "groupBy"
-              }
-            ],
-            "limit": 50
-          }
-        },
-        {
-          "dataset": "`3t`",
-          "datasource": {
-            "type": "mysql",
-            "uid": "3T-MariaDB-Datasource"
-          },
-          "editorMode": "code",
-          "format": "table",
-          "hide": false,
-          "rawQuery": true,
-          "rawSql": "select start_time,live_pnl as 'historical' from runs where symbol in ($symbol) and height is null and host in ($host) ",
-          "refId": "B",
           "sql": {
             "columns": [
               {
@@ -671,7 +687,7 @@
         }
       ],
       "title": "Runs Simulated P&L Health $host",
-      "type": "timeseries"
+      "type": "xychart"
     },
     {
       "datasource": {
@@ -685,35 +701,22 @@
           },
           "custom": {
             "axisBorderShow": false,
-            "axisCenteredZero": true,
+            "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "",
             "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "points",
-            "fillOpacity": 0,
-            "gradientMode": "none",
             "hideFrom": {
               "legend": false,
               "tooltip": false,
               "viz": false
             },
-            "insertNulls": false,
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 2,
+            "pointSize": {
+              "fixed": 5
+            },
             "scaleDistribution": {
               "type": "linear"
             },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "line"
-            }
+            "show": "points"
           },
           "mappings": [],
           "thresholds": {
@@ -779,41 +782,16 @@
                 }
               }
             ]
-          },
-          {
-            "__systemRef": "hideSeriesFrom",
-            "matcher": {
-              "id": "byNames",
-              "options": {
-                "mode": "exclude",
-                "names": [
-                  "active"
-                ],
-                "prefix": "All except:",
-                "readOnly": true
-              }
-            },
-            "properties": [
-              {
-                "id": "custom.hideFrom",
-                "value": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": true
-                }
-              }
-            ]
           }
         ]
       },
       "gridPos": {
-        "h": 8,
+        "h": 7,
         "w": 24,
         "x": 0,
-        "y": 20
+        "y": 15
       },
       "id": 4,
-      "maxPerRow": 6,
       "options": {
         "legend": {
           "calcs": [],
@@ -821,6 +799,8 @@
           "placement": "bottom",
           "showLegend": true
         },
+        "series": [],
+        "seriesMapping": "auto",
         "tooltip": {
           "mode": "single",
           "sort": "none"
@@ -838,38 +818,8 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "select start_time,sum(position_direction) as 'active' from runs where position_direction != 0 and exit_run = 0 and end_time is null and symbol in ($symbol) and height is null and host in ($host)  group by start_time",
+          "rawSql": "select id,position_direction as 'active' from runs where position_direction != 0 and exit_run = 0 and end_time is null and symbol in ($symbol) and height is null and host in ($host)",
           "refId": "A",
-          "sql": {
-            "columns": [
-              {
-                "parameters": [],
-                "type": "function"
-              }
-            ],
-            "groupBy": [
-              {
-                "property": {
-                  "type": "string"
-                },
-                "type": "groupBy"
-              }
-            ],
-            "limit": 50
-          }
-        },
-        {
-          "dataset": "`3t`",
-          "datasource": {
-            "type": "mysql",
-            "uid": "3T-MariaDB-Datasource"
-          },
-          "editorMode": "code",
-          "format": "table",
-          "hide": false,
-          "rawQuery": true,
-          "rawSql": "select start_time,sum(position_direction) as 'historical' from runs where position_direction != 0 and height is null and host in ($host) group by start_time",
-          "refId": "B",
           "sql": {
             "columns": [
               {
@@ -890,7 +840,7 @@
         }
       ],
       "title": "Runs Position Direction $host",
-      "type": "timeseries"
+      "type": "xychart"
     },
     {
       "datasource": {
@@ -991,7 +941,7 @@
         "h": 6,
         "w": 24,
         "x": 0,
-        "y": 28
+        "y": 22
       },
       "id": 3,
       "options": {
@@ -1066,13 +1016,15 @@
             "BTC/USDC:USDC",
             "ETH/USDC:USDC",
             "HYPE/USDC:USDC",
-            "SOL/USDC:USDC"
+            "SOL/USDC:USDC",
+            "ZEC/USDC:USDC"
           ],
           "value": [
             "BTC/USDC:USDC",
             "ETH/USDC:USDC",
             "HYPE/USDC:USDC",
-            "SOL/USDC:USDC"
+            "SOL/USDC:USDC",
+            "ZEC/USDC:USDC"
           ]
         },
         "datasource": {
@@ -1096,8 +1048,8 @@
       {
         "current": {
           "selected": false,
-          "text": "0x3497f631d428",
-          "value": "0x3497f631d428"
+          "text": "celery_worker_dev",
+          "value": "celery_worker_dev"
         },
         "datasource": {
           "type": "mysql",
@@ -1120,13 +1072,13 @@
     ]
   },
   "time": {
-    "from": "now-1h",
+    "from": "now-4d",
     "to": "now"
   },
   "timepicker": {},
   "timezone": "",
-  "title": "3T Run Heath 10% EXPERIMENT",
-  "uid": "a61439a3-9e7c-44e8-a230-de86dbdac5ea",
-  "version": 16,
+  "title": "3T Run Heath 10%",
+  "uid": "ffd5b664-a5a1-4b52-811d-1a9548cbbfa0",
+  "version": 1,
   "weekStart": ""
 }

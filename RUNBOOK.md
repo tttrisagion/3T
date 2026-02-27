@@ -3,7 +3,8 @@
 ## 3T Trading Infrastructure
 
 ```
-curl -X DELETE "http://localhost:9200/jaeger-*"
+# Trace data is managed by Grafana Tempo with automatic block retention (1h).
+# To purge manually: docker volume rm 3t_tempo_data (requires stopping tempo first)
 
 cd /opt/3T
 docker compose exec mariadb /bin/bash

@@ -118,6 +118,7 @@ CREATE TABLE `runs` (
   `position_direction` int(11) NOT NULL DEFAULT 0,
   `symbol` varchar(20) DEFAULT NULL,
   `ann_params` longtext DEFAULT NULL,
+  `run_state` longtext DEFAULT NULL,
   `exit_run` tinyint(1) DEFAULT 0,
   `controller_seed` float DEFAULT NULL,
   `live_pnl` float DEFAULT NULL,
