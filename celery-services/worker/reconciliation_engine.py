@@ -223,8 +223,8 @@ def calculate_kelly_position_size(base_risk_pos_size: float, symbol: str) -> flo
             if kelly_current is None or kelly_historical is None:
                 span.add_event("No valid Kelly data - using probationary base size")
                 # we don't have enough data so treat symbol as "High Risk"
-                # Only allocate 10% of the standard size until we have more data
-                return base_risk_pos_size * 0.1
+                # allocate reduced risk until we have more historical norming
+                return base_risk_pos_size * 0.5
 
             if kelly_historical == 0:
                 span.add_event(
