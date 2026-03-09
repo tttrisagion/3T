@@ -9,7 +9,7 @@ tmp
 database/3T-blocks.sql
 database/runs.sql
 database/migrations/*
-database/init-hist*
+database/init-*
 database/internal-*
 providence/completed_runs
 providence/saved_runs
