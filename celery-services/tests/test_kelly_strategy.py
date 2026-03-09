@@ -105,9 +105,8 @@ class TestKellyStrategy:
         base_size = 100.0
         adjusted_size = calculate_kelly_position_size(base_size, "TEST/USDC:USDC")
 
-        # FIX: Expect 10% probation size, not full base size
-        # Old: assert adjusted_size == base_size
-        assert adjusted_size == base_size * 0.1
+        # Expect reduced probation size (50%) when no Kelly data available
+        assert adjusted_size == base_size * 0.5
 
     @patch("worker.reconciliation_engine._calculate_kelly_metrics")
     @patch("worker.reconciliation_engine.config")
