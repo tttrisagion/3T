@@ -585,7 +585,8 @@ def _run_supervisor():
                         )
                         break
 
-                    chosen_symbol = random.choice(eligible)
+                    weights = [leverage_map[s] for s in eligible]
+                    chosen_symbol = random.choices(eligible, weights=weights, k=1)[0]
                     chosen_leverage = leverage_map[chosen_symbol]
                     choose_idx = symb.index(chosen_symbol)
 
