@@ -17,6 +17,7 @@ import requests_mock
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "worker"))
 
 from reconciliation_engine import (
+    _get_symbol_margin_caps,
     calculate_reconciliation_action,
     get_actual_state,
     get_base_symbol,
@@ -165,33 +166,36 @@ class TestReconciliationEngine(unittest.TestCase):
         with requests_mock.Mocker() as m:
             m.get("http://localhost:8001/3T-observer.json", json=observer_data)
 
-            result, error = get_observer_state("BTC/USDC:USDC")
+            result, error, margin_used = get_observer_state("BTC/USDC:USDC")
             self.assertEqual(result, 0.00012)
             self.assertIsNone(error)
+            self.assertEqual(margin_used, 0.0)
 
     @patch("reconciliation_engine.get_local_position")
     @patch("reconciliation_engine.get_observer_state")
     def test_get_actual_state_consensus(self, mock_observer, mock_local):
         """Test consensus mechanism when positions agree"""
         mock_local.return_value = 0.00012
-        mock_observer.return_value = (0.00012, None)
+        mock_observer.return_value = (0.00012, None, 15.5)
 
-        position, has_consensus = get_actual_state("BTC/USDC:USDC")
+        position, has_consensus, margin_used = get_actual_state("BTC/USDC:USDC")
 
         self.assertTrue(has_consensus)
         self.assertEqual(position, 0.00012)
+        self.assertEqual(margin_used, 15.5)
 
     @patch("reconciliation_engine.get_local_position")
     @patch("reconciliation_engine.get_observer_state")
     def test_get_actual_state_no_consensus(self, mock_observer, mock_local):
         """Test consensus mechanism when positions disagree"""
         mock_local.return_value = 0.00012
-        mock_observer.return_value = (0.00015, None)
+        mock_observer.return_value = (0.00015, None, 10.0)
 
-        position, has_consensus = get_actual_state("BTC/USDC:USDC")
+        position, has_consensus, margin_used = get_actual_state("BTC/USDC:USDC")
 
         self.assertFalse(has_consensus)
         self.assertIsNone(position)
+        self.assertEqual(margin_used, 0.0)
 
     @patch("reconciliation_engine.get_current_price")
     @patch("reconciliation_engine.config")
@@ -448,6 +452,7 @@ class TestReconciliationEngine(unittest.TestCase):
             }
             self.assertEqual(req.json(), expected_data)
 
+    @patch("reconciliation_engine._get_symbol_margin_caps")
     @patch("reconciliation_engine.get_latest_margin_usage")
     @patch("reconciliation_engine.get_latest_balance")
     @patch("reconciliation_engine.config")
@@ -464,6 +469,7 @@ class TestReconciliationEngine(unittest.TestCase):
         mock_config,
         mock_balance,
         mock_margin,
+        mock_caps,
     ):
         """Test full reconciliation cycle"""
 
@@ -481,7 +487,7 @@ class TestReconciliationEngine(unittest.TestCase):
         mock_desired.return_value = 0.001
 
         # Mock actual state with consensus
-        mock_actual.return_value = (0.0005, True)
+        mock_actual.return_value = (0.0005, True, 50.0)
 
         # Mock reconciliation calculation
         mock_calc.return_value = (True, "buy", 0.0005)
@@ -489,6 +495,9 @@ class TestReconciliationEngine(unittest.TestCase):
         # Mock balance and margin
         mock_balance.return_value = 100000.0
         mock_margin.return_value = 100.0
+
+        # Mock symbol margin caps (no per-symbol blocking)
+        mock_caps.return_value = {"BTC/USDC:USDC": 5000.0}
 
         # Mock gateway success
         mock_gateway.return_value = True
@@ -502,27 +511,233 @@ class TestReconciliationEngine(unittest.TestCase):
         mock_calc.assert_called_once_with(0.0005, 0.001, "BTC/USDC:USDC")
         mock_gateway.assert_called_once_with("BTC/USDC:USDC", "buy", 0.0005)
 
+    @patch("reconciliation_engine._get_symbol_margin_caps")
+    @patch("reconciliation_engine.get_latest_balance")
     @patch("reconciliation_engine.config")
     @patch("reconciliation_engine.get_desired_state")
     @patch("reconciliation_engine.get_actual_state")
     def test_reconcile_positions_no_consensus(
-        self, mock_actual, mock_desired, mock_config
+        self, mock_actual, mock_desired, mock_config, mock_balance, mock_caps
     ):
         """Test reconciliation skips when no consensus"""
-        # Mock configuration
-        mock_config.get.return_value = ["BTC/USDC:USDC"]
+
+        def config_get_side_effect(key, default=None):
+            if key == "reconciliation_engine.symbols":
+                return ["BTC/USDC:USDC"]
+            if key == "reconciliation_engine.max_margin_usage_percentage":
+                return 0.01
+            return default
+
+        mock_config.get.side_effect = config_get_side_effect
+        mock_balance.return_value = 10000.0
+        mock_caps.return_value = {}
 
         # Mock desired state
         mock_desired.return_value = 0.001
 
         # Mock actual state without consensus
-        mock_actual.return_value = (None, False)
+        mock_actual.return_value = (None, False, 0.0)
 
         # Run reconciliation
         reconcile_positions()
 
         # Should skip trading due to no consensus
         mock_actual.assert_called_once_with("BTC/USDC:USDC")
+
+
+class TestSymbolMarginCaps(unittest.TestCase):
+    """Tests for per-symbol margin cap functionality."""
+
+    @patch("reconciliation_engine.get_db_connection")
+    def test_get_symbol_margin_caps_computation(self, mock_db):
+        """Test leverage-weighted margin cap calculation."""
+        mock_cursor = Mock()
+        # BTC leverage=50, ETH leverage=50 -> equal split
+        mock_cursor.fetchall.return_value = [
+            ("BTC/USDC:USDC", 50.0),
+            ("ETH/USDC:USDC", 50.0),
+        ]
+        mock_conn = Mock()
+        mock_conn.cursor.return_value = mock_cursor
+        mock_conn.__enter__ = Mock(return_value=mock_conn)
+        mock_conn.__exit__ = Mock(return_value=None)
+        mock_db.return_value = mock_conn
+
+        caps = _get_symbol_margin_caps(["BTC/USDC:USDC", "ETH/USDC:USDC"], 1000.0)
+
+        self.assertAlmostEqual(caps["BTC/USDC:USDC"], 500.0)
+        self.assertAlmostEqual(caps["ETH/USDC:USDC"], 500.0)
+
+    @patch("reconciliation_engine.get_db_connection")
+    def test_get_symbol_margin_caps_unequal_leverage(self, mock_db):
+        """Test caps with unequal leverage (higher leverage gets larger share)."""
+        mock_cursor = Mock()
+        # BTC leverage=50, HYPE leverage=5 -> BTC gets 50/55, HYPE gets 5/55
+        mock_cursor.fetchall.return_value = [
+            ("BTC/USDC:USDC", 50.0),
+            ("HYPE/USDC:USDC", 5.0),
+        ]
+        mock_conn = Mock()
+        mock_conn.cursor.return_value = mock_cursor
+        mock_conn.__enter__ = Mock(return_value=mock_conn)
+        mock_conn.__exit__ = Mock(return_value=None)
+        mock_db.return_value = mock_conn
+
+        caps = _get_symbol_margin_caps(["BTC/USDC:USDC", "HYPE/USDC:USDC"], 1100.0)
+
+        self.assertAlmostEqual(caps["BTC/USDC:USDC"], 1000.0)
+        self.assertAlmostEqual(caps["HYPE/USDC:USDC"], 100.0)
+
+    @patch("reconciliation_engine.get_db_connection")
+    def test_get_symbol_margin_caps_db_failure_returns_empty(self, mock_db):
+        """Test graceful fallback on DB failure."""
+        mock_db.side_effect = Exception("DB connection failed")
+
+        caps = _get_symbol_margin_caps(["BTC/USDC:USDC"], 1000.0)
+
+        self.assertEqual(caps, {})
+
+    def test_get_symbol_margin_caps_empty_symbols(self):
+        """Test with empty symbol list."""
+        caps = _get_symbol_margin_caps([], 1000.0)
+        self.assertEqual(caps, {})
+
+    @patch("reconciliation_engine._get_symbol_margin_caps")
+    @patch("reconciliation_engine.get_latest_margin_usage")
+    @patch("reconciliation_engine.get_latest_balance")
+    @patch("reconciliation_engine.config")
+    @patch("reconciliation_engine.get_desired_state")
+    @patch("reconciliation_engine.get_actual_state")
+    @patch("reconciliation_engine.calculate_reconciliation_action")
+    @patch("reconciliation_engine.send_order_to_gateway")
+    def test_symbol_over_cap_clamps_desired_position(
+        self,
+        mock_gateway,
+        mock_calc,
+        mock_actual,
+        mock_desired,
+        mock_config,
+        mock_balance,
+        mock_margin,
+        mock_caps,
+    ):
+        """Test that a symbol over its margin cap has desired position scaled down,
+        causing reconciliation to reduce the position."""
+
+        def config_get_side_effect(key, default=None):
+            if key == "reconciliation_engine.symbols":
+                return ["HYPE/USDC:USDC"]
+            if key == "reconciliation_engine.max_margin_usage_percentage":
+                return 0.10
+            return default
+
+        mock_config.get.side_effect = config_get_side_effect
+        # Desired: 100 units, Actual: 80 units, margin_used=500 but cap=250
+        mock_desired.return_value = 100.0
+        mock_actual.return_value = (80.0, True, 500.0)
+        # After clamping: desired = 100 * (250/500) = 50.0
+        # Reconciliation sees actual=80, desired=50 -> sell to reduce
+        mock_calc.return_value = (True, "sell", -30.0)
+        mock_balance.return_value = 10000.0
+        mock_margin.return_value = 100.0  # Under global cap
+        mock_caps.return_value = {"HYPE/USDC:USDC": 250.0}
+
+        mock_gateway.return_value = True
+
+        reconcile_positions()
+
+        # Reconciliation should have been called with clamped desired (50.0)
+        mock_calc.assert_called_once_with(80.0, 50.0, "HYPE/USDC:USDC")
+        # Trade executes to reduce the position
+        mock_gateway.assert_called_once()
+
+    @patch("reconciliation_engine._get_symbol_margin_caps")
+    @patch("reconciliation_engine.get_latest_margin_usage")
+    @patch("reconciliation_engine.get_latest_balance")
+    @patch("reconciliation_engine.config")
+    @patch("reconciliation_engine.get_desired_state")
+    @patch("reconciliation_engine.get_actual_state")
+    @patch("reconciliation_engine.calculate_reconciliation_action")
+    @patch("reconciliation_engine.send_order_to_gateway")
+    def test_symbol_under_cap_desired_position_unchanged(
+        self,
+        mock_gateway,
+        mock_calc,
+        mock_actual,
+        mock_desired,
+        mock_config,
+        mock_balance,
+        mock_margin,
+        mock_caps,
+    ):
+        """Test that a symbol under its margin cap has desired position unchanged."""
+
+        def config_get_side_effect(key, default=None):
+            if key == "reconciliation_engine.symbols":
+                return ["BTC/USDC:USDC"]
+            if key == "reconciliation_engine.max_margin_usage_percentage":
+                return 0.10
+            return default
+
+        mock_config.get.side_effect = config_get_side_effect
+        mock_desired.return_value = 0.001
+        mock_actual.return_value = (0.0005, True, 200.0)  # margin_used=200
+        mock_calc.return_value = (True, "buy", 0.0005)
+        mock_balance.return_value = 10000.0
+        mock_margin.return_value = 200.0  # Under global cap
+        mock_caps.return_value = {"BTC/USDC:USDC": 500.0}  # cap=500 > used=200
+
+        mock_gateway.return_value = True
+
+        reconcile_positions()
+
+        # Desired position should be passed through unclamped
+        mock_calc.assert_called_once_with(0.0005, 0.001, "BTC/USDC:USDC")
+        mock_gateway.assert_called_once()
+
+    @patch("reconciliation_engine._get_symbol_margin_caps")
+    @patch("reconciliation_engine.get_latest_margin_usage")
+    @patch("reconciliation_engine.get_latest_balance")
+    @patch("reconciliation_engine.config")
+    @patch("reconciliation_engine.get_desired_state")
+    @patch("reconciliation_engine.get_actual_state")
+    @patch("reconciliation_engine.calculate_reconciliation_action")
+    @patch("reconciliation_engine.send_order_to_gateway")
+    def test_db_failure_skips_per_symbol_clamp(
+        self,
+        mock_gateway,
+        mock_calc,
+        mock_actual,
+        mock_desired,
+        mock_config,
+        mock_balance,
+        mock_margin,
+        mock_caps,
+    ):
+        """Test that DB failure for caps (empty dict) passes desired position through."""
+
+        def config_get_side_effect(key, default=None):
+            if key == "reconciliation_engine.symbols":
+                return ["BTC/USDC:USDC"]
+            if key == "reconciliation_engine.max_margin_usage_percentage":
+                return 0.10
+            return default
+
+        mock_config.get.side_effect = config_get_side_effect
+        mock_desired.return_value = 0.001
+        mock_actual.return_value = (0.0005, True, 900.0)  # High margin
+        mock_calc.return_value = (True, "buy", 0.0005)
+        mock_balance.return_value = 10000.0
+        mock_margin.return_value = 500.0  # Under global cap
+        mock_caps.return_value = {}  # DB failure -> empty dict -> no clamp
+
+        mock_gateway.return_value = True
+
+        reconcile_positions()
+
+        # Desired position passed through unclamped
+        mock_calc.assert_called_once_with(0.0005, 0.001, "BTC/USDC:USDC")
+        mock_gateway.assert_called_once()
 
 
 if __name__ == "__main__":

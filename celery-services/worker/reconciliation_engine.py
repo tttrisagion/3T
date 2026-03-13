@@ -497,7 +497,55 @@ def get_current_price(symbol: str) -> float | None:
         return None
 
 
-def get_observer_state(symbol: str) -> tuple[float | None, str | None]:
+def _get_symbol_margin_caps(symbols: list[str], max_margin: float) -> dict[str, float]:
+    """
+    Compute per-symbol margin caps using leverage-weighted fractions from the products table.
+
+    Args:
+        symbols: List of trading symbols
+        max_margin: Total margin budget in USD (balance * max_margin_usage_percentage)
+
+    Returns:
+        Dict of {symbol: cap_in_usd}. Empty dict on failure (caller should skip per-symbol check).
+    """
+    if not symbols or max_margin <= 0:
+        return {}
+
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            placeholders = ", ".join(["%s"] * len(symbols))
+            cursor.execute(
+                f"SELECT symbol, max_leverage FROM products WHERE symbol IN ({placeholders})",
+                tuple(symbols),
+            )
+            leverage_map = {}
+            for row in cursor.fetchall():
+                lev = float(row[1]) if row[1] else 1.0
+                leverage_map[str(row[0])] = max(lev, 1.0)
+
+        # Fill missing symbols with leverage=1
+        for s in symbols:
+            if s not in leverage_map:
+                leverage_map[s] = 1.0
+
+        total_leverage = sum(leverage_map.values())
+        if total_leverage <= 0:
+            return {}
+
+        return {
+            symbol: (leverage_map[symbol] / total_leverage) * max_margin
+            for symbol in symbols
+        }
+
+    except Exception as e:
+        print(f"Error computing symbol margin caps: {e}")
+        return {}
+
+
+def get_observer_state(
+    symbol: str,
+) -> tuple[float | None, str | None, float]:
     """
     Get position from external observer node and perform safety checks.
 
@@ -505,9 +553,10 @@ def get_observer_state(symbol: str) -> tuple[float | None, str | None]:
         symbol: The trading symbol (e.g., 'BTC/USDC:USDC')
 
     Returns:
-        Tuple of (position_size, error_message)
+        Tuple of (position_size, error_message, margin_used)
         - position_size: Position size, or None if validation fails.
         - error_message: A string describing the error, or None if successful.
+        - margin_used: Margin used for this position (0.0 if unavailable).
     """
     observer_nodes = config.get(
         "reconciliation_engine.observer_nodes",
@@ -517,7 +566,7 @@ def get_observer_state(symbol: str) -> tuple[float | None, str | None]:
     max_heartbeat_age = timedelta(minutes=5)
 
     if not wallet_address:
-        return None, "No wallet address configured"
+        return None, "No wallet address configured", 0.0
 
     for observer_url in observer_nodes:
         try:
@@ -528,11 +577,11 @@ def get_observer_state(symbol: str) -> tuple[float | None, str | None]:
             # Check heartbeat
             timestamp_str = observer_data.get("timestamp")
             if not timestamp_str:
-                return None, f"Observer {observer_url} has no timestamp"
+                return None, f"Observer {observer_url} has no timestamp", 0.0
 
             timestamp = datetime.fromisoformat(timestamp_str)
             if datetime.now(UTC) - timestamp > max_heartbeat_age:
-                return None, f"Observer {observer_url} data is stale"
+                return None, f"Observer {observer_url} data is stale", 0.0
 
             # Check for wallet presence
             positions = observer_data.get("positions", {})
@@ -540,6 +589,7 @@ def get_observer_state(symbol: str) -> tuple[float | None, str | None]:
                 return (
                     None,
                     f"Wallet {wallet_address} not found in observer {observer_url}",
+                    0.0,
                 )
 
             # Extract position
@@ -550,28 +600,29 @@ def get_observer_state(symbol: str) -> tuple[float | None, str | None]:
             for asset_pos in asset_positions:
                 position_data = asset_pos.get("position", {})
                 if position_data.get("coin", "").upper() == base_symbol.upper():
-                    return float(position_data.get("szi", 0)), None
+                    margin_used = float(position_data.get("marginUsed", 0))
+                    return float(position_data.get("szi", 0)), None, margin_used
 
             # If no position found, it's a flat position
-            return 0.0, None
+            return 0.0, None, 0.0
 
         except requests.RequestException as e:
             print(f"Could not connect to observer {observer_url}: {e}")
             continue  # Try next observer
         except (ValueError, KeyError) as e:
-            return None, f"Invalid data from observer {observer_url}: {e}"
+            return None, f"Invalid data from observer {observer_url}: {e}", 0.0
 
-    return None, "All observers failed"
+    return None, "All observers failed", 0.0
 
 
-def get_actual_state(symbol: str) -> tuple[float | None, bool]:
+def get_actual_state(symbol: str) -> tuple[float | None, bool, float]:
     """
     Get the actual position state using consensus between local positions table
     and external observer node.
     Args:
         symbol: The trading symbol
     Returns:
-        Tuple of (position_size, has_consensus)
+        Tuple of (position_size, has_consensus, margin_used)
     """
     with tracer.start_as_current_span("get_actual_state") as span:
         span.set_attribute("symbol", symbol)
@@ -584,12 +635,12 @@ def get_actual_state(symbol: str) -> tuple[float | None, bool]:
             )
 
             # Get position from observer node
-            observer_position, error_message = get_observer_state(symbol)
+            observer_position, error_message, margin_used = get_observer_state(symbol)
 
             if error_message:
                 span.add_event("Observer validation failed", {"error": error_message})
                 print(f"Observer validation failed for {symbol}: {error_message}")
-                return None, False
+                return None, False, 0.0
 
             span.set_attribute(
                 "observer_position", observer_position if observer_position else 0.0
@@ -612,7 +663,7 @@ def get_actual_state(symbol: str) -> tuple[float | None, bool]:
                         "observer_position": observer_pos,
                     },
                 )
-                return consensus_position, True
+                return consensus_position, True, margin_used
 
             span.add_event(
                 "No consensus",
@@ -622,13 +673,13 @@ def get_actual_state(symbol: str) -> tuple[float | None, bool]:
                     "difference": abs(local_pos - observer_pos),
                 },
             )
-            return None, False
+            return None, False, 0.0
 
         except Exception as e:
             span.record_exception(e)
             span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
             print(f"Error getting actual state for {symbol}: {e}")
-            return None, False
+            return None, False, 0.0
 
 
 def get_local_position(symbol: str) -> float | None:
@@ -880,6 +931,19 @@ def reconcile_positions(self):
             symbols = config.get("reconciliation_engine.symbols", ["BTC", "ETH"])
             span.set_attribute("symbols_count", len(symbols))
 
+            # Pre-compute per-symbol margin caps using leverage weights
+            latest_balance_for_caps = get_latest_balance()
+            max_margin_pct = config.get(
+                "reconciliation_engine.max_margin_usage_percentage", 0.01
+            )
+            if latest_balance_for_caps:
+                total_margin_budget = latest_balance_for_caps * max_margin_pct
+                symbol_margin_caps = _get_symbol_margin_caps(
+                    symbols, total_margin_budget
+                )
+            else:
+                symbol_margin_caps = {}
+
             for symbol in symbols:
                 with tracer.start_as_current_span("reconcile_symbol") as symbol_span:
                     symbol_span.set_attribute("symbol", symbol)
@@ -889,7 +953,9 @@ def reconcile_positions(self):
                         desired_position = get_desired_state(symbol)
 
                         # Get actual state with consensus
-                        actual_position, has_consensus = get_actual_state(symbol)
+                        actual_position, has_consensus, symbol_margin_used = (
+                            get_actual_state(symbol)
+                        )
 
                         if not has_consensus:
                             print(f"No consensus for {symbol} - skipping trade")
@@ -902,6 +968,36 @@ def reconcile_positions(self):
                             print(f"Could not determine actual position for {symbol}")
                             symbol_span.add_event("Could not determine actual position")
                             continue
+
+                        # Clamp desired position to per-symbol margin cap
+                        if (
+                            symbol_margin_caps
+                            and symbol in symbol_margin_caps
+                            and symbol_margin_used > 0
+                            and abs(desired_position) > 1e-8
+                        ):
+                            symbol_cap = symbol_margin_caps[symbol]
+                            if symbol_margin_used > symbol_cap:
+                                scale = symbol_cap / symbol_margin_used
+                                original = desired_position
+                                desired_position = desired_position * scale
+                                symbol_span.add_event(
+                                    "Desired position clamped by per-symbol margin cap",
+                                    {
+                                        "symbol": symbol,
+                                        "original_desired": original,
+                                        "clamped_desired": desired_position,
+                                        "symbol_margin_used": symbol_margin_used,
+                                        "symbol_margin_cap": symbol_cap,
+                                        "scale_factor": scale,
+                                    },
+                                )
+                                print(
+                                    f"Per-symbol margin cap: {symbol} using "
+                                    f"${symbol_margin_used:.2f} of "
+                                    f"${symbol_cap:.2f} cap. Scaling desired "
+                                    f"position from {original} to {desired_position}."
+                                )
 
                         # Calculate reconciliation action
                         (

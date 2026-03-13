@@ -464,9 +464,7 @@ def providence_iteration_scheduler(self):
             "providence:iteration_scheduler:lock", "1", nx=True, ex=30
         )
         if not lock_acquired:
-            logger.info(
-                "Iteration scheduler: Another instance is running, skipping."
-            )
+            logger.info("Iteration scheduler: Another instance is running, skipping.")
             return
 
     db_cnx = None
