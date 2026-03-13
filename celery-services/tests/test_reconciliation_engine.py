@@ -19,6 +19,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "..", "worker"))
 from reconciliation_engine import (
     _get_symbol_margin_caps,
     calculate_reconciliation_action,
+    cancel_all_open_orders,
     get_actual_state,
     get_base_symbol,
     get_current_price,
@@ -452,6 +453,7 @@ class TestReconciliationEngine(unittest.TestCase):
             }
             self.assertEqual(req.json(), expected_data)
 
+    @patch("reconciliation_engine.cancel_all_open_orders")
     @patch("reconciliation_engine._get_symbol_margin_caps")
     @patch("reconciliation_engine.get_latest_margin_usage")
     @patch("reconciliation_engine.get_latest_balance")
@@ -470,6 +472,7 @@ class TestReconciliationEngine(unittest.TestCase):
         mock_balance,
         mock_margin,
         mock_caps,
+        mock_cancel,
     ):
         """Test full reconciliation cycle"""
 
@@ -511,13 +514,20 @@ class TestReconciliationEngine(unittest.TestCase):
         mock_calc.assert_called_once_with(0.0005, 0.001, "BTC/USDC:USDC")
         mock_gateway.assert_called_once_with("BTC/USDC:USDC", "buy", 0.0005)
 
+    @patch("reconciliation_engine.cancel_all_open_orders")
     @patch("reconciliation_engine._get_symbol_margin_caps")
     @patch("reconciliation_engine.get_latest_balance")
     @patch("reconciliation_engine.config")
     @patch("reconciliation_engine.get_desired_state")
     @patch("reconciliation_engine.get_actual_state")
     def test_reconcile_positions_no_consensus(
-        self, mock_actual, mock_desired, mock_config, mock_balance, mock_caps
+        self,
+        mock_actual,
+        mock_desired,
+        mock_config,
+        mock_balance,
+        mock_caps,
+        mock_cancel,
     ):
         """Test reconciliation skips when no consensus"""
 
@@ -602,6 +612,7 @@ class TestSymbolMarginCaps(unittest.TestCase):
         caps = _get_symbol_margin_caps([], 1000.0)
         self.assertEqual(caps, {})
 
+    @patch("reconciliation_engine.cancel_all_open_orders")
     @patch("reconciliation_engine._get_symbol_margin_caps")
     @patch("reconciliation_engine.get_latest_margin_usage")
     @patch("reconciliation_engine.get_latest_balance")
@@ -620,6 +631,7 @@ class TestSymbolMarginCaps(unittest.TestCase):
         mock_balance,
         mock_margin,
         mock_caps,
+        mock_cancel,
     ):
         """Test that a symbol over its margin cap has desired position scaled down,
         causing reconciliation to reduce the position."""
@@ -653,6 +665,7 @@ class TestSymbolMarginCaps(unittest.TestCase):
         # Trade executes to reduce the position
         mock_gateway.assert_called_once()
 
+    @patch("reconciliation_engine.cancel_all_open_orders")
     @patch("reconciliation_engine._get_symbol_margin_caps")
     @patch("reconciliation_engine.get_latest_margin_usage")
     @patch("reconciliation_engine.get_latest_balance")
@@ -671,6 +684,7 @@ class TestSymbolMarginCaps(unittest.TestCase):
         mock_balance,
         mock_margin,
         mock_caps,
+        mock_cancel,
     ):
         """Test that margin_cap_multiplier allows a symbol to exceed its base share."""
 
@@ -701,6 +715,7 @@ class TestSymbolMarginCaps(unittest.TestCase):
         mock_calc.assert_called_once_with(80.0, 100.0, "HYPE/USDC:USDC")
         mock_gateway.assert_called_once()
 
+    @patch("reconciliation_engine.cancel_all_open_orders")
     @patch("reconciliation_engine._get_symbol_margin_caps")
     @patch("reconciliation_engine.get_latest_margin_usage")
     @patch("reconciliation_engine.get_latest_balance")
@@ -719,6 +734,7 @@ class TestSymbolMarginCaps(unittest.TestCase):
         mock_balance,
         mock_margin,
         mock_caps,
+        mock_cancel,
     ):
         """Test that a symbol under its margin cap has desired position unchanged."""
 
@@ -747,6 +763,7 @@ class TestSymbolMarginCaps(unittest.TestCase):
         mock_calc.assert_called_once_with(0.0005, 0.001, "BTC/USDC:USDC")
         mock_gateway.assert_called_once()
 
+    @patch("reconciliation_engine.cancel_all_open_orders")
     @patch("reconciliation_engine._get_symbol_margin_caps")
     @patch("reconciliation_engine.get_latest_margin_usage")
     @patch("reconciliation_engine.get_latest_balance")
@@ -765,6 +782,7 @@ class TestSymbolMarginCaps(unittest.TestCase):
         mock_balance,
         mock_margin,
         mock_caps,
+        mock_cancel,
     ):
         """Test that DB failure for caps (empty dict) passes desired position through."""
 
@@ -792,6 +810,59 @@ class TestSymbolMarginCaps(unittest.TestCase):
         # Desired position passed through unclamped
         mock_calc.assert_called_once_with(0.0005, 0.001, "BTC/USDC:USDC")
         mock_gateway.assert_called_once()
+
+
+class TestCancelAllOpenOrders(unittest.TestCase):
+    """Tests for cancel_all_open_orders functionality."""
+
+    @patch("reconciliation_engine.exchange_manager")
+    def test_cancel_finds_and_cancels_orders(self, mock_em):
+        """Test that open orders are fetched and cancelled per symbol."""
+        mock_exchange = Mock()
+        mock_em.get_exchange.return_value = mock_exchange
+
+        # BTC has 2 open orders, ETH has none
+        mock_exchange.fetch_open_orders.side_effect = [
+            [{"id": "order1"}, {"id": "order2"}],
+            [],
+        ]
+
+        cancel_all_open_orders(["BTC/USDC:USDC", "ETH/USDC:USDC"])
+
+        mock_exchange.fetch_open_orders.assert_any_call("BTC/USDC:USDC")
+        mock_exchange.fetch_open_orders.assert_any_call("ETH/USDC:USDC")
+        mock_exchange.cancel_orders.assert_called_once_with(
+            ["order1", "order2"], "BTC/USDC:USDC"
+        )
+
+    @patch("reconciliation_engine.exchange_manager")
+    def test_cancel_exchange_error_is_non_fatal(self, mock_em):
+        """Test that exchange errors don't propagate — reconciliation continues."""
+        mock_exchange = Mock()
+        mock_em.get_exchange.return_value = mock_exchange
+        mock_exchange.fetch_open_orders.side_effect = Exception("network error")
+
+        # Should not raise
+        cancel_all_open_orders(["BTC/USDC:USDC"])
+
+    @patch("reconciliation_engine.exchange_manager")
+    def test_cancel_get_exchange_failure_is_non_fatal(self, mock_em):
+        """Test that failure to get exchange doesn't block reconciliation."""
+        mock_em.get_exchange.side_effect = Exception("circuit breaker open")
+
+        # Should not raise
+        cancel_all_open_orders(["BTC/USDC:USDC"])
+
+    @patch("reconciliation_engine.exchange_manager")
+    def test_cancel_no_open_orders(self, mock_em):
+        """Test that no cancel call is made when there are no open orders."""
+        mock_exchange = Mock()
+        mock_em.get_exchange.return_value = mock_exchange
+        mock_exchange.fetch_open_orders.return_value = []
+
+        cancel_all_open_orders(["BTC/USDC:USDC"])
+
+        mock_exchange.cancel_orders.assert_not_called()
 
 
 if __name__ == "__main__":

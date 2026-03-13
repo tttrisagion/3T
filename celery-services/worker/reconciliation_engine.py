@@ -18,6 +18,7 @@ from opentelemetry import trace
 from shared.celery_app import app
 from shared.config import config
 from shared.database import get_db_connection
+from shared.exchange_manager import exchange_manager
 from shared.opentelemetry_config import get_tracer
 
 # Get a tracer
@@ -913,6 +914,55 @@ def send_order_to_gateway(symbol: str, side: str, size: float) -> bool:
             return False
 
 
+def cancel_all_open_orders(symbols):
+    """
+    Cancel all open orders across configured symbols.
+
+    Called at the start of each reconciliation cycle to ensure a clean slate.
+    Uses fetch_open_orders + cancel_orders per symbol since cancel_all_orders
+    is not supported on HyperLiquid via ccxt.
+
+    Non-fatal: logs warnings on failure without blocking reconciliation.
+    """
+    with tracer.start_as_current_span("cancel_all_open_orders") as span:
+        span.set_attribute("symbols_count", len(symbols))
+        total_cancelled = 0
+
+        try:
+            exchange = exchange_manager.get_exchange()
+        except Exception as e:
+            print(f"Warning: could not get exchange for order cancellation: {e}")
+            span.record_exception(e)
+            return
+
+        for symbol in symbols:
+            try:
+                open_orders = exchange.fetch_open_orders(symbol)
+                if not open_orders:
+                    continue
+
+                order_ids = [order["id"] for order in open_orders]
+                span.add_event(
+                    f"Cancelling {len(order_ids)} open orders for {symbol}",
+                    {"symbol": symbol, "order_count": len(order_ids)},
+                )
+
+                exchange.cancel_orders(order_ids, symbol)
+                total_cancelled += len(order_ids)
+                print(
+                    f"Cancelled {len(order_ids)} open orders for {symbol}: {order_ids}"
+                )
+
+            except Exception as e:
+                print(f"Warning: failed to cancel orders for {symbol}: {e}")
+                span.add_event(
+                    f"Failed to cancel orders for {symbol}",
+                    {"symbol": symbol, "error": str(e)},
+                )
+
+        span.set_attribute("total_cancelled", total_cancelled)
+
+
 @app.task(bind=True)
 def reconcile_positions(self):
     """
@@ -930,6 +980,9 @@ def reconcile_positions(self):
         try:
             symbols = config.get("reconciliation_engine.symbols", ["BTC", "ETH"])
             span.set_attribute("symbols_count", len(symbols))
+
+            # Cancel all open orders before reconciling to ensure a clean slate
+            cancel_all_open_orders(symbols)
 
             # Pre-compute per-symbol margin caps using leverage weights
             latest_balance_for_caps = get_latest_balance()
