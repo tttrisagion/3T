@@ -20,7 +20,7 @@ services:
     build:
       context: .
       dockerfile: celery-services/Dockerfile
-    command: celery -A worker.tasks worker --pool=eventlet --loglevel=info --concurrency=50 -Q high_priority,low_priority
+    command: celery -A worker.tasks worker --pool=eventlet --loglevel=info --concurrency=50 -Q low_priority
     deploy:
       replicas: 16
     mem_limit: 4g
@@ -43,6 +43,48 @@ services:
       - CELERY_WORKER_POOL=eventlet
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318/v1/traces
       - OTEL_SERVICE_NAME=celery_worker
+    healthcheck:
+      test: ["CMD", "python", "-c", "from shared.exchange_manager import exchange_manager; exchange_manager.get_exchange()"]
+      interval: 300s
+      timeout: 30s
+      retries: 3
+      start_period: 60s
+    depends_on:
+      redis:
+        condition: service_started
+      mariadb:
+        condition: service_started
+      otel-collector:
+        condition: service_started
+    restart: unless-stopped
+
+  celery_worker_high:
+    build:
+      context: .
+      dockerfile: celery-services/Dockerfile
+    command: celery -A worker.tasks worker --pool=eventlet --loglevel=info --concurrency=50 -Q high_priority
+    deploy:
+      replicas: 2
+    mem_limit: 4g
+    memswap_limit: 4g
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    volumes:
+      - ./config.yml:/app/config.yml
+      - ./secrets.yml:/app/secrets.yml
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+    environment:
+      - PYTHONPATH=/app
+      - HOSTNAME=celery_worker_high
+      - CELERY_WORKER_POOL=eventlet
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318/v1/traces
+      - OTEL_SERVICE_NAME=celery_worker_high
     healthcheck:
       test: ["CMD", "python", "-c", "from shared.exchange_manager import exchange_manager; exchange_manager.get_exchange()"]
       interval: 300s
@@ -100,6 +142,7 @@ services:
     depends_on:
       - redis
       - celery_worker
+      - celery_worker_high
       - otel-collector
     restart: unless-stopped
 
@@ -182,6 +225,7 @@ services:
     depends_on:
       - redis
       - celery_worker
+      - celery_worker_high
     restart: unless-stopped
 
   prometheus:
