@@ -87,6 +87,11 @@ reconciliation_engine:
     - "http://3tche01.trisagion.xyz:8001/3T-observer.json"
     - "http://exchange-observer:8001/3T-observer.json"
   
+  # Per-symbol margin cap multiplier. The base cap is the symbol's leverage-weighted
+  # share of the total margin budget. This multiplier allows symbols with strong
+  # performance to exceed their base share. 1 = strict (no excess), 10 = generous.
+  margin_cap_multiplier: 1
+
   # Order gateway URL for trade execution
   order_gateway_url: "http://order-gateway:8002"
   

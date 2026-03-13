@@ -970,13 +970,18 @@ def reconcile_positions(self):
                             continue
 
                         # Clamp desired position to per-symbol margin cap
+                        margin_cap_multiplier = config.get(
+                            "reconciliation_engine.margin_cap_multiplier", 1
+                        )
                         if (
                             symbol_margin_caps
                             and symbol in symbol_margin_caps
                             and symbol_margin_used > 0
                             and abs(desired_position) > 1e-8
                         ):
-                            symbol_cap = symbol_margin_caps[symbol]
+                            symbol_cap = (
+                                symbol_margin_caps[symbol] * margin_cap_multiplier
+                            )
                             if symbol_margin_used > symbol_cap:
                                 scale = symbol_cap / symbol_margin_used
                                 original = desired_position

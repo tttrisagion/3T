@@ -629,6 +629,8 @@ class TestSymbolMarginCaps(unittest.TestCase):
                 return ["HYPE/USDC:USDC"]
             if key == "reconciliation_engine.max_margin_usage_percentage":
                 return 0.10
+            if key == "reconciliation_engine.margin_cap_multiplier":
+                return 1  # strict, no excess allowed
             return default
 
         mock_config.get.side_effect = config_get_side_effect
@@ -659,6 +661,54 @@ class TestSymbolMarginCaps(unittest.TestCase):
     @patch("reconciliation_engine.get_actual_state")
     @patch("reconciliation_engine.calculate_reconciliation_action")
     @patch("reconciliation_engine.send_order_to_gateway")
+    def test_margin_cap_multiplier_softens_clamp(
+        self,
+        mock_gateway,
+        mock_calc,
+        mock_actual,
+        mock_desired,
+        mock_config,
+        mock_balance,
+        mock_margin,
+        mock_caps,
+    ):
+        """Test that margin_cap_multiplier allows a symbol to exceed its base share."""
+
+        def config_get_side_effect(key, default=None):
+            if key == "reconciliation_engine.symbols":
+                return ["HYPE/USDC:USDC"]
+            if key == "reconciliation_engine.max_margin_usage_percentage":
+                return 0.10
+            if key == "reconciliation_engine.margin_cap_multiplier":
+                return 10  # generous: cap becomes 250*10=2500
+            return default
+
+        mock_config.get.side_effect = config_get_side_effect
+        # margin_used=500, base cap=250, effective cap=250*10=2500
+        # 500 < 2500 so no clamping
+        mock_desired.return_value = 100.0
+        mock_actual.return_value = (80.0, True, 500.0)
+        mock_calc.return_value = (True, "buy", 20.0)
+        mock_balance.return_value = 10000.0
+        mock_margin.return_value = 500.0
+        mock_caps.return_value = {"HYPE/USDC:USDC": 250.0}
+
+        mock_gateway.return_value = True
+
+        reconcile_positions()
+
+        # Desired position should pass through unclamped (500 < 2500 effective cap)
+        mock_calc.assert_called_once_with(80.0, 100.0, "HYPE/USDC:USDC")
+        mock_gateway.assert_called_once()
+
+    @patch("reconciliation_engine._get_symbol_margin_caps")
+    @patch("reconciliation_engine.get_latest_margin_usage")
+    @patch("reconciliation_engine.get_latest_balance")
+    @patch("reconciliation_engine.config")
+    @patch("reconciliation_engine.get_desired_state")
+    @patch("reconciliation_engine.get_actual_state")
+    @patch("reconciliation_engine.calculate_reconciliation_action")
+    @patch("reconciliation_engine.send_order_to_gateway")
     def test_symbol_under_cap_desired_position_unchanged(
         self,
         mock_gateway,
@@ -677,6 +727,8 @@ class TestSymbolMarginCaps(unittest.TestCase):
                 return ["BTC/USDC:USDC"]
             if key == "reconciliation_engine.max_margin_usage_percentage":
                 return 0.10
+            if key == "reconciliation_engine.margin_cap_multiplier":
+                return 1
             return default
 
         mock_config.get.side_effect = config_get_side_effect
@@ -721,6 +773,8 @@ class TestSymbolMarginCaps(unittest.TestCase):
                 return ["BTC/USDC:USDC"]
             if key == "reconciliation_engine.max_margin_usage_percentage":
                 return 0.10
+            if key == "reconciliation_engine.margin_cap_multiplier":
+                return 1
             return default
 
         mock_config.get.side_effect = config_get_side_effect
