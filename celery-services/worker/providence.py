@@ -454,8 +454,21 @@ def _save_state(run_id, state):
 def providence_iteration_scheduler(self):
     """
     Periodically spawns trading iterations for all active runs.
-    This runs every 2 seconds and kicks off an iteration task for each active run.
+    Uses a Redis distributed lock to prevent concurrent execution across replicas.
     """
+    from shared.database import get_redis_connection
+
+    # Distributed lock: only one scheduler runs at a time across all replicas
+    with get_redis_connection(decode_responses=False) as r:
+        lock_acquired = r.set(
+            "providence:iteration_scheduler:lock", "1", nx=True, ex=30
+        )
+        if not lock_acquired:
+            logger.info(
+                "Iteration scheduler: Another instance is running, skipping."
+            )
+            return
+
     db_cnx = None
     try:
         db_cnx = get_db_connection()
