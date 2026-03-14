@@ -44,54 +44,54 @@ class PricePollProducer:
         # Exchange will be fetched in the run loop to ensure failover resilience.
         print("Polling producer: Exchange manager will be initialized in the run loop.")
 
-    def fetch_latest_prices(self, exchange, symbols):
+    def _fetch_ticker_group(self, exchange, symbols, params, span):
+        """Fetch tickers for a group of symbols with the given params."""
+        prices = {}
+        try:
+            tickers = exchange_manager.execute_with_retry(
+                exchange.fetch_tickers, symbols, params
+            )
+            for symbol in symbols:
+                if symbol in tickers:
+                    ticker = tickers[symbol]
+                    if ticker and "last" in ticker and ticker["last"] is not None:
+                        prices[symbol] = ticker["last"]
+                        span.add_event(f"Fetched price for {symbol}: {ticker['last']}")
+                    else:
+                        print(f"No price data available for {symbol}")
+                else:
+                    print(f"Symbol {symbol} not found in ticker response")
+        except Exception as e:
+            print(f"Error fetching tickers ({params}): {e}")
+            span.record_exception(e)
+        return prices
+
+    def fetch_latest_prices(self, exchange, symbols, hip3_symbols):
         """
         Fetch latest prices for given symbols using REST API.
         Uses fetch_tickers() to get all prices in one call for better performance.
         Returns dict of symbol -> price
         """
         with tracer.start_as_current_span("fetch_latest_prices") as span:
-            span.set_attribute("symbols.count", len(symbols))
+            span.set_attribute("symbols.count", len(symbols) + len(hip3_symbols))
 
             prices = {}
 
-            try:
-                # Fetch all tickers at once for much better performance
-                print(f"Fetching tickers for {len(symbols)} symbols...")
-                tickers = exchange_manager.execute_with_retry(
-                    exchange.fetch_tickers, symbols
+            # Fetch native perps with explicit type to avoid fetching all market types
+            if symbols:
+                print(f"Fetching tickers for {len(symbols)} swap symbols...")
+                prices.update(
+                    self._fetch_ticker_group(exchange, symbols, {"type": "swap"}, span)
                 )
 
-                for symbol in symbols:
-                    if symbol in tickers:
-                        ticker = tickers[symbol]
-                        if ticker and "last" in ticker and ticker["last"] is not None:
-                            prices[symbol] = ticker["last"]
-                            span.add_event(
-                                f"Fetched price for {symbol}: {ticker['last']}"
-                            )
-                        else:
-                            print(f"No price data available for {symbol}")
-                    else:
-                        print(f"Symbol {symbol} not found in ticker response")
-
-            except Exception as e:
-                print(f"Error fetching tickers: {e}")
-                span.record_exception(e)
-
-                # Fallback to individual ticker fetches if batch fails
-                print("Falling back to individual ticker fetches...")
-                for symbol in symbols[:5]:  # Limit to first 5 symbols for fallback
-                    try:
-                        ticker = exchange_manager.execute_with_retry(
-                            exchange.fetch_ticker, symbol
-                        )
-
-                        if ticker and "last" in ticker and ticker["last"] is not None:
-                            prices[symbol] = ticker["last"]
-
-                    except Exception as e:
-                        print(f"Error fetching price for {symbol}: {e}")
+            # Fetch HIP-3 symbols separately
+            if hip3_symbols:
+                print(f"Fetching tickers for {len(hip3_symbols)} HIP-3 symbols...")
+                prices.update(
+                    self._fetch_ticker_group(
+                        exchange, hip3_symbols, {"hip3": True}, span
+                    )
+                )
 
             span.set_attribute("prices.fetched", len(prices))
             print(f"Successfully fetched prices for {len(prices)} symbols")
@@ -138,14 +138,20 @@ class PricePollProducer:
         print(f"Batch size: {self.batch_size} symbols")
 
         symbols = []
+        hip3_symbols = []
         last_instrument_fetch_time = 0
         INSTRUMENT_FETCH_INTERVAL = 300  # 5 minutes
 
         while True:
             try:
                 # Periodically refresh instrument list from DB
-                if not symbols or (
-                    time.time() - last_instrument_fetch_time > INSTRUMENT_FETCH_INTERVAL
+                if (
+                    not symbols
+                    and not hip3_symbols
+                    or (
+                        time.time() - last_instrument_fetch_time
+                        > INSTRUMENT_FETCH_INTERVAL
+                    )
                 ):
                     try:
                         print(
@@ -153,8 +159,17 @@ class PricePollProducer:
                         )
                         instruments = get_exchange_instruments()
                         if instruments:
-                            symbols = [f"{inst}/USDC:USDC" for inst in instruments]
-                            print(f"Now monitoring {len(symbols)} symbols: {symbols}")
+                            symbols = []
+                            hip3_symbols = []
+                            for inst in instruments:
+                                name = inst["name"]
+                                sym = inst["symbol"]
+                                if sym.startswith(f"{name}/"):
+                                    symbols.append(sym)
+                                else:
+                                    hip3_symbols.append(sym)
+                            all_syms = symbols + hip3_symbols
+                            print(f"Now monitoring {len(all_syms)} symbols: {all_syms}")
                             last_instrument_fetch_time = time.time()
                         else:
                             print(
@@ -166,7 +181,7 @@ class PricePollProducer:
                         )
                         # If it fails, continue with the old list (or empty) and retry later
 
-                if not symbols:
+                if not symbols and not hip3_symbols:
                     print(
                         "Polling producer: No symbols to monitor. Waiting for instrument list from DB."
                     )
@@ -180,7 +195,7 @@ class PricePollProducer:
                     start_time = time.time()
 
                     # Fetch latest prices
-                    prices = self.fetch_latest_prices(exchange, symbols)
+                    prices = self.fetch_latest_prices(exchange, symbols, hip3_symbols)
 
                     # Publish to Redis
                     if prices:

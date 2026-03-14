@@ -31,7 +31,14 @@ def is_market_open() -> bool:
     Schedule: Continuous from 00:00 Monday to 23:00 Friday.
     Closed: Friday 23:00 - Monday 00:00.
     Holidays (Closed All Day): Jan 1, Dec 25, Good Friday.
+
+    If trading_hours.test_mode is True in config.yml, always returns True.
     """
+    from shared.config import config as _cfg
+
+    if _cfg.get("trading_hours.test_mode", False):
+        return True
+
     try:
         # Vatican uses Central European Time
         tz = ZoneInfo("Europe/Vatican")

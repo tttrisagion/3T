@@ -1,5 +1,5 @@
 fastapi
 uvicorn[standard]
-ccxt==4.5.2
+ccxt==4.5.43
 aiohttp
 python-dotenv

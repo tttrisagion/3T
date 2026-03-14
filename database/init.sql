@@ -56,7 +56,7 @@ CREATE TABLE `balance_history` (
 
 CREATE TABLE `market_data` (
   `timestamp` bigint(20) NOT NULL,
-  `symbol` varchar(20) NOT NULL,
+  `symbol` varchar(50) NOT NULL,
   `timeframe` varchar(10) NOT NULL,
   `open` decimal(18,8) DEFAULT NULL,
   `high` decimal(18,8) DEFAULT NULL,
@@ -71,14 +71,14 @@ CREATE TABLE `market_data` (
 
 CREATE TABLE `stream_data` (
   `timestamp` bigint(20) NOT NULL,
-  `symbol` varchar(20) NOT NULL,
+  `symbol` varchar(50) NOT NULL,
   `last_px` decimal(18,8) DEFAULT NULL,
   PRIMARY KEY (`timestamp`,`symbol`)
 ) ENGINE=MEMORY;
 
 -- Create the trading_range table
 CREATE TABLE `trading_range` (
-    `symbol` VARCHAR(20) NOT NULL,
+    `symbol` VARCHAR(50) NOT NULL,
     `high_threshold` DECIMAL(18, 8),
     `low_threshold` DECIMAL(18, 8),
     `last_updated` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -116,7 +116,7 @@ CREATE TABLE `runs` (
   `end_balance` float DEFAULT NULL,
   `max_duration` int(11) NOT NULL,
   `position_direction` int(11) NOT NULL DEFAULT 0,
-  `symbol` varchar(20) DEFAULT NULL,
+  `symbol` varchar(50) DEFAULT NULL,
   `ann_params` longtext DEFAULT NULL,
   `run_state` longtext DEFAULT NULL,
   `exit_run` tinyint(1) DEFAULT 0,
@@ -143,43 +143,9 @@ CREATE TABLE `take_profit_state` (
 INSERT INTO `exchanges` (`id`, `name`, `api_url`) VALUES (1, 'HyperLiquid', 'https://api.hyperliquid.xyz');
 
 INSERT INTO `instruments` (`name`) VALUES
-('BTC'), ('ETH'), ('SOL'), ('XRP'), ('SKY'), ('TRUMP'), ('HYPE'), ('SUI'),
-('FARTCOIN'), ('DOGE'), ('KPEPE'), ('ENA'), ('ADA'), ('AVAX'), ('CRV'),
-('BERA'), ('GRASS'), ('TAO'), ('RENDER'), ('WLD'), ('AI16Z'), ('AIXBT'), ('PAXG'),
-('BCH'), ('PENGU'), ('PUMP'), ('KBONK'), ('LINK'), ('IP'), ('XPL'), ('AAVE'), ('ARB'), ('POL'), ('DOT');
+('BTC'), ('HYPE'), ('CL');
 
 INSERT INTO `products` (`instrument_id`, `exchange_id`, `symbol`, `product_type`, `max_leverage`) VALUES
 ((SELECT id from `instruments` where name = 'BTC'), 1, 'BTC/USDC:USDC', 'PERP', 40),
-((SELECT id from `instruments` where name = 'ETH'), 1, 'ETH/USDC:USDC', 'PERP', 25),
-((SELECT id from `instruments` where name = 'SOL'), 1, 'SOL/USDC:USDC', 'PERP', 20),
-((SELECT id from `instruments` where name = 'XRP'), 1, 'XRP/USDC:USDC', 'PERP', 20),
-((SELECT id from `instruments` where name = 'SKY'), 1, 'SKY/USDC:USDC', 'PERP', 10),
-((SELECT id from `instruments` where name = 'TRUMP'), 1, 'TRUMP/USDC:USDC', 'PERP', 10),
 ((SELECT id from `instruments` where name = 'HYPE'), 1, 'HYPE/USDC:USDC', 'PERP', 10),
-((SELECT id from `instruments` where name = 'SUI'), 1, 'SUI/USDC:USDC', 'PERP', 10),
-((SELECT id from `instruments` where name = 'FARTCOIN'), 1, 'FARTCOIN/USDC:USDC', 'PERP', 3),
-((SELECT id from `instruments` where name = 'DOGE'), 1, 'DOGE/USDC:USDC', 'PERP', 10),
-((SELECT id from `instruments` where name = 'KPEPE'), 1, 'KPEPE/USDC:USDC', 'PERP', 10),
-((SELECT id from `instruments` where name = 'ENA'), 1, 'ENA/USDC:USDC', 'PERP', 10),
-((SELECT id from `instruments` where name = 'ADA'), 1, 'ADA/USDC:USDC', 'PERP', 10),
-((SELECT id from `instruments` where name = 'AVAX'), 1, 'AVAX/USDC:USDC', 'PERP', 10),
-((SELECT id from `instruments` where name = 'CRV'), 1, 'CRV/USDC:USDC', 'PERP', 10),
-((SELECT id from `instruments` where name = 'BERA'), 1, 'BERA/USDC:USDC', 'PERP', 5),
-((SELECT id from `instruments` where name = 'GRASS'), 1, 'GRASS/USDC:USDC', 'PERP', 5),
-((SELECT id from `instruments` where name = 'TAO'), 1, 'TAO/USDC:USDC', 'PERP', 5),
-((SELECT id from `instruments` where name = 'RENDER'), 1, 'RENDER/USDC:USDC', 'PERP', 5),
-((SELECT id from `instruments` where name = 'WLD'), 1, 'WLD/USDC:USDC', 'PERP', 10),
-((SELECT id from `instruments` where name = 'AI16Z'), 1, 'AI16Z/USDC:USDC', 'PERP', 5),
-((SELECT id from `instruments` where name = 'AIXBT'), 1, 'AIXBT/USDC:USDC', 'PERP', 5),
-((SELECT id from `instruments` where name = 'PAXG'), 1, 'PAXG/USDC:USDC', 'PERP', 5),
-((SELECT id from `instruments` where name = 'BCH'), 1, 'BCH/USDC:USDC', 'PERP', 10),
-((SELECT id from `instruments` where name = 'PENGU'), 1, 'PENGU/USDC:USDC', 'PERP', 3),
-((SELECT id from `instruments` where name = 'PUMP'), 1, 'PUMP/USDC:USDC', 'PERP', 3),
-((SELECT id from `instruments` where name = 'KBONK'), 1, 'KBONK/USDC:USDC', 'PERP', 3),
-((SELECT id from `instruments` where name = 'LINK'), 1, 'LINK/USDC:USDC', 'PERP', 3),
-((SELECT id from `instruments` where name = 'IP'), 1, 'IP/USDC:USDC', 'PERP', 3),
-((SELECT id from `instruments` where name = 'XPL'), 1, 'XPL/USDC:USDC', 'PERP', 3),
-((SELECT id from `instruments` where name = 'AAVE'), 1, 'AAVE/USDC:USDC', 'PERP', 3),
-((SELECT id from `instruments` where name = 'ARB'), 1, 'ARB/USDC:USDC', 'PERP', 3),
-((SELECT id from `instruments` where name = 'POL'), 1, 'POL/USDC:USDC', 'PERP', 3),
-((SELECT id from `instruments` where name = 'DOT'), 1, 'DOT/USDC:USDC', 'PERP', 10);
+((SELECT id from `instruments` where name = 'CL'), 1, 'XYZ-CL/USDC:USDC', 'HIP3_PERP', 3);

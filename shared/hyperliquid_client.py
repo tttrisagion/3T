@@ -93,10 +93,11 @@ def setup_hyperliquid_client(base_url=None, skip_ws=False):
 
 def get_exchange_instruments():
     """
-    Get list of instrument symbols from the database that are supported on HyperLiquid.
+    Get list of instruments from the database that are supported on HyperLiquid.
 
     Returns:
-        list: List of instrument symbols (e.g., ['BTC', 'ETH', 'SOL'])
+        list: List of dicts with 'name' and 'symbol' keys
+              (e.g., [{"name": "BTC", "symbol": "BTC/USDC:USDC"}, ...])
     """
     with tracer.start_as_current_span("get_exchange_instruments") as span:
         db_cnx = mysql.connector.connect(
@@ -109,13 +110,16 @@ def get_exchange_instruments():
         try:
             cursor = db_cnx.cursor(dictionary=True)
             cursor.execute("""
-                SELECT i.name
+                SELECT i.name, p.symbol
                 FROM instruments i
                 JOIN products p ON i.id = p.instrument_id
                 JOIN exchanges e ON p.exchange_id = e.id
                 WHERE e.name = 'HyperLiquid'
             """)
-            instruments = [row["name"] for row in cursor.fetchall()]
+            instruments = [
+                {"name": row["name"], "symbol": row["symbol"]}
+                for row in cursor.fetchall()
+            ]
             span.set_attribute("instruments.count", len(instruments))
             return instruments
         finally:

@@ -115,9 +115,9 @@ class TestHyperLiquidClient:
 
         mock_cursor = Mock()
         mock_cursor.fetchall.return_value = [
-            {"name": "BTC"},
-            {"name": "ETH"},
-            {"name": "SOL"},
+            {"name": "BTC", "symbol": "BTC/USDC:USDC"},
+            {"name": "ETH", "symbol": "ETH/USDC:USDC"},
+            {"name": "SOL", "symbol": "SOL/USDC:USDC"},
         ]
 
         mock_connection = Mock()
@@ -128,7 +128,11 @@ class TestHyperLiquidClient:
         # Test getting instruments
         instruments = get_exchange_instruments()
 
-        assert instruments == ["BTC", "ETH", "SOL"]
+        assert instruments == [
+            {"name": "BTC", "symbol": "BTC/USDC:USDC"},
+            {"name": "ETH", "symbol": "ETH/USDC:USDC"},
+            {"name": "SOL", "symbol": "SOL/USDC:USDC"},
+        ]
         mock_cursor.execute.assert_called_once()
         mock_cursor.close.assert_called_once()
         mock_connection.close.assert_called_once()
