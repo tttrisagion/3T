@@ -147,5 +147,5 @@ INSERT INTO `instruments` (`name`) VALUES
 
 INSERT INTO `products` (`instrument_id`, `exchange_id`, `symbol`, `product_type`, `max_leverage`) VALUES
 ((SELECT id from `instruments` where name = 'BTC'), 1, 'BTC/USDC:USDC', 'PERP', 40),
-((SELECT id from `instruments` where name = 'HYPE'), 1, 'HYPE/USDC:USDC', 'PERP', 10),
-((SELECT id from `instruments` where name = 'CL'), 1, 'XYZ-CL/USDC:USDC', 'HIP3_PERP', 3);
+((SELECT id from `instruments` where name = 'HYPE'), 1, 'HYPE/USDC:USDC', 'PERP', 40),
+((SELECT id from `instruments` where name = 'CL'), 1, 'XYZ-CL/USDC:USDC', 'HIP3_PERP', 40);

@@ -1,0 +1,32 @@
+Enable CL (HIP-3) Providence runs, reconciliation, and position tracking
+
+HyperLiquid's clearinghouseState API only returns native perp positions by
+default. HIP-3 assets (builder-deployed perps like xyz:CL) live on a separate
+dex and require passing "dex": "xyz" in the API call. This was the root cause
+of the observer not showing CL positions and would have prevented balance
+tracking and reconciliation from seeing them.
+
+Additionally, HIP-3 coin names use a colon separator (xyz:CL) while the DB
+uses a dash (XYZ-CL). Without explicit mapping, symbol construction produced
+invalid names like XYZ:CL/USDC:USDC instead of XYZ-CL/USDC:USDC.
+
+Changes:
+
+- exchange-observer: fetch HIP-3 dex positions via clearinghouseState with
+  dex param and merge into the native perp assetPositions array
+
+- tasks.py (update_balance): fetch HIP-3 clearing house state and merge
+  positions; build CCXT market-info-based coin-to-symbol map with
+  colon-to-dash fallback for HIP-3 coins not in CCXT markets
+
+- reconciliation_engine.py: add get_api_coin() to resolve DB symbols to
+  API coin names (CCXT lookup for native perps, dash-to-colon conversion
+  for HIP-3); fix observer state matching to use API coin name instead of
+  base symbol
+
+- config.yml.example: add XYZ-CL/USDC:USDC to reconciliation symbols
+
+- database/init.sql: correct HYPE and CL max_leverage values
+
+- tests: add TestGetApiCoin covering native perps, HIP-3 fallback,
+  unmapped symbols, and unloaded markets

@@ -86,6 +86,7 @@ reconciliation_engine:
     - "HYPE/USDC:USDC"
     - "ZEC/USDC:USDC"
     - "APT/USDC:USDC"
+    - "XYZ-CL/USDC:USDC"
 
   # Observer nodes for consensus validation
   observer_nodes:

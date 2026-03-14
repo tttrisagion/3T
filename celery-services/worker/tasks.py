@@ -382,9 +382,43 @@ def fetch_and_store_balance() -> float | None:
             )
             products = {row["symbol"]: row["id"] for row in cursor.fetchall()}
 
+            # Build API-coin → DB-symbol map using CCXT market info
+            hl_exchange = exchange_manager.get_exchange("hyperliquid")
+            if not hl_exchange.markets:
+                hl_exchange.load_markets()
+            api_coin_to_symbol = {}
+            for sym in products:
+                if sym in hl_exchange.markets:
+                    api_coin = hl_exchange.markets[sym]["info"].get("name", "")
+                    if api_coin:
+                        api_coin_to_symbol[api_coin.upper()] = sym
+
+            # Fetch HIP-3 positions and merge into assetPositions
+            hip3_dexes = ["xyz"]
+            for dex in hip3_dexes:
+                try:
+                    hip3_state = hl_exchange.public_post_info(
+                        {
+                            "type": "clearinghouseState",
+                            "user": hl_exchange.walletAddress,
+                            "dex": dex,
+                        }
+                    )
+                    if hip3_state and hip3_state.get("assetPositions"):
+                        exchange_status["info"].setdefault("assetPositions", []).extend(
+                            hip3_state["assetPositions"]
+                        )
+                except Exception as e:
+                    print(f"Error fetching HIP-3 dex '{dex}' positions: {e}")
+
             if len(exchange_status["info"]["assetPositions"]) > 0:
                 for pos in exchange_status["info"]["assetPositions"]:
-                    symbol = pos["position"]["coin"].upper() + "/USDC:USDC"
+                    api_coin = pos["position"]["coin"]
+                    symbol = api_coin_to_symbol.get(api_coin.upper())
+                    if symbol is None:
+                        # HIP-3 coins use colon (xyz:CL) but DB uses dash (XYZ-CL)
+                        coin_name = api_coin.upper().replace(":", "-")
+                        symbol = coin_name + "/USDC:USDC"
                     if symbol in products:
                         query = "INSERT INTO positions (product_id, position_size, position_value, unrealized_pnl) VALUES (%s, %s, %s, %s)"
                         cursor.execute(

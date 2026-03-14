@@ -355,6 +355,22 @@ def get_base_symbol(symbol: str) -> str:
     return symbol.split("/")[0] if "/" in symbol else symbol
 
 
+def get_api_coin(symbol: str) -> str:
+    """Get the HyperLiquid API coin name for a trading symbol.
+    Uses CCXT market info for native perps. For HIP-3 symbols (base contains
+    a dash like XYZ-CL), converts to API format (xyz:CL) since CCXT doesn't
+    load HIP-3 markets.
+    """
+    exchange = exchange_manager.get_exchange("hyperliquid")
+    if exchange.markets and symbol in exchange.markets:
+        return exchange.markets[symbol]["info"].get("name", get_base_symbol(symbol))
+    # HIP-3 symbols: DB base is "XYZ-CL", API coin is "xyz:CL"
+    base = get_base_symbol(symbol)
+    if "-" in base:
+        return base.replace("-", ":", 1)
+    return base
+
+
 def get_desired_state(symbol: str) -> float:
     """
     Calculate the desired position size based on active runs in the database.
@@ -603,11 +619,11 @@ def get_observer_state(
             # Extract position
             wallet_data = positions.get(wallet_address, {})
             asset_positions = wallet_data.get("assetPositions", [])
-            base_symbol = get_base_symbol(symbol)
+            api_coin = get_api_coin(symbol)
 
             for asset_pos in asset_positions:
                 position_data = asset_pos.get("position", {})
-                if position_data.get("coin", "").upper() == base_symbol.upper():
+                if position_data.get("coin", "").upper() == api_coin.upper():
                     margin_used = float(position_data.get("marginUsed", 0))
                     return float(position_data.get("szi", 0)), None, margin_used
 
