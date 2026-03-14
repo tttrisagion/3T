@@ -393,8 +393,9 @@ def fetch_and_store_balance() -> float | None:
                     if api_coin:
                         api_coin_to_symbol[api_coin.upper()] = sym
 
-            # Fetch HIP-3 positions and merge into assetPositions
+            # Fetch HIP-3 dex states (positions + margin live on separate dexes)
             hip3_dexes = ["xyz"]
+            hip3_states = []
             for dex in hip3_dexes:
                 try:
                     hip3_state = hl_exchange.public_post_info(
@@ -404,12 +405,14 @@ def fetch_and_store_balance() -> float | None:
                             "dex": dex,
                         }
                     )
-                    if hip3_state and hip3_state.get("assetPositions"):
-                        exchange_status["info"].setdefault("assetPositions", []).extend(
-                            hip3_state["assetPositions"]
-                        )
+                    if hip3_state:
+                        hip3_states.append(hip3_state)
+                        if hip3_state.get("assetPositions"):
+                            exchange_status["info"].setdefault(
+                                "assetPositions", []
+                            ).extend(hip3_state["assetPositions"])
                 except Exception as e:
-                    print(f"Error fetching HIP-3 dex '{dex}' positions: {e}")
+                    print(f"Error fetching HIP-3 dex '{dex}': {e}")
 
             if len(exchange_status["info"]["assetPositions"]) > 0:
                 for pos in exchange_status["info"]["assetPositions"]:
@@ -434,7 +437,17 @@ def fetch_and_store_balance() -> float | None:
             account_value = float(
                 exchange_status["info"]["marginSummary"]["accountValue"]
             )
-            margin_used = exchange_status["info"]["crossMaintenanceMarginUsed"]
+            margin_used = float(exchange_status["info"]["crossMaintenanceMarginUsed"])
+
+            # Include HIP-3 margin in totals (HIP-3 uses isolated margin,
+            # so crossMaintenanceMarginUsed is always 0 — use totalMarginUsed)
+            for hip3_state in hip3_states:
+                account_value += float(
+                    hip3_state.get("marginSummary", {}).get("accountValue", 0)
+                )
+                margin_used += float(
+                    hip3_state.get("marginSummary", {}).get("totalMarginUsed", 0)
+                )
 
             cursor.execute("SELECT id FROM exchanges WHERE name = 'HyperLiquid'")
             exchange_id = cursor.fetchone()["id"]

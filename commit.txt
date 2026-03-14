@@ -10,14 +10,20 @@ Additionally, HIP-3 coin names use a colon separator (xyz:CL) while the DB
 uses a dash (XYZ-CL). Without explicit mapping, symbol construction produced
 invalid names like XYZ:CL/USDC:USDC instead of XYZ-CL/USDC:USDC.
 
+HIP-3 positions use isolated margin (not cross), so crossMaintenanceMarginUsed
+is always 0. The margin and account value totals now include HIP-3's
+marginSummary.totalMarginUsed and accountValue from the separate dex state.
+
 Changes:
 
 - exchange-observer: fetch HIP-3 dex positions via clearinghouseState with
   dex param and merge into the native perp assetPositions array
 
-- tasks.py (update_balance): fetch HIP-3 clearing house state and merge
-  positions; build CCXT market-info-based coin-to-symbol map with
-  colon-to-dash fallback for HIP-3 coins not in CCXT markets
+- tasks.py (update_balance): fetch HIP-3 clearing house state once and reuse
+  for both position merging and margin/account value aggregation; build CCXT
+  market-info-based coin-to-symbol map with colon-to-dash fallback for HIP-3
+  coins not in CCXT markets; include HIP-3 isolated margin in
+  cross_maintenance_margin_used and account_value totals
 
 - reconciliation_engine.py: add get_api_coin() to resolve DB symbols to
   API coin names (CCXT lookup for native perps, dash-to-colon conversion
