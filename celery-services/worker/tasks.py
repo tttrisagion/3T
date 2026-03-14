@@ -367,11 +367,57 @@ def fetch_and_store_balance() -> float | None:
             # Get resilient exchange instance
             exchange = exchange_manager.get_exchange()
 
-            # Fetch balance with automatic retry and circuit breaker protection
+            # --- Fetch ALL data from exchange before touching DB ---
+            # Native perp balance (with retry/circuit breaker)
             exchange_status = exchange_manager.execute_with_retry(
                 exchange.fetch_balance
             )
 
+            # Build API-coin → DB-symbol map using CCXT market info
+            hl_exchange = exchange_manager.get_exchange("hyperliquid")
+            if not hl_exchange.markets:
+                hl_exchange.load_markets()
+
+            # Fetch HIP-3 dex states (positions + margin live on separate dexes)
+            hip3_dexes = ["xyz"]
+            hip3_states = []
+            for dex in hip3_dexes:
+                try:
+                    hip3_state = exchange_manager.execute_with_retry(
+                        lambda d=dex: hl_exchange.public_post_info(
+                            {
+                                "type": "clearinghouseState",
+                                "user": hl_exchange.walletAddress,
+                                "dex": d,
+                            }
+                        )
+                    )
+                    if hip3_state:
+                        hip3_states.append(hip3_state)
+                        if hip3_state.get("assetPositions"):
+                            exchange_status["info"].setdefault(
+                                "assetPositions", []
+                            ).extend(hip3_state["assetPositions"])
+                except Exception as e:
+                    print(f"Error fetching HIP-3 dex '{dex}': {e}")
+
+            # Compute aggregate account value and margin
+            account_value = float(
+                exchange_status["info"]["marginSummary"]["accountValue"]
+            )
+            margin_used = float(exchange_status["info"]["crossMaintenanceMarginUsed"])
+
+            # Include HIP-3 margin in totals (HIP-3 uses isolated margin,
+            # so crossMaintenanceMarginUsed is always 0 — use totalMarginUsed)
+            for hip3_state in hip3_states:
+                account_value += float(
+                    hip3_state.get("marginSummary", {}).get("accountValue", 0)
+                )
+                margin_used += float(
+                    hip3_state.get("marginSummary", {}).get("totalMarginUsed", 0)
+                )
+
+            # --- All exchange data fetched — now do DB writes atomically ---
             db_cnx = get_db_connection()
             cursor = db_cnx.cursor(dictionary=True)
             cursor.execute("START TRANSACTION")
@@ -382,37 +428,12 @@ def fetch_and_store_balance() -> float | None:
             )
             products = {row["symbol"]: row["id"] for row in cursor.fetchall()}
 
-            # Build API-coin → DB-symbol map using CCXT market info
-            hl_exchange = exchange_manager.get_exchange("hyperliquid")
-            if not hl_exchange.markets:
-                hl_exchange.load_markets()
             api_coin_to_symbol = {}
             for sym in products:
                 if sym in hl_exchange.markets:
                     api_coin = hl_exchange.markets[sym]["info"].get("name", "")
                     if api_coin:
                         api_coin_to_symbol[api_coin.upper()] = sym
-
-            # Fetch HIP-3 dex states (positions + margin live on separate dexes)
-            hip3_dexes = ["xyz"]
-            hip3_states = []
-            for dex in hip3_dexes:
-                try:
-                    hip3_state = hl_exchange.public_post_info(
-                        {
-                            "type": "clearinghouseState",
-                            "user": hl_exchange.walletAddress,
-                            "dex": dex,
-                        }
-                    )
-                    if hip3_state:
-                        hip3_states.append(hip3_state)
-                        if hip3_state.get("assetPositions"):
-                            exchange_status["info"].setdefault(
-                                "assetPositions", []
-                            ).extend(hip3_state["assetPositions"])
-                except Exception as e:
-                    print(f"Error fetching HIP-3 dex '{dex}': {e}")
 
             if len(exchange_status["info"]["assetPositions"]) > 0:
                 for pos in exchange_status["info"]["assetPositions"]:
@@ -433,21 +454,6 @@ def fetch_and_store_balance() -> float | None:
                                 float(pos["position"]["unrealizedPnl"]),
                             ),
                         )
-
-            account_value = float(
-                exchange_status["info"]["marginSummary"]["accountValue"]
-            )
-            margin_used = float(exchange_status["info"]["crossMaintenanceMarginUsed"])
-
-            # Include HIP-3 margin in totals (HIP-3 uses isolated margin,
-            # so crossMaintenanceMarginUsed is always 0 — use totalMarginUsed)
-            for hip3_state in hip3_states:
-                account_value += float(
-                    hip3_state.get("marginSummary", {}).get("accountValue", 0)
-                )
-                margin_used += float(
-                    hip3_state.get("marginSummary", {}).get("totalMarginUsed", 0)
-                )
 
             cursor.execute("SELECT id FROM exchanges WHERE name = 'HyperLiquid'")
             exchange_id = cursor.fetchone()["id"]
