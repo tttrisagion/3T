@@ -9,11 +9,7 @@ import socket
 import time
 
 from celery.utils.log import get_task_logger
-from worker.tasks import (
-    _get_market_weight_impl,
-    update_pnl,
-    update_run_position,
-)
+from worker.tasks import _get_market_weight_impl
 
 from shared.celery_app import app
 from shared.config import config
@@ -233,11 +229,6 @@ def _perform_trading_iteration(run_id, state):
     ]
     state["apr_last"] = sum(recent_aprs) / len(recent_aprs) if recent_aprs else 0
 
-    # Update PnL in MySQL at configured frequency (throttled to reduce DB load)
-    mysql_update_freq = config.get("providence.mysql_update_frequency", 50)
-    if state["iteration_count"] % mysql_update_freq == 0:
-        update_pnl.delay(run_id, balance - state["start_balance"])
-
     # --- Data Pruning ---
     now = time.time()
     weights_cutoff = now - (ann_params["volatility_entropy_window_minutes"] + 1) * 60
@@ -336,10 +327,6 @@ def _perform_trading_iteration(run_id, state):
                 voms.add_trade(trade_size)
 
                 state["position_direction"] += 1 if new_side == "buy" else -1
-
-                # Update position in MySQL at configured frequency (throttled to reduce DB load)
-                if state["iteration_count"] % mysql_update_freq == 0:
-                    update_run_position.delay(run_id, state["position_direction"])
 
                 logger.info(
                     f"Run {run_id}: Trade - {new_side} {pos_size:.6f} @ {instrument_price:.2f}, pos_dir: {state['position_direction']}"
@@ -491,6 +478,9 @@ def providence_iteration_scheduler(self):
         if db_cnx and db_cnx.is_connected():
             cursor.close()
             db_cnx.close()
+        # Release the lock when done (mirrors supervisor pattern)
+        with get_redis_connection(decode_responses=False) as r:
+            r.delete("providence:iteration_scheduler:lock")
 
 
 @app.task(bind=True)

@@ -86,15 +86,11 @@ def setup_telemetry(service_name: str):
         "providence_iteration_scheduler",
         # Sub-tasks dispatched from iterations
         "worker.tasks.get_market_weight",
-        "worker.tasks.update_pnl",
         "worker.tasks.get_exit_status",
-        "worker.tasks.update_run_position",
         "worker.tasks.save_run_state",
         "worker.tasks.calculate_permutation_entropy",
         "get_market_weight_task",
-        "update_pnl_task",
         "get_exit_status_task",
-        "update_run_position_task",
         "save_run_state_task",
         "calculate_permutation_entropy_task",
         # Price polling spans (continuous)
@@ -106,9 +102,7 @@ def setup_telemetry(service_name: str):
         "run/worker.providence.providence_trading_iteration",
         "run/worker.providence.providence_iteration_scheduler",
         "run/worker.tasks.get_market_weight",
-        "run/worker.tasks.update_pnl",
         "run/worker.tasks.get_exit_status",
-        "run/worker.tasks.update_run_position",
         "run/worker.tasks.save_run_state",
         "run/worker.tasks.calculate_permutation_entropy",
     }
@@ -197,7 +191,6 @@ def setup_log_sampling(logger_names: list[str] = None):
     noisy_patterns = {
         "providence_trading_iteration",
         "get_market_weight",
-        "update_pnl",
         "get_exit_status",
     }
 

@@ -206,10 +206,9 @@ def collect_run_metrics(cursor):
         # Open PnL: exclude exiting and ended runs
         if not exit_run and end_time is None:
             open_pnl += pnl
-
-        sym = symbol or "unknown"
-        pnl_by_symbol[sym] = pnl_by_symbol.get(sym, 0.0) + pnl
-        count_by_symbol[sym] = count_by_symbol.get(sym, 0) + 1
+            sym = symbol or "unknown"
+            pnl_by_symbol[sym] = pnl_by_symbol.get(sym, 0.0) + pnl
+            count_by_symbol[sym] = count_by_symbol.get(sym, 0) + 1
 
         if direction and direction > 0:
             direction_counts["long"] += 1
