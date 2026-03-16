@@ -342,6 +342,8 @@ def update_balance():
             # After successful update, publish the new account value to Redis Streams
             if account_value is not None:
                 publish_balance_update_event(account_value)
+        except RateLimitExceeded:
+            print("Rate limited: update_balance — skipping, will retry next cycle")
         except Exception as e:
             span.set_attribute("error", True)
             span.record_exception(e)
