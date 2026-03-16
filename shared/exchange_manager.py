@@ -8,7 +8,7 @@ import time
 from datetime import datetime
 
 import ccxt
-import ccxt.base.errors
+from ccxt.base.errors import RateLimitExceeded
 from opentelemetry import trace
 
 from shared.config import config
@@ -389,7 +389,7 @@ class ExchangeManager:
                         self._reset_failure_count(exchange_name)
                     return result
 
-                except ccxt.base.errors.RateLimitExceeded as e:
+                except RateLimitExceeded as e:
                     # Never retry 429s — retrying amplifies the rate limit storm.
                     # The next scheduled cycle will pick up the work.
                     span.add_event(f"Rate limited, not retrying: {str(e)}")
