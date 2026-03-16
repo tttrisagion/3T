@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 
 import ccxt
 import numpy as np
+from ccxt.base.errors import RateLimitExceeded
 from celery.signals import worker_ready
 from eventlet.greenpool import GreenPool
 from opentelemetry import context as opentelemetry_context
@@ -263,6 +264,11 @@ def traced_fetch_and_store_ohlcv(
                 span.set_attribute("otel.status_code", "OK")
                 span.add_event("Fetch successful and Redis updated")
 
+            except RateLimitExceeded:
+                span.set_attribute("otel.status_code", "ERROR")
+                print(
+                    f"Rate limited: {symbol} ({timeframe}) — skipping, will retry next cycle"
+                )
             except Exception as e:
                 span.set_attribute("otel.status_code", "ERROR")
                 span.record_exception(e)
