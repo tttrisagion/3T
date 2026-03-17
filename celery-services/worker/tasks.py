@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 import ccxt
 import numpy as np
 from ccxt.base.errors import RateLimitExceeded
-from celery.signals import worker_ready
+from celery.signals import beat_init
 from eventlet.greenpool import GreenPool
 from opentelemetry import context as opentelemetry_context
 from opentelemetry.instrumentation.celery import CeleryInstrumentor
@@ -78,46 +78,36 @@ app.conf.beat_schedule = {
 app.conf.timezone = "UTC"
 
 
-@worker_ready.connect
-def worker_startup(sender, **kwargs):
+@beat_init.connect
+def beat_startup(sender, **kwargs):
     """
-    Triggered once when a worker starts. Performs initial setup tasks including
-    market data backfill and portfolio reconciliation.
-    Uses a Redis lock so only the first replica triggers startup tasks.
-    """
-    # Only one replica should trigger startup tasks
-    with get_redis_connection(decode_responses=False) as r:
-        is_first = r.set("celery:startup:lock", "1", nx=True, ex=60)
-        if not is_first:
-            print("WORKER READY: Startup tasks already triggered by another replica.")
-            return
+    Triggered once when Celery Beat starts. Immediately fires all scheduled tasks
+    so the system is fully operational without waiting for the first beat interval.
 
-    with tracer.start_as_current_span("worker_startup") as span:
-        print("WORKER READY: Starting worker startup tasks...")
-        span.add_event("Starting worker startup tasks")
+    This runs in the Beat process (single instance, no recycles), so it only fires
+    on true system startup — not on worker memory recycles.
+    """
+    with tracer.start_as_current_span("beat_startup") as span:
+        print("BEAT STARTUP: Firing all scheduled tasks immediately...")
+        span.add_event("Firing all scheduled tasks on beat startup")
 
         try:
-            # Use the same logic as the scheduler to fetch all configured timeframes
-            # This ensures the system is fully populated on startup.
             schedule_market_data_fetching.delay(is_backfill=True)
             update_trading_range.delay()
-
-            # Trigger initial reconciliation to check positions on startup
             reconcile_positions.delay()
 
-            # Immediately trigger the providence supervisor to start trading tasks
             from worker.providence import providence_supervisor
 
             providence_supervisor.delay()
 
             span.add_event("Successfully triggered startup tasks.")
             print(
-                "Worker startup tasks dispatched: market data backfill, trading range update, reconciliation, and providence supervisor."
+                "Beat startup tasks dispatched: market data backfill, trading range update, reconciliation, and providence supervisor."
             )
         except Exception as e:
             span.set_attribute("error", True)
             span.record_exception(e)
-            print(f"ERROR: Failed to dispatch startup tasks: {e}")
+            print(f"ERROR: Failed to dispatch beat startup tasks: {e}")
 
 
 @app.task(name="worker.tasks.schedule_market_data_fetching")

@@ -454,6 +454,7 @@ class TestReconciliationEngine(unittest.TestCase):
             }
             self.assertEqual(req.json(), expected_data)
 
+    @patch("reconciliation_engine.get_redis_connection")
     @patch("reconciliation_engine.cancel_all_open_orders")
     @patch("reconciliation_engine._get_symbol_margin_caps")
     @patch("reconciliation_engine.get_latest_margin_usage")
@@ -474,8 +475,13 @@ class TestReconciliationEngine(unittest.TestCase):
         mock_margin,
         mock_caps,
         mock_cancel,
+        mock_redis,
     ):
         """Test full reconciliation cycle"""
+        mock_r = Mock()
+        mock_r.set.return_value = True
+        mock_redis.return_value.__enter__ = Mock(return_value=mock_r)
+        mock_redis.return_value.__exit__ = Mock(return_value=False)
 
         # Mock config to handle multiple return values
         def config_get_side_effect(key, default=None):
@@ -515,6 +521,7 @@ class TestReconciliationEngine(unittest.TestCase):
         mock_calc.assert_called_once_with(0.0005, 0.001, "BTC/USDC:USDC")
         mock_gateway.assert_called_once_with("BTC/USDC:USDC", "buy", 0.0005)
 
+    @patch("reconciliation_engine.get_redis_connection")
     @patch("reconciliation_engine.cancel_all_open_orders")
     @patch("reconciliation_engine._get_symbol_margin_caps")
     @patch("reconciliation_engine.get_latest_balance")
@@ -529,8 +536,13 @@ class TestReconciliationEngine(unittest.TestCase):
         mock_balance,
         mock_caps,
         mock_cancel,
+        mock_redis,
     ):
         """Test reconciliation skips when no consensus"""
+        mock_r = Mock()
+        mock_r.set.return_value = True
+        mock_redis.return_value.__enter__ = Mock(return_value=mock_r)
+        mock_redis.return_value.__exit__ = Mock(return_value=False)
 
         def config_get_side_effect(key, default=None):
             if key == "reconciliation_engine.symbols":
@@ -613,6 +625,7 @@ class TestSymbolMarginCaps(unittest.TestCase):
         caps = _get_symbol_margin_caps([], 1000.0)
         self.assertEqual(caps, {})
 
+    @patch("reconciliation_engine.get_redis_connection")
     @patch("reconciliation_engine.cancel_all_open_orders")
     @patch("reconciliation_engine._get_symbol_margin_caps")
     @patch("reconciliation_engine.get_latest_margin_usage")
@@ -633,9 +646,14 @@ class TestSymbolMarginCaps(unittest.TestCase):
         mock_margin,
         mock_caps,
         mock_cancel,
+        mock_redis,
     ):
         """Test that a symbol over its margin cap has desired position scaled down,
         causing reconciliation to reduce the position."""
+        mock_r = Mock()
+        mock_r.set.return_value = True
+        mock_redis.return_value.__enter__ = Mock(return_value=mock_r)
+        mock_redis.return_value.__exit__ = Mock(return_value=False)
 
         def config_get_side_effect(key, default=None):
             if key == "reconciliation_engine.symbols":
@@ -666,6 +684,7 @@ class TestSymbolMarginCaps(unittest.TestCase):
         # Trade executes to reduce the position
         mock_gateway.assert_called_once()
 
+    @patch("reconciliation_engine.get_redis_connection")
     @patch("reconciliation_engine.cancel_all_open_orders")
     @patch("reconciliation_engine._get_symbol_margin_caps")
     @patch("reconciliation_engine.get_latest_margin_usage")
@@ -686,8 +705,13 @@ class TestSymbolMarginCaps(unittest.TestCase):
         mock_margin,
         mock_caps,
         mock_cancel,
+        mock_redis,
     ):
         """Test that margin_cap_multiplier allows a symbol to exceed its base share."""
+        mock_r = Mock()
+        mock_r.set.return_value = True
+        mock_redis.return_value.__enter__ = Mock(return_value=mock_r)
+        mock_redis.return_value.__exit__ = Mock(return_value=False)
 
         def config_get_side_effect(key, default=None):
             if key == "reconciliation_engine.symbols":
@@ -716,6 +740,7 @@ class TestSymbolMarginCaps(unittest.TestCase):
         mock_calc.assert_called_once_with(80.0, 100.0, "HYPE/USDC:USDC")
         mock_gateway.assert_called_once()
 
+    @patch("reconciliation_engine.get_redis_connection")
     @patch("reconciliation_engine.cancel_all_open_orders")
     @patch("reconciliation_engine._get_symbol_margin_caps")
     @patch("reconciliation_engine.get_latest_margin_usage")
@@ -736,8 +761,13 @@ class TestSymbolMarginCaps(unittest.TestCase):
         mock_margin,
         mock_caps,
         mock_cancel,
+        mock_redis,
     ):
         """Test that a symbol under its margin cap has desired position unchanged."""
+        mock_r = Mock()
+        mock_r.set.return_value = True
+        mock_redis.return_value.__enter__ = Mock(return_value=mock_r)
+        mock_redis.return_value.__exit__ = Mock(return_value=False)
 
         def config_get_side_effect(key, default=None):
             if key == "reconciliation_engine.symbols":
@@ -764,6 +794,7 @@ class TestSymbolMarginCaps(unittest.TestCase):
         mock_calc.assert_called_once_with(0.0005, 0.001, "BTC/USDC:USDC")
         mock_gateway.assert_called_once()
 
+    @patch("reconciliation_engine.get_redis_connection")
     @patch("reconciliation_engine.cancel_all_open_orders")
     @patch("reconciliation_engine._get_symbol_margin_caps")
     @patch("reconciliation_engine.get_latest_margin_usage")
@@ -784,8 +815,13 @@ class TestSymbolMarginCaps(unittest.TestCase):
         mock_margin,
         mock_caps,
         mock_cancel,
+        mock_redis,
     ):
         """Test that DB failure for caps (empty dict) passes desired position through."""
+        mock_r = Mock()
+        mock_r.set.return_value = True
+        mock_redis.return_value.__enter__ = Mock(return_value=mock_r)
+        mock_redis.return_value.__exit__ = Mock(return_value=False)
 
         def config_get_side_effect(key, default=None):
             if key == "reconciliation_engine.symbols":

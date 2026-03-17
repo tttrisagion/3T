@@ -17,7 +17,7 @@ from opentelemetry import trace
 
 from shared.celery_app import app
 from shared.config import config
-from shared.database import get_db_connection
+from shared.database import get_db_connection, get_redis_connection
 from shared.exchange_manager import exchange_manager
 from shared.opentelemetry_config import get_tracer
 
@@ -991,6 +991,7 @@ def reconcile_positions(self):
     """
     Main reconciliation engine task.
     Runs the reconciliation loop for all configured symbols.
+    Uses a distributed lock to prevent concurrent execution (e.g. Beat + startup overlap).
     """
     with tracer.start_as_current_span("reconcile_positions") as span:
         # If market is closed, do not perform reconciliation.
@@ -999,6 +1000,16 @@ def reconcile_positions(self):
             span.add_event("Market is closed, skipping reconciliation cycle.")
             print("Market is closed. Skipping reconciliation cycle.")
             return
+
+        # Distributed lock prevents concurrent reconciliation runs
+        # (e.g. Beat schedule + worker startup hook firing simultaneously)
+        # Lock TTL of 600s is generous — typical run takes ~200s
+        with get_redis_connection(decode_responses=False) as r:
+            acquired = r.set("reconciliation:lock", "1", nx=True, ex=600)
+            if not acquired:
+                span.add_event("Another reconciliation is already running, skipping.")
+                print("Reconciliation already in progress, skipping this invocation.")
+                return
 
         try:
             symbols = config.get("reconciliation_engine.symbols", ["BTC", "ETH"])
@@ -1174,3 +1185,10 @@ def reconcile_positions(self):
             span.record_exception(e)
             span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
             print(f"Error in reconciliation engine: {e}")
+        finally:
+            # Release the distributed lock so the next scheduled run can proceed
+            try:
+                with get_redis_connection(decode_responses=False) as r:
+                    r.delete("reconciliation:lock")
+            except Exception:
+                pass  # Lock will expire via TTL if delete fails
