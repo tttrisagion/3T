@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 
 import ccxt
 import numpy as np
+from ccxt.base.errors import RateLimitExceeded
 from celery.signals import worker_ready
 from eventlet.greenpool import GreenPool
 from opentelemetry import context as opentelemetry_context
@@ -263,6 +264,11 @@ def traced_fetch_and_store_ohlcv(
                 span.set_attribute("otel.status_code", "OK")
                 span.add_event("Fetch successful and Redis updated")
 
+            except RateLimitExceeded:
+                span.set_attribute("otel.status_code", "ERROR")
+                print(
+                    f"Rate limited: {symbol} ({timeframe}) — skipping, will retry next cycle"
+                )
             except Exception as e:
                 span.set_attribute("otel.status_code", "ERROR")
                 span.record_exception(e)
@@ -336,6 +342,8 @@ def update_balance():
             # After successful update, publish the new account value to Redis Streams
             if account_value is not None:
                 publish_balance_update_event(account_value)
+        except RateLimitExceeded:
+            print("Rate limited: update_balance — skipping, will retry next cycle")
         except Exception as e:
             span.set_attribute("error", True)
             span.record_exception(e)
@@ -367,11 +375,57 @@ def fetch_and_store_balance() -> float | None:
             # Get resilient exchange instance
             exchange = exchange_manager.get_exchange()
 
-            # Fetch balance with automatic retry and circuit breaker protection
+            # --- Fetch ALL data from exchange before touching DB ---
+            # Native perp balance (with retry/circuit breaker)
             exchange_status = exchange_manager.execute_with_retry(
                 exchange.fetch_balance
             )
 
+            # Build API-coin → DB-symbol map using CCXT market info
+            hl_exchange = exchange_manager.get_exchange("hyperliquid")
+            if not hl_exchange.markets:
+                hl_exchange.load_markets()
+
+            # Fetch HIP-3 dex states (positions + margin live on separate dexes)
+            hip3_dexes = ["xyz"]
+            hip3_states = []
+            for dex in hip3_dexes:
+                try:
+                    hip3_state = exchange_manager.execute_with_retry(
+                        lambda d=dex: hl_exchange.public_post_info(
+                            {
+                                "type": "clearinghouseState",
+                                "user": hl_exchange.walletAddress,
+                                "dex": d,
+                            }
+                        )
+                    )
+                    if hip3_state:
+                        hip3_states.append(hip3_state)
+                        if hip3_state.get("assetPositions"):
+                            exchange_status["info"].setdefault(
+                                "assetPositions", []
+                            ).extend(hip3_state["assetPositions"])
+                except Exception as e:
+                    print(f"Error fetching HIP-3 dex '{dex}': {e}")
+
+            # Compute aggregate account value and margin
+            account_value = float(
+                exchange_status["info"]["marginSummary"]["accountValue"]
+            )
+            margin_used = float(exchange_status["info"]["crossMaintenanceMarginUsed"])
+
+            # Include HIP-3 margin in totals (HIP-3 uses isolated margin,
+            # so crossMaintenanceMarginUsed is always 0 — use totalMarginUsed)
+            for hip3_state in hip3_states:
+                account_value += float(
+                    hip3_state.get("marginSummary", {}).get("accountValue", 0)
+                )
+                margin_used += float(
+                    hip3_state.get("marginSummary", {}).get("totalMarginUsed", 0)
+                )
+
+            # --- All exchange data fetched — now do DB writes atomically ---
             db_cnx = get_db_connection()
             cursor = db_cnx.cursor(dictionary=True)
             cursor.execute("START TRANSACTION")
@@ -382,9 +436,21 @@ def fetch_and_store_balance() -> float | None:
             )
             products = {row["symbol"]: row["id"] for row in cursor.fetchall()}
 
+            api_coin_to_symbol = {}
+            for sym in products:
+                if sym in hl_exchange.markets:
+                    api_coin = hl_exchange.markets[sym]["info"].get("name", "")
+                    if api_coin:
+                        api_coin_to_symbol[api_coin.upper()] = sym
+
             if len(exchange_status["info"]["assetPositions"]) > 0:
                 for pos in exchange_status["info"]["assetPositions"]:
-                    symbol = pos["position"]["coin"].upper() + "/USDC:USDC"
+                    api_coin = pos["position"]["coin"]
+                    symbol = api_coin_to_symbol.get(api_coin.upper())
+                    if symbol is None:
+                        # HIP-3 coins use colon (xyz:CL) but DB uses dash (XYZ-CL)
+                        coin_name = api_coin.upper().replace(":", "-")
+                        symbol = coin_name + "/USDC:USDC"
                     if symbol in products:
                         query = "INSERT INTO positions (product_id, position_size, position_value, unrealized_pnl) VALUES (%s, %s, %s, %s)"
                         cursor.execute(
@@ -396,11 +462,6 @@ def fetch_and_store_balance() -> float | None:
                                 float(pos["position"]["unrealizedPnl"]),
                             ),
                         )
-
-            account_value = float(
-                exchange_status["info"]["marginSummary"]["accountValue"]
-            )
-            margin_used = exchange_status["info"]["crossMaintenanceMarginUsed"]
 
             cursor.execute("SELECT id FROM exchanges WHERE name = 'HyperLiquid'")
             exchange_id = cursor.fetchone()["id"]
@@ -593,74 +654,6 @@ def create_run(
     return _create_run_impl(
         start_balance, max_duration, symbol, ann_params, controller_seed, pid, host
     )
-
-
-@app.task(name="worker.tasks.update_run_position", ignore_result=True)
-def update_run_position(run_id, pos):
-    """
-    Updates the position direction for a given run.
-
-    Args:
-        run_id (int): The ID of the run to update.
-        pos (int): The new position direction.
-    """
-    with tracer.start_as_current_span("update_run_position_task") as span:
-        span.set_attribute("task.name", "update_run_position")
-        span.set_attribute("run_id", run_id)
-        db_cnx = None
-        try:
-            db_cnx = get_db_connection()
-            cursor = db_cnx.cursor()
-            query = "UPDATE runs SET position_direction=%s WHERE id=%s"
-            cursor.execute(query, (pos, run_id))
-            db_cnx.commit()
-            span.set_attribute("position_direction", pos)
-            return True
-        except Exception as e:
-            if db_cnx:
-                db_cnx.rollback()
-            span.set_attribute("error", True)
-            span.record_exception(e)
-            print(f"Error in update_run_position task: {e}")
-            raise
-        finally:
-            if db_cnx and db_cnx.is_connected():
-                cursor.close()
-                db_cnx.close()
-
-
-@app.task(name="worker.tasks.update_pnl", ignore_result=True)
-def update_pnl(run_id, pnl):
-    """
-    Updates the live PNL for a given run.
-
-    Args:
-        run_id (int): The ID of the run to update.
-        pnl (float): The new live PNL value.
-    """
-    with tracer.start_as_current_span("update_pnl_task") as span:
-        span.set_attribute("task.name", "update_pnl")
-        span.set_attribute("run_id", run_id)
-        db_cnx = None
-        try:
-            db_cnx = get_db_connection()
-            cursor = db_cnx.cursor()
-            query = "UPDATE runs SET live_pnl=%s WHERE id=%s"
-            cursor.execute(query, (pnl, run_id))
-            db_cnx.commit()
-            span.set_attribute("live_pnl", pnl)
-            return True
-        except Exception as e:
-            if db_cnx:
-                db_cnx.rollback()
-            span.set_attribute("error", True)
-            span.record_exception(e)
-            print(f"Error in update_pnl task: {e}")
-            raise
-        finally:
-            if db_cnx and db_cnx.is_connected():
-                cursor.close()
-                db_cnx.close()
 
 
 @app.task(name="worker.tasks.end_run")

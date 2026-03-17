@@ -69,44 +69,42 @@ def publish_price_update(symbol: str, price: float, timestamp: float):
             raise
 
 
-def process_trade(data):
-    """
-    Process incoming trade data and publish to Redis stream.
-
-    Args:
-        data: Trade data from HyperLiquid WebSocket
-    """
-    try:
-        if not data.get("data") or len(data["data"]) == 0:
-            return
-
-        trade = data["data"][0]
-        coin = trade.get("coin")
-        price = float(trade.get("px", 0))
-
-        if not coin or price <= 0:
-            return
-
-        # Format symbol to match database convention
-        symbol = f"{coin}/USDC:USDC"
-        timestamp = time.time()
-
-        publish_price_update(symbol, price, timestamp)
-
-    except Exception as e:
-        print(f"Error processing trade data: {e}", flush=True)
-
-
 def start_price_streaming():
     """
     Start the price streaming service by subscribing to all supported instruments.
     Includes a heartbeat mechanism to detect stale connections.
+    HIP-3 instruments are skipped (use polling producer instead).
     """
     with tracer.start_as_current_span("start_price_streaming") as span:
         print("Starting price streaming service...", flush=True)
 
         last_message_time = time.time()
         STALE_CONNECTION_THRESHOLD = 60  # seconds
+
+        # Build coin-to-symbol mapping from DB
+        instruments = get_exchange_instruments()
+        coin_to_symbol = {inst["name"]: inst["symbol"] for inst in instruments}
+
+        def process_trade(data):
+            """Process incoming trade data and publish to Redis stream."""
+            try:
+                if not data.get("data") or len(data["data"]) == 0:
+                    return
+
+                trade = data["data"][0]
+                coin = trade.get("coin")
+                price = float(trade.get("px", 0))
+
+                if not coin or price <= 0:
+                    return
+
+                symbol = coin_to_symbol.get(coin, f"{coin}/USDC:USDC")
+                timestamp = time.time()
+
+                publish_price_update(symbol, price, timestamp)
+
+            except Exception as e:
+                print(f"Error processing trade data: {e}", flush=True)
 
         def process_trade_wrapper(data):
             nonlocal last_message_time
@@ -118,17 +116,28 @@ def start_price_streaming():
             address, info, _ = setup_hyperliquid_client(constants.MAINNET_API_URL)
             span.set_attribute("hyperliquid.address", address)
 
-            # Get all supported instruments from database
-            instruments = get_exchange_instruments()
             span.set_attribute("instruments.count", len(instruments))
 
+            # Filter to native perps only (skip HIP-3 for WebSocket)
+            ws_instruments = []
+            for inst in instruments:
+                name = inst["name"]
+                symbol = inst["symbol"]
+                if not symbol.startswith(f"{name}/"):
+                    print(
+                        f"Skipping {name} for WebSocket (HIP-3, use polling producer)",
+                        flush=True,
+                    )
+                    continue
+                ws_instruments.append(name)
+
             print(
-                f"Subscribing to price feeds for {len(instruments)} instruments: {', '.join(instruments)}",
+                f"Subscribing to price feeds for {len(ws_instruments)} instruments: {', '.join(ws_instruments)}",
                 flush=True,
             )
 
-            # Subscribe to trade feeds for all instruments
-            for instrument in instruments:
+            # Subscribe to trade feeds for all native instruments
+            for instrument in ws_instruments:
                 try:
                     info.subscribe(
                         {"type": "trades", "coin": instrument}, process_trade_wrapper

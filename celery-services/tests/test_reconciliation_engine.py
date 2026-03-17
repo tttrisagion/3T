@@ -21,6 +21,7 @@ from reconciliation_engine import (
     calculate_reconciliation_action,
     cancel_all_open_orders,
     get_actual_state,
+    get_api_coin,
     get_base_symbol,
     get_current_price,
     get_desired_state,
@@ -863,6 +864,47 @@ class TestCancelAllOpenOrders(unittest.TestCase):
         cancel_all_open_orders(["BTC/USDC:USDC"])
 
         mock_exchange.cancel_orders.assert_not_called()
+
+
+class TestGetApiCoin(unittest.TestCase):
+    """Tests for get_api_coin() which maps CCXT symbols to HyperLiquid API coin names."""
+
+    @patch("reconciliation_engine.exchange_manager")
+    def test_native_perp(self, mock_em):
+        """Native perps: get_api_coin('BTC/USDC:USDC') -> 'BTC'"""
+        mock_exchange = Mock()
+        mock_exchange.markets = {
+            "BTC/USDC:USDC": {"info": {"name": "BTC"}},
+        }
+        mock_em.get_exchange.return_value = mock_exchange
+        self.assertEqual(get_api_coin("BTC/USDC:USDC"), "BTC")
+
+    @patch("reconciliation_engine.exchange_manager")
+    def test_hip3_symbol(self, mock_em):
+        """HIP-3: get_api_coin('XYZ-CL/USDC:USDC') -> 'XYZ:CL' (colon, not dash)
+        CCXT doesn't load HIP-3 markets, so this hits the dash-to-colon fallback."""
+        mock_exchange = Mock()
+        mock_exchange.markets = {}  # CCXT won't have HIP-3 markets
+        mock_em.get_exchange.return_value = mock_exchange
+        result = get_api_coin("XYZ-CL/USDC:USDC")
+        # Comparison is case-insensitive (.upper() on both sides), so XYZ:CL matches xyz:CL
+        self.assertEqual(result.upper(), "XYZ:CL")
+
+    @patch("reconciliation_engine.exchange_manager")
+    def test_fallback_to_base_symbol(self, mock_em):
+        """Unmapped symbols fall back to get_base_symbol()"""
+        mock_exchange = Mock()
+        mock_exchange.markets = {}
+        mock_em.get_exchange.return_value = mock_exchange
+        self.assertEqual(get_api_coin("UNKNOWN/USDC:USDC"), "UNKNOWN")
+
+    @patch("reconciliation_engine.exchange_manager")
+    def test_no_markets_loaded(self, mock_em):
+        """When markets aren't loaded, falls back to get_base_symbol()"""
+        mock_exchange = Mock()
+        mock_exchange.markets = None
+        mock_em.get_exchange.return_value = mock_exchange
+        self.assertEqual(get_api_coin("BTC/USDC:USDC"), "BTC")
 
 
 if __name__ == "__main__":

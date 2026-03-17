@@ -17,6 +17,8 @@ wallet_addresses_str = os.getenv(
 WALLET_ADDRESSES = [address.strip() for address in wallet_addresses_str.split(",")]
 POLL_INTERVAL_SECONDS = 5
 OUTPUT_FILE = "/app/data/3T-observer.json"
+# HIP-3 builder-deployed perp dexes to query in addition to the native perp dex
+HIP3_DEXES = ["xyz"]
 
 # In-memory cache for the positions data
 positions_cache = {}
@@ -37,8 +39,28 @@ async def poll_positions_periodically():
                 try:
                     payload = {"type": "clearinghouseState", "user": address}
                     state = await exchange.public_post_info(payload)
-                    if state:
-                        positions[address] = state
+                    if not state:
+                        return
+
+                    # Fetch HIP-3 dex positions and merge into assetPositions
+                    for dex in HIP3_DEXES:
+                        try:
+                            hip3_payload = {
+                                "type": "clearinghouseState",
+                                "user": address,
+                                "dex": dex,
+                            }
+                            hip3_state = await exchange.public_post_info(hip3_payload)
+                            if hip3_state and hip3_state.get("assetPositions"):
+                                state.setdefault("assetPositions", []).extend(
+                                    hip3_state["assetPositions"]
+                                )
+                        except Exception as e:
+                            print(
+                                f"Error fetching HIP-3 dex '{dex}' for {address}: {e}"
+                            )
+
+                    positions[address] = state
                 except Exception as e:
                     print(f"Error fetching state for {address}: {e}")
 

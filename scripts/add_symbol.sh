@@ -3,11 +3,12 @@
 # Add a new trading symbol to the 3T database (instruments + products).
 #
 # Usage:
-#   ./scripts/add_symbol.sh <SYMBOL> [MAX_LEVERAGE]
+#   ./scripts/add_symbol.sh <SYMBOL> [MAX_LEVERAGE] [PRODUCT_SYMBOL]
 #
 # Examples:
 #   ./scripts/add_symbol.sh ONDO 5
 #   ./scripts/add_symbol.sh PEPE         # defaults to max_leverage=3
+#   ./scripts/add_symbol.sh CL 3 "XYZ-CL/USDC:USDC"  # HIP-3 custom symbol
 #
 # This inserts into both `instruments` and `products` tables.
 # To activate the symbol for trading, also add it to config.yml
@@ -34,17 +35,18 @@ DB_PASS="${DB_PASS:-secret}"
 DB_NAME="${DB_NAME:-3t}"
 
 if [ $# -lt 1 ]; then
-    echo "Usage: $0 <SYMBOL> [MAX_LEVERAGE]"
+    echo "Usage: $0 <SYMBOL> [MAX_LEVERAGE] [PRODUCT_SYMBOL]"
     echo ""
     echo "Examples:"
     echo "  $0 ONDO 5"
     echo "  $0 PEPE        # defaults to max_leverage=3"
+    echo "  $0 CL 3 'XYZ-CL/USDC:USDC'  # HIP-3 custom symbol"
     exit 1
 fi
 
 SYMBOL="${1^^}"  # uppercase
 MAX_LEVERAGE="${2:-3}"
-PRODUCT_SYMBOL="${SYMBOL}/USDC:USDC"
+PRODUCT_SYMBOL="${3:-${SYMBOL}/USDC:USDC}"
 
 MYSQL_CMD="mysql -h ${DB_HOST} -P ${DB_PORT} -u ${DB_USER} -p${DB_PASS} ${DB_NAME}"
 

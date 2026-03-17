@@ -36,6 +36,12 @@ exchanges:
     poll_interval: 1.0  # seconds between price polls
     poll_batch_size: 10  # number of symbols to fetch per batch
 
+# Trading hours configuration
+trading_hours:
+  # Set to true to bypass weekend/holiday market-closed checks.
+  # MUST be false in production.
+  test_mode: true
+
 # Exchange and product configuration can be managed here
 # or dynamically from the database.
 market_data:
@@ -80,6 +86,7 @@ reconciliation_engine:
     - "HYPE/USDC:USDC"
     - "ZEC/USDC:USDC"
     - "APT/USDC:USDC"
+    - "XYZ-CL/USDC:USDC"
 
   # Observer nodes for consensus validation
   observer_nodes:
