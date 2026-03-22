@@ -584,7 +584,7 @@ def get_observer_state(
     """
     observer_nodes = config.get(
         "reconciliation_engine.observer_nodes",
-        ["http://localhost:8001/3T-observer.json"],
+        ["http://exchange-observer:8001/3T-observer.json"],
     )
     wallet_address = config.get_secret("exchanges.hyperliquid.walletAddress")
     max_heartbeat_age = timedelta(minutes=5)

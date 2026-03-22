@@ -54,7 +54,7 @@ class ExchangeManager:
         self.connection_timeout = 10
         self.max_retries = 3
         self.circuit_breaker_threshold = 5
-        self.circuit_breaker_reset_time = 30  # 5 minutes
+        self.circuit_breaker_reset_time = 60  # 1 minute
 
         self._initialized = True
 
@@ -80,26 +80,13 @@ class ExchangeManager:
             for attempt in range(self.max_retries):
                 try:
                     with self._lock:
-                        # If circuit breaker is open, try proxy rotation before giving up
+                        # Strictly honor circuit breaker
                         if self._is_circuit_breaker_open(exchange_name):
-                            span.add_event(
-                                f"Circuit breaker open, attempting proxy rotation on attempt {attempt + 1}"
+                            span.add_event("Circuit breaker open, rejecting request")
+                            raise Exception(
+                                f"Circuit breaker open for {exchange_name} exchange. "
+                                f"Will retry after reset period."
                             )
-                            # Force recreation with next proxy (modulus handled in _create_exchange)
-                            self._proxy_index[exchange_name] = (
-                                self._proxy_index.get(exchange_name, 0) + 1
-                            )
-                            if exchange_name in self._exchanges:
-                                del self._exchanges[exchange_name]
-                            # Allow one retry attempt with new proxy
-                            if attempt == 0:
-                                span.add_event(
-                                    "Allowing circuit breaker reset attempt with new proxy"
-                                )
-                            else:
-                                raise Exception(
-                                    f"Circuit breaker open for {exchange_name} exchange after proxy rotation attempt"
-                                )
 
                         # Get or create exchange instance
                         exchange = self._get_or_create_exchange(exchange_name)
@@ -121,6 +108,10 @@ class ExchangeManager:
                     raise e
                 except Exception as e:
                     last_exception = e
+                    if "Circuit breaker open" in str(e):
+                        # Don't retry if circuit breaker is open
+                        raise e
+
                     span.add_event(
                         f"Attempt {attempt + 1}/{self.max_retries} to get exchange failed: {e}"
                     )
@@ -284,42 +275,57 @@ class ExchangeManager:
 
     def _is_circuit_breaker_open(self, exchange_name: str) -> bool:
         """Check if circuit breaker is open for this exchange."""
-        if exchange_name not in self._circuit_breaker_state:
-            return False
-
-        if not self._circuit_breaker_state[exchange_name]:
+        if not self._circuit_breaker_state.get(exchange_name, False):
             return False
 
         # Check if reset time has passed
         if exchange_name in self._last_failure_time:
             elapsed = datetime.now() - self._last_failure_time[exchange_name]
             if elapsed.total_seconds() > self.circuit_breaker_reset_time:
-                self._circuit_breaker_state[exchange_name] = False
-                self._failure_count[exchange_name] = 0
+                # Reset time passed - transition to closed (or half-open conceptually)
+                self._reset_failure_count(exchange_name)
                 return False
 
         return True
 
     def _record_failure(self, exchange_name: str):
         """Record a failure and potentially open circuit breaker."""
+        # Don't increment or rotate if already open - wait for reset
+        if self._circuit_breaker_state.get(exchange_name, False):
+            return
+
         self._failure_count[exchange_name] = (
             self._failure_count.get(exchange_name, 0) + 1
         )
         self._last_failure_time[exchange_name] = datetime.now()
 
-        # Increment proxy index on failure (modulus handled in _create_exchange)
-        self._proxy_index[exchange_name] = self._proxy_index.get(exchange_name, 0) + 1
-
         if self._failure_count[exchange_name] >= self.circuit_breaker_threshold:
-            was_closed = not self._circuit_breaker_state.get(exchange_name, False)
+            # Open circuit breaker
             self._circuit_breaker_state[exchange_name] = True
 
+            # Rotate proxy index ONLY when opening the circuit breaker
+            # This ensures the NEXT attempt (after reset) uses a different proxy
+            self._proxy_index[exchange_name] = (
+                self._proxy_index.get(exchange_name, 0) + 1
+            )
+
+            # Force recreation of exchange instance on next successful get_exchange
+            if exchange_name in self._exchanges:
+                try:
+                    # Try to close old connection gracefully
+                    old_exchange = self._exchanges[exchange_name]
+                    if hasattr(old_exchange, "close"):
+                        old_exchange.close()
+                except Exception:
+                    pass
+                del self._exchanges[exchange_name]
+
             # Record circuit breaker state change
-            if was_closed:
-                network_monitor.record_circuit_breaker_state(exchange_name, True)
+            network_monitor.record_circuit_breaker_state(exchange_name, True)
 
             print(
-                f"Circuit breaker opened for {exchange_name} after {self._failure_count[exchange_name]} failures"
+                f"Circuit breaker opened for {exchange_name} after {self._failure_count[exchange_name]} failures. "
+                f"Rotating to proxy index {self._proxy_index[exchange_name]}."
             )
 
     def _reset_failure_count(self, exchange_name: str):

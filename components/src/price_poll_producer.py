@@ -131,7 +131,7 @@ class PricePollProducer:
 
     async def run(self):
         """
-        Main polling loop.
+        Main polling loop with exponential backoff for rate limits.
         """
         print("Starting polling-based price producer...")
         print(f"Poll interval: {self.poll_interval} seconds")
@@ -141,6 +141,10 @@ class PricePollProducer:
         hip3_symbols = []
         last_instrument_fetch_time = 0
         INSTRUMENT_FETCH_INTERVAL = 300  # 5 minutes
+
+        # Backoff state
+        current_backoff = 0
+        max_backoff = 60  # Maximum backoff of 60 seconds
 
         while True:
             try:
@@ -189,7 +193,16 @@ class PricePollProducer:
                     continue
 
                 # Get a fresh exchange instance to ensure proxy failover works
-                exchange = exchange_manager.get_exchange("hyperliquid")
+                try:
+                    exchange = exchange_manager.get_exchange("hyperliquid")
+                except Exception as e:
+                    if "Circuit breaker open" in str(e):
+                        print(
+                            f"Polling producer: Circuit breaker open, waiting {self.poll_interval}s..."
+                        )
+                        await asyncio.sleep(self.poll_interval)
+                        continue
+                    raise
 
                 with tracer.start_as_current_span("poll_cycle"):
                     start_time = time.time()
@@ -200,6 +213,12 @@ class PricePollProducer:
                     # Publish to Redis
                     if prices:
                         self.publish_prices(prices)
+                        # Success! Reset backoff
+                        current_backoff = 0
+                    else:
+                        # If no prices were fetched (likely due to errors), consider it a partial failure
+                        # but don't apply full exponential backoff unless we get a real exception.
+                        pass
 
                     # Calculate time taken and sleep for remainder of interval
                     elapsed = time.time() - start_time
@@ -213,11 +232,26 @@ class PricePollProducer:
                         )
 
             except Exception as e:
-                print(f"Error in polling loop: {e}")
+                error_str = str(e).lower()
+                is_rate_limit = "429" in error_str or "rate limit" in error_str
+
+                if is_rate_limit:
+                    current_backoff = min(
+                        max_backoff, (current_backoff * 2) if current_backoff > 0 else 2
+                    )
+                    print(
+                        f"Polling producer: Rate limited (429). Applying backoff: {current_backoff}s"
+                    )
+                else:
+                    print(f"Polling producer: Error in polling loop: {e}")
+                    current_backoff = 2  # Small backoff for other errors
+
                 with tracer.start_as_current_span("polling_error") as error_span:
                     error_span.record_exception(e)
-                # Wait before retrying
-                await asyncio.sleep(self.poll_interval)
+                    error_span.set_attribute("backoff_seconds", current_backoff)
+
+                # Wait for backoff period
+                await asyncio.sleep(current_backoff)
 
 
 async def main():

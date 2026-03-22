@@ -374,7 +374,7 @@ def fetch_and_store_balance() -> float | None:
             # Build API-coin → DB-symbol map using CCXT market info
             hl_exchange = exchange_manager.get_exchange("hyperliquid")
             if not hl_exchange.markets:
-                hl_exchange.load_markets()
+                exchange_manager.execute_with_retry(hl_exchange.load_markets)
 
             # Fetch HIP-3 dex states (positions + margin live on separate dexes)
             hip3_dexes = ["xyz"]

@@ -2,98 +2,107 @@ import asyncio
 import datetime
 import json
 import os
+import sys
 from contextlib import asynccontextmanager
 
 import ccxt.async_support as ccxt
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from fastapi.responses import JSONResponse
+
+# Add shared to sys.path to allow importing config
+sys.path.append("/app")
+try:
+    from shared.config import config
+except ImportError:
+    config = None
 
 # Configuration
 OBSERVER_ID = os.getenv("OBSERVER_ID", "default-observer")
-# Get comma-separated addresses and split into a list
 wallet_addresses_str = os.getenv(
     "WALLET_ADDRESSES", "0x6F87795cF1B94f1572c161E0633751C9e226f955"
 )
-WALLET_ADDRESSES = [address.strip() for address in wallet_addresses_str.split(",")]
-POLL_INTERVAL_SECONDS = 5
-OUTPUT_FILE = "/app/data/3T-observer.json"
-# HIP-3 builder-deployed perp dexes to query in addition to the native perp dex
+WALLET_ADDRESSES = [address.strip() for address in wallet_addresses_str.split(",") if address.strip()]
+POLL_INTERVAL_SECONDS = 30
+OUTPUT_FILE = "/tmp/3T-observer.json"
 HIP3_DEXES = ["xyz"]
 
-# In-memory cache for the positions data
-positions_cache = {}
-
+# Initialize cache with empty data to avoid 404s during startup
+positions_cache = {
+    "observer_id": OBSERVER_ID,
+    "timestamp": datetime.datetime.now(datetime.UTC).isoformat(),
+    "positions": {}
+}
 
 async def poll_positions_periodically():
     """Periodically polls for position data and updates the JSON file."""
-    os.makedirs(os.path.dirname(OUTPUT_FILE), exist_ok=True)
+    global positions_cache
+    print(f"Observer: Starting background polling task for {len(WALLET_ADDRESSES)} addresses...")
+    
+    # Try to load existing data from disk on startup
+    if os.path.exists(OUTPUT_FILE):
+        try:
+            with open(OUTPUT_FILE) as f:
+                data = json.load(f)
+                positions_cache = data
+                print(f"Observer: Loaded data for {len(data.get('positions', {}))} addresses from disk.")
+        except Exception as e:
+            print(f"Observer: Could not load disk cache: {e}")
 
     while True:
-        exchange = None  # Initialize exchange to None
         try:
-            # Create the exchange instance inside the loop
-            exchange = ccxt.hyperliquid()
-            all_positions = {}
-
-            async def fetch_and_store(exchange, address, positions):
-                try:
-                    payload = {"type": "clearinghouseState", "user": address}
-                    state = await exchange.public_post_info(payload)
-                    if not state:
-                        return
-
-                    # Fetch HIP-3 dex positions and merge into assetPositions
-                    for dex in HIP3_DEXES:
-                        try:
-                            hip3_payload = {
-                                "type": "clearinghouseState",
-                                "user": address,
-                                "dex": dex,
-                            }
-                            hip3_state = await exchange.public_post_info(hip3_payload)
-                            if hip3_state and hip3_state.get("assetPositions"):
-                                state.setdefault("assetPositions", []).extend(
-                                    hip3_state["assetPositions"]
-                                )
-                        except Exception as e:
-                            print(
-                                f"Error fetching HIP-3 dex '{dex}' for {address}: {e}"
-                            )
-
-                    positions[address] = state
-                except Exception as e:
-                    print(f"Error fetching state for {address}: {e}")
-
-            tasks = [
-                fetch_and_store(exchange, address, all_positions)
-                for address in WALLET_ADDRESSES
-            ]
-            await asyncio.gather(*tasks)
-
-            timestamp = datetime.datetime.now(datetime.UTC).isoformat()
-
-            output_data = {
-                "observer_id": OBSERVER_ID,
-                "timestamp": timestamp,
-                "positions": all_positions,
-            }
-
-            global positions_cache
-            positions_cache = output_data
-
-            try:
-                with open(OUTPUT_FILE, "w") as f:
-                    json.dump(output_data, f, indent=4)
-            except OSError as e:
-                print(f"Error writing to {OUTPUT_FILE}: {e}")
+            # Simple setup to ensure stability; we avoid proxy rotation here for now
+            async with ccxt.hyperliquid({"enableRateLimit": True, "timeout": 15000}) as exchange:
+                new_positions = {}
+                for address in WALLET_ADDRESSES:
+                    try:
+                        print(f"Observer: Polling {address}...")
+                        payload = {"type": "clearinghouseState", "user": address}
+                        state = await exchange.public_post_info(payload)
+                        
+                        if state:
+                            # Fetch HIP-3 dex positions and merge into assetPositions
+                            for dex in HIP3_DEXES:
+                                try:
+                                    hip3_state = await exchange.public_post_info({
+                                        "type": "clearinghouseState",
+                                        "user": address,
+                                        "dex": dex,
+                                    })
+                                    if hip3_state and hip3_state.get("assetPositions"):
+                                        state.setdefault("assetPositions", []).extend(
+                                            hip3_state["assetPositions"]
+                                        )
+                                except Exception as e:
+                                    print(f"Observer: HIP-3 error for {address} on {dex}: {e}")
+                            
+                            new_positions[address] = state
+                    except Exception as e:
+                        print(f"Observer: Error polling {address}: {e}")
+                        if "429" in str(e):
+                            print("Observer: Rate limited (429). Skipping remaining addresses this cycle.")
+                            break
+                
+                if new_positions:
+                    timestamp = datetime.datetime.now(datetime.UTC).isoformat()
+                    positions_cache = {
+                        "observer_id": OBSERVER_ID,
+                        "timestamp": timestamp,
+                        "positions": new_positions
+                    }
+                    
+                    # Ensure data directory exists and save to disk
+                    os.makedirs(os.path.dirname(OUTPUT_FILE), exist_ok=True)
+                    try:
+                        with open(OUTPUT_FILE, "w") as f:
+                            json.dump(positions_cache, f, indent=4)
+                    except Exception as e:
+                        print(f"Observer: Error writing to disk: {e}")
+                        
+                    print(f"Observer: Cache updated with {len(new_positions)} addresses at {timestamp}")
 
         except Exception as e:
-            print(f"An error occurred in the polling loop: {e}")
-        finally:
-            # Always try to close the connection if it was created
-            if exchange:
-                await exchange.close()
-
+            print(f"Observer: Unexpected error in polling loop: {e}")
+            
         await asyncio.sleep(POLL_INTERVAL_SECONDS)
 
 
@@ -107,7 +116,7 @@ async def lifespan(app: FastAPI):
     try:
         await task
     except asyncio.CancelledError:
-        print("Polling task cancelled.")
+        pass
 
 
 app = FastAPI(lifespan=lifespan)
@@ -124,19 +133,4 @@ def health_check():
 @app.get("/3T-observer.json")
 async def get_observer_data():
     """Returns the latest polled position data."""
-    if not positions_cache:
-        if os.path.exists(OUTPUT_FILE):
-            try:
-                with open(OUTPUT_FILE) as f:
-                    return JSONResponse(content=json.load(f))
-            except (OSError, json.JSONDecodeError) as e:
-                raise HTTPException(
-                    status_code=500,
-                    detail=f"Could not read or parse positions file: {e}",
-                ) from e
-        else:
-            raise HTTPException(
-                status_code=404,
-                detail="Position data not available yet. Please try again later.",
-            )
     return JSONResponse(content=positions_cache)

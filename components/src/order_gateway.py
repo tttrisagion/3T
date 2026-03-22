@@ -363,7 +363,7 @@ async def startup_event():
     try:
         logger.info("Loading exchange markets on startup...")
         exchange = exchange_manager.get_exchange("hyperliquid")
-        exchange.load_markets()
+        exchange_manager.execute_with_retry(exchange.load_markets)
         logger.info("Exchange markets loaded successfully.")
     except Exception as e:
         logger.error(f"Failed to load exchange markets on startup: {e}")
