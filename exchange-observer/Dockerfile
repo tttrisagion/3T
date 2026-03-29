@@ -16,6 +16,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY --chown=appuser:appgroup exchange-observer/ /app/
 COPY --chown=appuser:appgroup shared/ /app/shared/
 
+# Copy the static web files into the expected /app/www location
+COPY --chown=appuser:appgroup docs/www/ /app/www/
+
 USER appuser
 
 EXPOSE 8001
