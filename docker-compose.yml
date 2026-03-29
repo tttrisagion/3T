@@ -332,6 +332,7 @@ services:
     restart: unless-stopped
     volumes:
       - ./exchange-observer:/app
+      - ./docs/www:/app/www:ro
       - ./shared:/app/shared
       - ./config.yml:/app/config.yml:ro
       - ./secrets.yml:/app/secrets.yml:ro

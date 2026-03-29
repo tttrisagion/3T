@@ -1,0 +1,35 @@
+# fly.proxy.toml
+app = "3t-cors-proxy-prod"
+primary_region = "tok"
+
+[build]
+  image = "redocly/cors-anywhere"
+
+[env]
+  CORSANYWHERE_WHITELIST = "https://trisagion.finance"
+
+[[services]]
+  protocol = "tcp"
+  internal_port = 8080
+  processes = ["app"]
+
+  [[services.ports]]
+    port = 80
+    handlers = ["http"]
+  [[services.ports]]
+    port = 443
+    handlers = ["tls", "http"]
+
+  [services.concurrency]
+    type = "connections"
+    hard_limit = 100
+    soft_limit = 75
+
+  [[services.tcp_checks]]
+    interval = "15s"
+    timeout = "2s"
+
+[vm]
+  cpu_kind = "shared"
+  cpus = 1
+  memory_mb = 256

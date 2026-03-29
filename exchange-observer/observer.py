@@ -8,6 +8,7 @@ from contextlib import asynccontextmanager
 import ccxt.async_support as ccxt
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 # Add shared to sys.path to allow importing config
 sys.path.append("/app")
@@ -134,3 +135,7 @@ def health_check():
 async def get_observer_data():
     """Returns the latest polled position data."""
     return JSONResponse(content=positions_cache)
+
+# Serve static files from /app/www (mounted from docs/www)
+if os.path.exists("/app/www"):
+    app.mount("/", StaticFiles(directory="/app/www", html=True), name="static")
