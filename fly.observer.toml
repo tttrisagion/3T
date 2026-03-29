@@ -1,6 +1,6 @@
 # fly.observer.toml
 app = "3t-observer-prod"
-primary_region = "tok"
+primary_region = "nrt"
 
 [build]
   dockerfile = "exchange-observer/Dockerfile"

@@ -1,6 +1,6 @@
 # fly.proxy.toml
 app = "3t-cors-proxy-prod"
-primary_region = "tok"
+primary_region = "nrt"
 
 [build]
   image = "redocly/cors-anywhere"
