@@ -12,29 +12,24 @@ primary_region = "nrt"
   PYTHONUNBUFFERED = "1"
 
 [[services]]
-  protocol = "tcp"
   internal_port = 8001
-  processes = ["app"]
+  protocol = "tcp"
 
   [[services.ports]]
-    port = 80
     handlers = ["http"]
-  [[services.ports]]
-    port = 443
-    handlers = ["tls", "http"]
+    port = 80
 
-  [services.concurrency]
-    type = "connections"
-    hard_limit = 25
-    soft_limit = 20
+  [[services.ports]]
+    handlers = ["tls", "http"]
+    port = 443
 
   [[services.http_checks]]
-    interval = "15s"
-    timeout = "5s"
     grace_period = "30s"
+    interval = "15s"
     method = "get"
     path = "/health"
     protocol = "http"
+    timeout = "5s"
 
 [vm]
   cpu_kind = "shared"
