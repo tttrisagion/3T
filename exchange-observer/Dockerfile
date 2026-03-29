@@ -14,6 +14,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy default config
 COPY config.yml.example /app/config.yml
+COPY secrets.yml.example /app/secrets.yml
 
 # Copy the observer source and the shared library
 COPY --chown=appuser:appgroup exchange-observer/ /app/
