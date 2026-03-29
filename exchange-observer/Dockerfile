@@ -12,6 +12,9 @@ RUN mkdir -p /app/data && chown -R appuser:appgroup /app/data
 COPY exchange-observer/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Copy default config
+COPY config.yml.example /app/config.yml
+
 # Copy the observer source and the shared library
 COPY --chown=appuser:appgroup exchange-observer/ /app/
 COPY --chown=appuser:appgroup shared/ /app/shared/
