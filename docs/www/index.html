@@ -352,9 +352,7 @@
 
     /* --- SENTIMENT METER --- */
     .sentiment-meter-item {
-        grid-column: 1 / -1; /* Make it span full width of the grid */
-        padding-top: 15px;
-        padding-bottom: 15px;
+        /* No longer spans full width, behaves like a normal grid item */
     }
     .sentiment-meter-bar {
         width: 100%;
@@ -574,7 +572,7 @@
         const displayTotalMarginUsed = Math.max(parseFloat(posSummary.totalMarginUsed || 0), calculatedTotalMarginUsed);
 
         const summaryItems = {
-            'Balance': statsSummary ? formatNumber(statsSummary.balance) : 'N/A',
+            'Balance': formatNumber(posSummary.accountValue), // Corrected data source
             'PNL': statsSummary ? formatNumber(statsSummary.pnl) : 'N/A',
             'Total Position Value': formatNumber(displayTotalNtlPos),
             'Total Margin Used': formatNumber(displayTotalMarginUsed),
@@ -765,7 +763,7 @@
                                 color: 'var(--text-color)',
                                 font: { family: 'Courier' }
                             },
-                            ticks: { color: 'var(--secondary-text-color)', fontFamily: 'Courier' },
+                            ticks: { color: 'var(--text-color)', fontFamily: 'Courier' },
                             grid: { color: 'rgba(255, 153, 0, 0.2)' }
                         },
                         y: {
@@ -775,7 +773,7 @@
                                 color: 'var(--text-color)',
                                 font: { family: 'Courier' }
                             },
-                            ticks: { color: 'var(--secondary-text-color)', fontFamily: 'Courier' },
+                            ticks: { color: 'var(--text-color)', fontFamily: 'Courier' },
                             grid: { color: 'rgba(255, 153, 0, 0.2)' }
                         }
                     },
