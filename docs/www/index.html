@@ -10,6 +10,7 @@
   <script src="/js/tablesort.number.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/suncalc/1.8.0/suncalc.min.js"></script>
   <style>
     /* --- THEME AND COLOR VARIABLES --- */
     :root {
@@ -243,7 +244,8 @@
       position: relative;
       background-color: var(--bg-color);
       box-shadow: 0 0 15px var(--accent-color);
-      transition: border-color 0.3s, background-color 0.3s, box-shadow 0.3s;
+      /* Modified transition for subtle diurnal changes */
+      transition: border-color 0.3s, background-color 3s linear, box-shadow 0.3s;
     }
     .clock-face {
       width: 100%;
@@ -847,11 +849,16 @@ function renderEquityChart(container, walletStats) {
         }
     }
 
-	// --- CLOCK LOGIC (UNCHANGED) ---
-	function setupClock(clockId, timeZone) {
+// --- CLOCK LOGIC ---
+    function setupClock(clockId, timeZone, lat, lng) {
+        const clockElement = document.getElementById(clockId);
         const hourHand = document.querySelector(`#${clockId} .hour-hand`);
         const minuteHand = document.querySelector(`#${clockId} .minute-hand`);
         const secondHand = document.querySelector(`#${clockId} .second-hand`);
+        
+        let sunTimes = null;
+        let lastCalcDate = null;
+
         function updateClock() {
             const nowInTimeZone = new Date().toLocaleString("en-US", { timeZone });
             const date = new Date(nowInTimeZone);
@@ -864,15 +871,48 @@ function renderEquityChart(container, walletStats) {
             const hours = date.getHours();
             const hoursDegrees = ((hours / 12) * 360) + ((minutes / 60) * 30);
             hourHand.style.transform = `rotate(${hoursDegrees}deg)`;
+
+            // --- Diurnal State Calculation ---
+            const currentDateString = date.toDateString();
+            
+            // Calculate solar events once per day per clock
+            if (lastCalcDate !== currentDateString) {
+                sunTimes = SunCalc.getTimes(date, lat, lng);
+                lastCalcDate = currentDateString;
+            }
+
+            const time = date.getTime();
+            let stateColor = '';
+
+            // Determine current state based on solar events
+            const isMorningTwilight = time >= sunTimes.sunrise.getTime() && time <= sunTimes.goldenHourEnd.getTime();
+            const isEveningTwilight = time >= sunTimes.goldenHour.getTime() && time <= sunTimes.sunset.getTime();
+            const isDay = time > sunTimes.goldenHourEnd.getTime() && time < sunTimes.goldenHour.getTime();
+
+            if (isMorningTwilight || isEveningTwilight) {
+                stateColor = 'var(--accent-color)'; // Twilight State
+            } else if (isDay) {
+                // Day State (uses light theme background representation)
+                stateColor = '#ffffff'; 
+            } else {
+                // Night State (uses dark theme background representation)
+                stateColor = '#000000'; 
+            }
+
+            // Apply color dynamically
+            if (clockElement.style.backgroundColor !== stateColor) {
+                clockElement.style.backgroundColor = stateColor;
+            }
         }
         setInterval(updateClock, 1000);
         updateClock();
     }
 
     // --- INITIALIZATION ---
-    setupClock('clock-vatican', 'Europe/Vatican');
-    setupClock('clock-shanghai', 'Asia/Shanghai');
-    setupClock('clock-new-york', 'America/New_York');
+    setupClock('clock-vatican', 'Europe/Vatican', 41.90, 12.45);
+    setupClock('clock-shanghai', 'Asia/Shanghai', 31.23, 121.47);
+    setupClock('clock-new-york', 'America/New_York', 45.50, -73.56);
+    
     fetchData(); // Initial fetch
     setInterval(fetchData, POLLING_INTERVAL); // Fetch every 15 seconds
     setInterval(updateTimer, 1000); // Update the 'ago' timer every second
