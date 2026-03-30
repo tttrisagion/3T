@@ -1,3 +1,8 @@
+# trisagion.xyz replication
+www:
+  enabled: false
+  wallet: 0x0000000000000000000000000000000000000000
+
 # Application-wide configuration
 database:
   host: mariadb

@@ -232,6 +232,7 @@ services:
     image: prom/prometheus:v2.47.2
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
       - '--web.enable-remote-write-receiver'
     ports:
       - "9090:9090"
@@ -239,6 +240,7 @@ services:
       - type: bind
         source: ./prometheus/prometheus.yml
         target: /etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
@@ -250,6 +252,7 @@ services:
     volumes:
       - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources
       - ./grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards
+      - grafana_data:/var/lib/grafana
     restart: unless-stopped
 
   mariadb:
@@ -403,3 +406,5 @@ services:
 volumes:
   mariadb_data:
   tempo_data:
+  prometheus_data:
+  grafana_data:
