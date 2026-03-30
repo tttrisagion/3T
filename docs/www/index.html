@@ -581,7 +581,7 @@
 
         const summaryItems = {
             'Balance': formatNumber(posSummary.accountValue), // Corrected data source
-            'PNL': statsSummary ? formatNumber(statsSummary.pnl) : 'N/A',
+            'Open P&amp;L': statsSummary ? formatNumber(statsSummary.pnl) : 'N/A',
             'Total Position Value': formatNumber(displayTotalNtlPos),
             'Total Margin Used': formatNumber(displayTotalMarginUsed),
         };
@@ -659,7 +659,7 @@
                 table = document.createElement('table');
                 table.className = 'positions-table';
                 table.innerHTML = `
-                    <thead><tr><th>Coin</th><th>Size</th><th>Entry Px</th><th>Liq. Px</th><th>Pos. Value</th><th>Unrealized PNL</th><th>ROE %</th><th>Margin Used</th></tr></thead>
+                    <thead><tr><th>Coin</th><th>Size</th><th>Entry Px</th><th>Liq. Px</th><th>Pos. Value</th><th>Unrlzd. P&amp;L</th><th>ROE %</th><th>Margin Used</th></tr></thead>
                     <tbody></tbody>
                 `;
                 // Insert after summary grid
