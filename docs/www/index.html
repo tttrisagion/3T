@@ -849,19 +849,40 @@ function renderEquityChart(container, walletStats) {
         }
     }
 
-// --- CLOCK LOGIC ---
+    // --- CLOCK LOGIC (ENHANCED) ---
+    function lerpColor(a, b, amount) {
+        const ar = parseInt(a.slice(1, 3), 16),
+              ag = parseInt(a.slice(3, 5), 16),
+              ab = parseInt(a.slice(5, 7), 16);
+        const br = parseInt(b.slice(1, 3), 16),
+              bg = parseInt(b.slice(3, 5), 16),
+              bb = parseInt(b.slice(5, 7), 16);
+        const rr = Math.round(ar + amount * (br - ar)).toString(16).padStart(2, '0');
+        const rg = Math.round(ag + amount * (bg - ag)).toString(16).padStart(2, '0');
+        const rb = Math.round(ab + amount * (bb - ab)).toString(16).padStart(2, '0');
+        return `#${rr}${rg}${rb}`;
+    }
+
     function setupClock(clockId, timeZone, lat, lng) {
         const clockElement = document.getElementById(clockId);
         const hourHand = document.querySelector(`#${clockId} .hour-hand`);
         const minuteHand = document.querySelector(`#${clockId} .minute-hand`);
         const secondHand = document.querySelector(`#${clockId} .second-hand`);
-        
-        let sunTimes = null;
-        let lastCalcDate = null;
+
+        const nightColor = '#000000';
+        const twilightColor = '#FFA500'; // Matches --accent-color
+        const dayColor = '#FFFFFF';
+
+        // Altitude thresholds in radians
+        const nightAltitude = -0.25; // Astronomical twilight
+        const twilightAltitude = -0.1; // Nautical/Civil twilight
+        const dayAltitude = 0.05;   // Sun just above horizon
 
         function updateClock() {
             const nowInTimeZone = new Date().toLocaleString("en-US", { timeZone });
             const date = new Date(nowInTimeZone);
+
+            // Update clock hands
             const seconds = date.getSeconds();
             const secondsDegrees = ((seconds / 60) * 360) + 90;
             secondHand.style.transform = `rotate(${secondsDegrees}deg)`;
@@ -872,32 +893,21 @@ function renderEquityChart(container, walletStats) {
             const hoursDegrees = ((hours / 12) * 360) + ((minutes / 60) * 30);
             hourHand.style.transform = `rotate(${hoursDegrees}deg)`;
 
-            // --- Diurnal State Calculation ---
-            const currentDateString = date.toDateString();
-            
-            // Calculate solar events once per day per clock
-            if (lastCalcDate !== currentDateString) {
-                sunTimes = SunCalc.getTimes(date, lat, lng);
-                lastCalcDate = currentDateString;
+            // --- Diurnal State Calculation (Altitude-based) ---
+            const sunPosition = SunCalc.getPosition(date, lat, lng);
+            const altitude = sunPosition.altitude;
+            let stateColor = nightColor;
+
+            if (altitude > dayAltitude) {
+                stateColor = dayColor;
+            } else if (altitude > twilightAltitude) {
+                const amount = (altitude - twilightAltitude) / (dayAltitude - twilightAltitude);
+                stateColor = lerpColor(twilightColor, dayColor, amount);
+            } else if (altitude > nightAltitude) {
+                const amount = (altitude - nightAltitude) / (twilightAltitude - nightAltitude);
+                stateColor = lerpColor(nightColor, twilightColor, amount);
             }
-
-            const time = date.getTime();
-            let stateColor = '';
-
-            // Determine current state based on solar events
-            const isMorningTwilight = time >= sunTimes.sunrise.getTime() && time <= sunTimes.goldenHourEnd.getTime();
-            const isEveningTwilight = time >= sunTimes.goldenHour.getTime() && time <= sunTimes.sunset.getTime();
-            const isDay = time > sunTimes.goldenHourEnd.getTime() && time < sunTimes.goldenHour.getTime();
-
-            if (isMorningTwilight || isEveningTwilight) {
-                stateColor = 'var(--accent-color)'; // Twilight State
-            } else if (isDay) {
-                // Day State (uses light theme background representation)
-                stateColor = '#ffffff'; 
-            } else {
-                // Night State (uses dark theme background representation)
-                stateColor = '#000000'; 
-            }
+            // else, it remains nightColor
 
             // Apply color dynamically
             if (clockElement.style.backgroundColor !== stateColor) {
