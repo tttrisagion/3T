@@ -877,37 +877,34 @@ function renderEquityChart(container, walletStats) {
         // Altitude thresholds in radians
         const nightAltitude = -0.25; // Astronomical twilight
         const twilightAltitude = -0.1; // Nautical/Civil twilight
-        const dayAltitude = 0.05;   // Sun just above horizon
+        const dayAltitude = -0.01;   // Sun just dipping below horizon
 
         function updateClock() {
-            const now = new Date();
+            const now = new Date(); // The correct, universal moment in time.
 
-            // --- Get Time Parts for Target Timezone ---
-            const options = { timeZone, year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric', hour12: false };
+            // --- Hand Calculation (Corrected) ---
+            // Use Intl.DateTimeFormat to get reliable time parts for any timezone.
+            const options = { timeZone, hour: 'numeric', minute: 'numeric', second: 'numeric', hour12: false };
             const formatter = new Intl.DateTimeFormat('en-US', options);
             const parts = formatter.formatToParts(now).reduce((acc, p) => { acc[p.type] = p.value; return acc; }, {});
-
-            const year = parseInt(parts.year);
-            const month = parseInt(parts.month) - 1; // JS months are 0-indexed
-            const day = parseInt(parts.day);
-            const seconds = parseInt(parts.second);
-            const minutes = parseInt(parts.minute);
+            
+            const seconds = parseInt(parts.second || '0');
+            const minutes = parseInt(parts.minute || '0');
             const hours = parseInt(parts.hour === '24' ? '0' : parts.hour);
 
-            // --- Hand Calculation ---
+            // Calculate rotation degrees for each hand
             const secondsDegrees = (seconds / 60) * 360;
             const minutesDegrees = (minutes / 60) * 360 + (seconds / 60) * 6;
             const hoursDegrees = (hours / 12) * 360 + (minutes / 60) * 30;
+
             secondHand.style.transform = `rotate(${secondsDegrees}deg)`;
             minuteHand.style.transform = `rotate(${minutesDegrees}deg)`;
             hourHand.style.transform = `rotate(${hoursDegrees}deg)`;
 
             // --- Diurnal State Calculation (Corrected) ---
-            // Create a new Date object using the parts from the target timezone.
-            // This "tricks" SunCalc by providing a date where the browser's "local" time
-            // appears to be the time in the target city.
-            const dateForSunCalc = new Date(year, month, day, hours, minutes, seconds);
-            const sunPosition = SunCalc.getPosition(dateForSunCalc, lat, lng);
+            // Use the original `now` object. SunCalc calculates position based on
+            // the universal time and the specific lat/lng coordinates.
+            const sunPosition = SunCalc.getPosition(now, lat, lng);
             const altitude = sunPosition.altitude;
             let stateColor = nightColor;
 
