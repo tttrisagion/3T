@@ -1,0 +1,37 @@
+# fly.observer.toml
+app = "3t-observer-prod"
+primary_region = "nrt"
+
+[build]
+  dockerfile = "exchange-observer/Dockerfile"
+  ignorefile = ".gitignore"
+
+[env]
+  OBSERVER_ID = "3t-observer-prod"
+  PYTHONPATH = "/app"
+  PYTHONUNBUFFERED = "1"
+
+[[services]]
+  internal_port = 8001
+  protocol = "tcp"
+
+  [[services.ports]]
+    handlers = ["http"]
+    port = 80
+
+  [[services.ports]]
+    handlers = ["tls", "http"]
+    port = 443
+
+  [[services.http_checks]]
+    grace_period = "30s"
+    interval = "15s"
+    method = "get"
+    path = "/health"
+    protocol = "http"
+    timeout = "5s"
+
+[vm]
+  cpu_kind = "shared"
+  cpus = 1
+  memory_mb = 512

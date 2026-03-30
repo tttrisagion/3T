@@ -1,0 +1,31 @@
+name: Deploy to Fly.io
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy to Fly.io
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        app: [
+          { name: "3t-observer-prod", config: "fly.observer.toml", is_observer: true },
+          { name: "3t-cors-proxy-prod", config: "fly.proxy.toml", is_observer: false }
+        ]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@master
+      
+      - name: Deploy ${{ matrix.app.name }}
+        run: |
+          DEPLOY_CMD="flyctl deploy --remote-only --config ${{ matrix.app.config }}"
+          if [ "${{ matrix.app.is_observer }}" = "true" ]; then
+            DEPLOY_CMD="$DEPLOY_CMD --env WALLET_ADDRESSES=\"${{ secrets.WALLET_ADDRESSES }}\""
+          fi
+          eval $DEPLOY_CMD
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}

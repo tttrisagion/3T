@@ -8,10 +8,20 @@ RUN groupadd -r appgroup && useradd -r -g appgroup --create-home appuser
 # Create data directory and set permissions
 RUN mkdir -p /app/data && chown -R appuser:appgroup /app/data
 
-COPY requirements.txt .
+# Copy requirements from the observer directory
+COPY exchange-observer/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY --chown=appuser:appgroup . .
+# Copy default config
+COPY config.yml.example /app/config.yml
+COPY secrets.yml.example /app/secrets.yml
+
+# Copy the observer source and the shared library
+COPY --chown=appuser:appgroup exchange-observer/ /app/
+COPY --chown=appuser:appgroup shared/ /app/shared/
+
+# Copy the static web files into the expected /app/www location
+COPY --chown=appuser:appgroup docs/www/ /app/www/
 
 USER appuser
 
