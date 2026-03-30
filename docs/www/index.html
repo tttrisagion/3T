@@ -879,22 +879,35 @@ function renderEquityChart(container, walletStats) {
         const dayAltitude = 0.05;   // Sun just above horizon
 
         function updateClock() {
-            const nowInTimeZone = new Date().toLocaleString("en-US", { timeZone });
-            const date = new Date(nowInTimeZone);
+            const now = new Date(); // The correct, universal moment in time.
 
-            // Update clock hands
-            const seconds = date.getSeconds();
-            const secondsDegrees = ((seconds / 60) * 360) + 90;
+            // --- Hand Calculation (Corrected) ---
+            // Use Intl.DateTimeFormat to get reliable time parts for any timezone.
+            const options = { timeZone, hour: 'numeric', minute: 'numeric', second: 'numeric', hour12: false };
+            const formatter = new Intl.DateTimeFormat('en-US', options);
+            const parts = formatter.formatToParts(now);
+
+            const getPart = (type) => parseInt(parts.find(p => p.type === type)?.value || '0', 10);
+            
+            const seconds = getPart('second');
+            const minutes = getPart('minute');
+            const hours = getPart('hour');
+
+            // Calculate rotation degrees for each hand
+            const secondsDegrees = (seconds / 60) * 360;
+            const minutesDegrees = (minutes / 60) * 360 + (seconds / 60) * 6;
+            const hoursDegrees = (hours / 12) * 360 + (minutes / 60) * 30;
+
+            // Apply rotation. The +90 was incorrect; CSS transform-origin handles this.
             secondHand.style.transform = `rotate(${secondsDegrees}deg)`;
-            const minutes = date.getMinutes();
-            const minutesDegrees = ((minutes / 60) * 360) + ((seconds / 60) * 6);
             minuteHand.style.transform = `rotate(${minutesDegrees}deg)`;
-            const hours = date.getHours();
-            const hoursDegrees = ((hours / 12) * 360) + ((minutes / 60) * 30);
             hourHand.style.transform = `rotate(${hoursDegrees}deg)`;
 
-            // --- Diurnal State Calculation (Altitude-based) ---
-            const sunPosition = SunCalc.getPosition(date, lat, lng);
+
+            // --- Diurnal State Calculation (Corrected) ---
+            // Use the original `now` object. SunCalc calculates position based on
+            // the universal time and the specific lat/lng coordinates.
+            const sunPosition = SunCalc.getPosition(now, lat, lng);
             const altitude = sunPosition.altitude;
             let stateColor = nightColor;
 
@@ -907,7 +920,6 @@ function renderEquityChart(container, walletStats) {
                 const amount = (altitude - nightAltitude) / (twilightAltitude - nightAltitude);
                 stateColor = lerpColor(nightColor, twilightColor, amount);
             }
-            // else, it remains nightColor
 
             // Apply color dynamically
             if (clockElement.style.backgroundColor !== stateColor) {
