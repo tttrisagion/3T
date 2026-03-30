@@ -8,6 +8,8 @@
   <link rel="apple-touch-icon" href="/TTT.PNG">
   <script src="/js/tablesort.min.js"></script>
   <script src="/js/tablesort.number.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
   <style>
     /* --- THEME AND COLOR VARIABLES --- */
     :root {
@@ -347,6 +349,15 @@
     body[data-theme="light"] #theme-toggle::after {
         transform: scale(0); /* Hide the covering part in light mode */
     }
+
+    /* --- CHART STYLING --- */
+    .chart-container {
+        position: relative;
+        margin: 2em auto;
+        height: 40vh;
+        width: 85%;
+        max-width: 90%;
+    }
   </style>
 </head>
 <body>
@@ -397,10 +408,14 @@
   </div>
 
   <script>
-    let lastData = null; // Store the last fetched JSON object
+    let lastData = null; // Store the last fetched positions JSON
+    let lastStatsData = null; // Store the last fetched stats JSON
     let lastUpdateTime = null; // Store the timestamp from the JSON
     const POLLING_INTERVAL = 15000; // ms
+    
     const tablesortInstances = new Map();
+    const chartInstances = new Map();
+
     const addressLabels = {
         "0x6F87795cF1B94f1572c161E0633751C9e226f955": "Development Endowment #1",
         "0x30f1C7b7f904D7eA3460F7C359ecd6Fe93B96d12": "Development Endowment #2",
@@ -430,34 +445,38 @@
     }
 
     /**
-     * Renders the data from the JSON object into the DOM.
-     * Creates or updates sections for each address.
+     * Renders all data, orchestrating the rendering of positions and stats.
      */
-    function renderData(data) {
+    function renderAllData(positionData, statsData) {
         const container = document.getElementById('data-container');
-
-        // --- SORTING ---
-        const sortedAddresses = Object.keys(data.positions).sort((a, b) => {
-            const valA = data.positions[a].marginSummary.accountValue;
-            const valB = data.positions[b].marginSummary.accountValue;
+        
+        // Use addresses from position data as the primary source of truth for display
+        const sortedAddresses = Object.keys(positionData.positions).sort((a, b) => {
+            const valA = positionData.positions[a].marginSummary.accountValue;
+            const valB = positionData.positions[b].marginSummary.accountValue;
             return valB - valA; // Sort descending
         });
 
         const currentAddresses = new Set(sortedAddresses);
         
+        // --- GARBAGE COLLECTION ---
         // Remove containers for addresses that are no longer in the data
         document.querySelectorAll('.address-container').forEach(div => {
-            if (!currentAddresses.has(div.dataset.address)) {
+            const address = div.dataset.address;
+            if (!currentAddresses.has(address)) {
                 div.remove();
-                if (tablesortInstances.has(div.dataset.address)) {
-                    tablesortInstances.get(div.dataset.address).destroy();
-                    tablesortInstances.delete(div.dataset.address);
+                if (tablesortInstances.has(address)) {
+                    tablesortInstances.get(address).destroy();
+                    tablesortInstances.delete(address);
+                }
+                if (chartInstances.has(address)) {
+                    chartInstances.get(address).destroy();
+                    chartInstances.delete(address);
                 }
             }
         });
 
-        // --- REORDERING ---
-        // Re-insert existing elements in the new sorted order
+        // --- REORDER DOM ELEMENTS ---
         sortedAddresses.forEach(address => {
             const existingContainer = document.querySelector(`.address-container[data-address="${address}"]`);
             if (existingContainer) {
@@ -465,10 +484,8 @@
             }
         });
 
+        // --- RENDER CONTENT FOR EACH ADDRESS ---
         for (const address of sortedAddresses) {
-            const positionData = data.positions[address];
-            const oldPositionData = lastData ? lastData.positions[address] : null;
-
             let addressContainer = document.querySelector(`.address-container[data-address="${address}"]`);
             if (!addressContainer) {
                 addressContainer = document.createElement('div');
@@ -479,169 +496,288 @@
                 const addressHtml = `<small>${address}</small>`;
                 const titleHtml = label ? `${label} ${addressHtml}` : addressHtml;
 
-                addressContainer.innerHTML = `<h3>${titleHtml}</h3><div class="summary-grid"></div>`;
+                addressContainer.innerHTML = `<h3>${titleHtml}</h3>`;
                 container.appendChild(addressContainer);
             }
 
-            // --- Update Summary Grid ---
-            const summary = positionData.marginSummary;
-            const oldSummary = oldPositionData ? oldPositionData.marginSummary : null;
-            const summaryGrid = addressContainer.querySelector('.summary-grid');
-            
-            // Calculate totals from assetPositions (since HIP-3 dexes might not be in the main summary)
-            let calculatedTotalNtlPos = 0;
-            let calculatedTotalMarginUsed = 0;
-            positionData.assetPositions.forEach(asset => {
-                calculatedTotalNtlPos += parseFloat(asset.position.positionValue || 0);
-                calculatedTotalMarginUsed += parseFloat(asset.position.marginUsed || 0);
-            });
+            // Render data from 3T-observer.json
+            const posData = positionData.positions[address];
+            const oldPosData = lastData ? lastData.positions[address] : null;
+            renderPositionSummary(addressContainer, posData, oldPosData);
+            renderAssetPositions(addressContainer, posData, oldPosData);
 
-            // Use the larger of the summary value or the calculated value
-            const displayTotalNtlPos = Math.max(parseFloat(summary.totalNtlPos || 0), calculatedTotalNtlPos);
-            const displayTotalMarginUsed = Math.max(parseFloat(summary.totalMarginUsed || 0), calculatedTotalMarginUsed);
-
-            const summaryItems = {
-                'Account Value': formatNumber(summary.accountValue),
-                'Total Position Value': formatNumber(displayTotalNtlPos),
-                //'Total Raw USD': formatNumber(summary.totalRawUsd),
-                'Total Margin Used': formatNumber(displayTotalMarginUsed),
-                'Withdrawable': formatNumber(positionData.withdrawable)
-            };
-
-            for(const label in summaryItems) {
-                const value = summaryItems[label];
-                let itemDiv = summaryGrid.querySelector(`[data-label="${label}"]`);
-                if (!itemDiv) {
-                    itemDiv = document.createElement('div');
-                    itemDiv.className = 'summary-item';
-                    itemDiv.dataset.label = label;
-                    itemDiv.innerHTML = `<span class="label">${label}: </span><span class="value"></span>`;
-                    summaryGrid.appendChild(itemDiv);
-                }
-                const valueSpan = itemDiv.querySelector('.value');
-                if (valueSpan.textContent !== value) {
-                    valueSpan.textContent = value;
-                    // Flash only if old data exists to compare against
-                    if (oldSummary) flashElement(itemDiv);
-                }
-            }
-
-
-            // --- Update Asset Positions Table ---
-            let table = addressContainer.querySelector('table');
-            if (positionData.assetPositions.length > 0) {
-                if (!table) {
-                    table = document.createElement('table');
-                    table.innerHTML = `
-                        <thead>
-                            <tr>
-                                <th>Coin</th>
-                                <th>Size</th>
-                                <th>Entry Px</th>
-                                <th>Liq. Px</th>
-                                <th>Pos. Value</th>
-                                <th>Unrealized PNL</th>
-                                <th>ROE %</th>
-                                <th>Margin Used</th>
-                            </tr>
-                        </thead>
-                        <tbody></tbody>
-                    `;
-                    addressContainer.appendChild(table);
-                    // Initialize table sort
-                    const newInstance = new Tablesort(table);
-                    tablesortInstances.set(address, newInstance);
-                }
-
-                const tbody = table.querySelector('tbody');
-                const existingRows = new Map([...tbody.querySelectorAll('tr')].map(row => [row.dataset.coin, row]));
-                const newCoins = new Set();
-
-                positionData.assetPositions.forEach(asset => {
-                    const pos = asset.position;
-                    newCoins.add(pos.coin);
-                    
-                    const oldAsset = oldPositionData?.assetPositions.find(p => p.position.coin === pos.coin)?.position;
-
-                    let row = existingRows.get(pos.coin);
-                    if (!row) {
-                        row = document.createElement('tr');
-                        row.dataset.coin = pos.coin;
-                        tbody.appendChild(row);
-                    }
-                    
-                    const cellsData = [
-                        pos.coin,
-                        formatNumber(pos.szi, 4),
-                        formatNumber(pos.entryPx),
-                        pos.liquidationPx ? formatNumber(pos.liquidationPx) : 'N/A',
-                        formatNumber(pos.positionValue),
-                        formatNumber(pos.unrealizedPnl),
-                        formatNumber(pos.returnOnEquity * 100, 4),
-                        formatNumber(pos.marginUsed)
-                    ];
-
-                    // Create or update cells
-                    for (let i = 0; i < cellsData.length; i++) {
-                        let cell = row.cells[i];
-                        if (!cell) {
-                            cell = row.insertCell();
-                        }
-                        if (cell.textContent !== cellsData[i]) {
-                           cell.textContent = cellsData[i];
-                           if(oldAsset) flashElement(cell);
-                        }
-                    }
-                });
-
-                // Remove rows for coins that are no longer in the data
-                existingRows.forEach((row, coin) => {
-                    if (!newCoins.has(coin)) {
-                        row.remove();
-                    }
-                });
-                
-                if (tablesortInstances.has(address)) {
-                    tablesortInstances.get(address).refresh();
-                }
-
-            } else if (table) {
-                // If there are no positions but a table exists, remove it
-                table.remove();
-                if (tablesortInstances.has(address)) {
-                    tablesortInstances.get(address).destroy();
-                    tablesortInstances.delete(address);
-                }
+            // Render data from stats.json
+            const walletStats = statsData.wallets[address];
+            const oldWalletStats = lastStatsData ? lastStatsData.wallets[address] : null;
+            if (walletStats) {
+                renderStatsSummary(addressContainer, walletStats, oldWalletStats);
+                renderEquityChart(addressContainer, walletStats, oldWalletStats);
             }
         }
         
-        // Store the current data for the next comparison
-        lastData = data;
+        lastData = positionData;
+        lastStatsData = statsData;
+    }
+
+    /**
+     * Renders the main summary grid (Account Value, etc.) from position data.
+     */
+    function renderPositionSummary(container, positionData, oldPositionData) {
+        let summaryGrid = container.querySelector('.summary-grid');
+        if (!summaryGrid) {
+            summaryGrid = document.createElement('div');
+            summaryGrid.className = 'summary-grid';
+            container.appendChild(summaryGrid);
+        }
+
+        const summary = positionData.marginSummary;
+        const oldSummary = oldPositionData ? oldPositionData.marginSummary : null;
+
+        let calculatedTotalNtlPos = 0;
+        let calculatedTotalMarginUsed = 0;
+        positionData.assetPositions.forEach(asset => {
+            calculatedTotalNtlPos += parseFloat(asset.position.positionValue || 0);
+            calculatedTotalMarginUsed += parseFloat(asset.position.marginUsed || 0);
+        });
+
+        const displayTotalNtlPos = Math.max(parseFloat(summary.totalNtlPos || 0), calculatedTotalNtlPos);
+        const displayTotalMarginUsed = Math.max(parseFloat(summary.totalMarginUsed || 0), calculatedTotalMarginUsed);
+
+        const summaryItems = {
+            'Account Value': formatNumber(summary.accountValue),
+            'Total Position Value': formatNumber(displayTotalNtlPos),
+            'Total Margin Used': formatNumber(displayTotalMarginUsed),
+            'Withdrawable': formatNumber(positionData.withdrawable)
+        };
+
+        for(const label in summaryItems) {
+            const value = summaryItems[label];
+            let itemDiv = summaryGrid.querySelector(`[data-label="${label}"]`);
+            if (!itemDiv) {
+                itemDiv = document.createElement('div');
+                itemDiv.className = 'summary-item';
+                itemDiv.dataset.label = label;
+                itemDiv.innerHTML = `<span class="label">${label}: </span><span class="value"></span>`;
+                summaryGrid.appendChild(itemDiv);
+            }
+            const valueSpan = itemDiv.querySelector('.value');
+            if (valueSpan.textContent !== value) {
+                valueSpan.textContent = value;
+                if (oldSummary) flashElement(itemDiv);
+            }
+        }
+    }
+
+    /**
+     * Renders the table of individual asset positions.
+     */
+    function renderAssetPositions(container, positionData, oldPositionData) {
+        let table = container.querySelector('table.positions-table');
+        if (positionData.assetPositions.length > 0) {
+            if (!table) {
+                table = document.createElement('table');
+                table.className = 'positions-table';
+                table.innerHTML = `
+                    <thead><tr><th>Coin</th><th>Size</th><th>Entry Px</th><th>Liq. Px</th><th>Pos. Value</th><th>Unrealized PNL</th><th>ROE %</th><th>Margin Used</th></tr></thead>
+                    <tbody></tbody>
+                `;
+                container.appendChild(table);
+                const newInstance = new Tablesort(table);
+                tablesortInstances.set(container.dataset.address, newInstance);
+            }
+
+            const tbody = table.querySelector('tbody');
+            const existingRows = new Map([...tbody.querySelectorAll('tr')].map(row => [row.dataset.coin, row]));
+            const newCoins = new Set();
+
+            positionData.assetPositions.forEach(asset => {
+                const pos = asset.position;
+                newCoins.add(pos.coin);
+                
+                const oldAsset = oldPositionData?.assetPositions.find(p => p.position.coin === pos.coin)?.position;
+
+                let row = existingRows.get(pos.coin);
+                if (!row) {
+                    row = document.createElement('tr');
+                    row.dataset.coin = pos.coin;
+                    tbody.appendChild(row);
+                }
+                
+                const cellsData = [
+                    pos.coin,
+                    formatNumber(pos.szi, 4),
+                    formatNumber(pos.entryPx),
+                    pos.liquidationPx ? formatNumber(pos.liquidationPx) : 'N/A',
+                    formatNumber(pos.positionValue),
+                    formatNumber(pos.unrealizedPnl),
+                    formatNumber(pos.returnOnEquity * 100, 4),
+                    formatNumber(pos.marginUsed)
+                ];
+
+                for (let i = 0; i < cellsData.length; i++) {
+                    let cell = row.cells[i];
+                    if (!cell) { cell = row.insertCell(); }
+                    if (cell.textContent !== cellsData[i]) {
+                       cell.textContent = cellsData[i];
+                       if(oldAsset) flashElement(cell);
+                    }
+                }
+            });
+
+            existingRows.forEach((row, coin) => { if (!newCoins.has(coin)) { row.remove(); } });
+            
+            if (tablesortInstances.has(container.dataset.address)) {
+                tablesortInstances.get(container.dataset.address).refresh();
+            }
+
+        } else if (table) {
+            table.remove();
+            const address = container.dataset.address;
+            if (tablesortInstances.has(address)) {
+                tablesortInstances.get(address).destroy();
+                tablesortInstances.delete(address);
+            }
+        }
+    }
+
+    /**
+     * Renders the new summary grid from stats.json data.
+     */
+    function renderStatsSummary(container, walletStats, oldWalletStats) {
+        let statsGrid = container.querySelector('.stats-summary-grid');
+        if (!statsGrid) {
+            statsGrid = document.createElement('div');
+            statsGrid.className = 'summary-grid stats-summary-grid'; // Re-use styling
+            // Insert it after the main summary grid but before the positions table
+            const mainGrid = container.querySelector('.summary-grid');
+            mainGrid.after(statsGrid);
+        }
+
+        const summary = walletStats.summary;
+        const oldSummary = oldWalletStats ? oldWalletStats.summary : null;
+
+        const summaryItems = {
+            'Balance': formatNumber(summary.balance),
+            'PNL': formatNumber(summary.pnl),
+            'Open Runs': parseInt(summary.open_runs),
+            'Long/Short Runs': `${parseInt(summary.long_runs)} / ${parseInt(summary.short_runs)}`,
+        };
+
+        for (const label in summaryItems) {
+            const value = summaryItems[label];
+            let itemDiv = statsGrid.querySelector(`[data-label="${label}"]`);
+            if (!itemDiv) {
+                itemDiv = document.createElement('div');
+                itemDiv.className = 'summary-item';
+                itemDiv.dataset.label = label;
+                itemDiv.innerHTML = `<span class="label">${label}: </span><span class="value"></span>`;
+                statsGrid.appendChild(itemDiv);
+            }
+            const valueSpan = itemDiv.querySelector('.value');
+            if (valueSpan.textContent != value) {
+                valueSpan.textContent = value;
+                if (oldSummary) flashElement(itemDiv);
+            }
+        }
+    }
+
+    /**
+     * Renders or updates the equity curve chart.
+     */
+    function renderEquityChart(container, walletStats, oldWalletStats) {
+        const address = container.dataset.address;
+        let chartContainer = container.querySelector('.chart-container');
+        if (!chartContainer) {
+            chartContainer = document.createElement('div');
+            chartContainer.className = 'chart-container';
+            chartContainer.innerHTML = `<canvas id="chart-${address}"></canvas>`;
+            container.appendChild(chartContainer);
+        }
+        
+        const equityData = walletStats.equity_curve.map(d => ({ x: d[0] * 1000, y: parseFloat(d[1]) }));
+
+        let chart = chartInstances.get(address);
+
+        if (!chart) {
+            const ctx = document.getElementById(`chart-${address}`).getContext('2d');
+            const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text-color').trim();
+
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    datasets: [{
+                        label: 'Equity',
+                        data: equityData,
+                        borderColor: 'var(--accent-color)',
+                        backgroundColor: 'rgba(255, 153, 0, 0.1)',
+                        borderWidth: 2,
+                        pointRadius: 1.5,
+                        pointBackgroundColor: 'var(--accent-color)',
+                        tension: 0.1,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: { unit: 'hour' },
+                            ticks: { color: 'var(--secondary-text-color)', fontFamily: 'Courier' },
+                            grid: { color: 'rgba(255, 153, 0, 0.2)' }
+                        },
+                        y: {
+                            ticks: { color: 'var(--secondary-text-color)', fontFamily: 'Courier' },
+                            grid: { color: 'rgba(255, 153, 0, 0.2)' }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                            titleFont: { family: 'Courier' },
+                            bodyFont: { family: 'Courier' },
+                            displayColors: false
+                        }
+                    }
+                }
+            });
+            chartInstances.set(address, chart);
+        } else {
+            // Update existing chart
+            chart.data.datasets[0].data = equityData;
+            chart.update();
+        }
     }
 
     async function fetchData() {
         try {
-            // The URL for your JSON data
-            const response = await fetch('/3T-observer.json', {
-                cache: 'no-store' // Important to prevent browser caching
-            });
+            const [posResponse, statsResponse] = await Promise.all([
+                fetch('/3T-observer.json', { cache: 'no-store' }),
+                fetch('https://3t-metrics-hub.fly.dev/stats.json', { cache: 'no-store' })
+            ]);
 
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            const data = await response.json();
+            if (!posResponse.ok) throw new Error(`Position fetch failed: ${posResponse.status}`);
+            if (!statsResponse.ok) throw new Error(`Stats fetch failed: ${statsResponse.status}`);
             
-            // Use the timestamp from the JSON file
-            if (data.timestamp) {
-                // Check if data has actually changed before re-rendering
-                if (!lastData || JSON.stringify(data.positions) !== JSON.stringify(lastData.positions)) {
-                    lastUpdateTime = new Date(data.timestamp);
-                    renderData(data);
-                }
+            const positionData = await posResponse.json();
+            const statsData = await statsResponse.json();
+            
+            if (positionData.timestamp) {
+                lastUpdateTime = new Date(positionData.timestamp);
             }
+
+            // Only re-render if data has actually changed
+            const posChanged = !lastData || JSON.stringify(positionData.positions) !== JSON.stringify(lastData.positions);
+            const statsChanged = !lastStatsData || JSON.stringify(statsData.wallets) !== JSON.stringify(lastStatsData.wallets);
+
+            if (posChanged || statsChanged) {
+                renderAllData(positionData, statsData);
+            }
+
         } catch (err) {
-            console.error('Error fetching JSON data:', err);
+            console.error('Error fetching data:', err);
             document.getElementById('update-status').textContent = "Error fetching updates.";
         }
     }
