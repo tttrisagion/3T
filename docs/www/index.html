@@ -151,8 +151,8 @@
     }
 
     .summary-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+	    display: flex;
+        flex-wrap: wrap; /* Allows items to wrap to the next line */
         gap: 10px;
         max-width: 90%;
         margin: 1em auto;
@@ -162,11 +162,18 @@
     }
 
     .summary-item {
-        background-color: var(--table-hover-bg);
+	    background-color: var(--table-hover-bg);
         padding: 8px;
         border-radius: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+
+        /* THIS IS THE MAGIC: grow | shrink | base width */
+        flex: 1 1 200px;
     }
-    
+
     .summary-item .label {
         color: var(--secondary-text-color);
     }
@@ -352,7 +359,8 @@
 
     /* --- SENTIMENT METER --- */
     .sentiment-meter-item {
-        /* No longer spans full width, behaves like a normal grid item */
+        flex-direction: column; /* Stack the label, bar, and sub-labels vertically */
+        align-items: stretch;   /* Force the bar and sub-labels to take the full width */
     }
     .sentiment-meter-bar {
         width: 100%;
@@ -719,7 +727,7 @@
     /**
      * Renders or updates the equity curve chart.
      */
-    function renderEquityChart(container, walletStats) {
+function renderEquityChart(container, walletStats) {
         const address = container.dataset.address;
         let chartContainer = container.querySelector('.chart-container');
         if (!chartContainer) {
@@ -734,6 +742,11 @@
         let chart = chartInstances.get(address);
 
         if (!chart) {
+            // Grab actual hex values from the CSS variables to feed into Chart.js
+            const computedStyle = getComputedStyle(document.documentElement);
+            const textColor = computedStyle.getPropertyValue('--text-color').trim() || '#ff9900';
+            const accentColor = computedStyle.getPropertyValue('--accent-color').trim() || '#FFA500';
+
             const ctx = document.getElementById(`chart-${address}`).getContext('2d');
             chart = new Chart(ctx, {
                 type: 'line',
@@ -741,11 +754,11 @@
                     datasets: [{
                         label: 'Equity',
                         data: equityData,
-                        borderColor: 'var(--accent-color)',
+                        borderColor: accentColor,
                         backgroundColor: 'rgba(255, 153, 0, 0.1)',
                         borderWidth: 2,
                         pointRadius: 1.5,
-                        pointBackgroundColor: 'var(--accent-color)',
+                        pointBackgroundColor: accentColor,
                         tension: 0.1,
                         fill: true
                     }]
@@ -760,20 +773,20 @@
                             title: { 
                                 display: true, 
                                 text: 'Time', 
-                                color: 'var(--text-color)',
+                                color: textColor,
                                 font: { family: 'Courier' }
                             },
-                            ticks: { color: 'var(--text-color)', fontFamily: 'Courier' },
+                            ticks: { color: textColor, fontFamily: 'Courier' },
                             grid: { color: 'rgba(255, 153, 0, 0.2)' }
                         },
                         y: {
                            title: { 
                                 display: true, 
                                 text: 'Equity (USD)', 
-                                color: 'var(--text-color)',
+                                color: textColor,
                                 font: { family: 'Courier' }
                             },
-                            ticks: { color: 'var(--text-color)', fontFamily: 'Courier' },
+                            ticks: { color: textColor, fontFamily: 'Courier' },
                             grid: { color: 'rgba(255, 153, 0, 0.2)' }
                         }
                     },
