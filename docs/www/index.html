@@ -350,6 +350,37 @@
         transform: scale(0); /* Hide the covering part in light mode */
     }
 
+    /* --- SENTIMENT METER --- */
+    .sentiment-meter-item {
+        grid-column: 1 / -1; /* Make it span full width of the grid */
+        padding-top: 15px;
+        padding-bottom: 15px;
+    }
+    .sentiment-meter-bar {
+        width: 100%;
+        height: 12px;
+        background-color: #1a1a1a;
+        border: 1px solid var(--secondary-text-color);
+        border-radius: 6px;
+        position: relative;
+        overflow: hidden;
+        margin-top: 8px;
+    }
+    .sentiment-meter-fill {
+        height: 100%;
+        background-color: var(--accent-color);
+        border-radius: 5px 0 0 5px; /* Keep left side rounded */
+        transition: width 0.5s ease-in-out;
+    }
+    .sentiment-labels {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.8em;
+        color: var(--secondary-text-color);
+        padding: 0 2px;
+        margin-top: 4px;
+    }
+
     /* --- CHART STYLING --- */
     .chart-container {
         position: relative;
@@ -460,7 +491,6 @@
         const currentAddresses = new Set(sortedAddresses);
         
         // --- GARBAGE COLLECTION ---
-        // Remove containers for addresses that are no longer in the data
         document.querySelectorAll('.address-container').forEach(div => {
             const address = div.dataset.address;
             if (!currentAddresses.has(address)) {
@@ -500,18 +530,16 @@
                 container.appendChild(addressContainer);
             }
 
-            // Render data from 3T-observer.json
             const posData = positionData.positions[address];
             const oldPosData = lastData ? lastData.positions[address] : null;
-            renderPositionSummary(addressContainer, posData, oldPosData);
-            renderAssetPositions(addressContainer, posData, oldPosData);
-
-            // Render data from stats.json
             const walletStats = statsData.wallets[address];
             const oldWalletStats = lastStatsData ? lastStatsData.wallets[address] : null;
+
+            renderUnifiedSummary(addressContainer, posData, oldPosData, walletStats, oldWalletStats);
+            renderAssetPositions(addressContainer, posData, oldPosData);
+
             if (walletStats) {
-                renderStatsSummary(addressContainer, walletStats, oldWalletStats);
-                renderEquityChart(addressContainer, walletStats, oldWalletStats);
+                renderEquityChart(addressContainer, walletStats);
             }
         }
         
@@ -520,9 +548,9 @@
     }
 
     /**
-     * Renders the main summary grid (Account Value, etc.) from position data.
+     * Renders a single, unified summary grid from both data sources.
      */
-    function renderPositionSummary(container, positionData, oldPositionData) {
+    function renderUnifiedSummary(container, posData, oldPosData, walletStats, oldWalletStats) {
         let summaryGrid = container.querySelector('.summary-grid');
         if (!summaryGrid) {
             summaryGrid = document.createElement('div');
@@ -530,43 +558,90 @@
             container.appendChild(summaryGrid);
         }
 
-        const summary = positionData.marginSummary;
-        const oldSummary = oldPositionData ? oldPositionData.marginSummary : null;
+        const posSummary = posData.marginSummary;
+        const oldPosSummary = oldPosData ? oldPosData.marginSummary : null;
+        const statsSummary = walletStats ? walletStats.summary : null;
+        const oldStatsSummary = oldWalletStats ? oldWalletStats.summary : null;
 
+        // Calculate position values
         let calculatedTotalNtlPos = 0;
         let calculatedTotalMarginUsed = 0;
-        positionData.assetPositions.forEach(asset => {
+        posData.assetPositions.forEach(asset => {
             calculatedTotalNtlPos += parseFloat(asset.position.positionValue || 0);
             calculatedTotalMarginUsed += parseFloat(asset.position.marginUsed || 0);
         });
-
-        const displayTotalNtlPos = Math.max(parseFloat(summary.totalNtlPos || 0), calculatedTotalNtlPos);
-        const displayTotalMarginUsed = Math.max(parseFloat(summary.totalMarginUsed || 0), calculatedTotalMarginUsed);
+        const displayTotalNtlPos = Math.max(parseFloat(posSummary.totalNtlPos || 0), calculatedTotalNtlPos);
+        const displayTotalMarginUsed = Math.max(parseFloat(posSummary.totalMarginUsed || 0), calculatedTotalMarginUsed);
 
         const summaryItems = {
-            'Account Value': formatNumber(summary.accountValue),
+            'Balance': statsSummary ? formatNumber(statsSummary.balance) : 'N/A',
+            'PNL': statsSummary ? formatNumber(statsSummary.pnl) : 'N/A',
             'Total Position Value': formatNumber(displayTotalNtlPos),
             'Total Margin Used': formatNumber(displayTotalMarginUsed),
-            'Withdrawable': formatNumber(positionData.withdrawable)
         };
 
-        for(const label in summaryItems) {
+        const existingLabels = new Set();
+
+        for (const label in summaryItems) {
+            existingLabels.add(label);
             const value = summaryItems[label];
             let itemDiv = summaryGrid.querySelector(`[data-label="${label}"]`);
             if (!itemDiv) {
                 itemDiv = document.createElement('div');
                 itemDiv.className = 'summary-item';
                 itemDiv.dataset.label = label;
-                itemDiv.innerHTML = `<span class="label">${label}: </span><span class="value"></span>`;
+                itemDiv.innerHTML = `<div><span class="label">${label}: </span><span class="value">${value}</span></div>`;
                 summaryGrid.appendChild(itemDiv);
             }
             const valueSpan = itemDiv.querySelector('.value');
-            if (valueSpan.textContent !== value) {
+            if (valueSpan.textContent != value) { // Use != to handle type differences
                 valueSpan.textContent = value;
-                if (oldSummary) flashElement(itemDiv);
+                if (oldPosSummary || oldStatsSummary) flashElement(itemDiv);
+            }
+        }
+        
+        // Garbage collect old items from the grid that are not the sentiment meter
+        summaryGrid.querySelectorAll('.summary-item:not(.sentiment-meter-item)').forEach(item => {
+            if (!existingLabels.has(item.dataset.label)) {
+                item.remove();
+            }
+        });
+
+        // --- Sentiment Meter ---
+        if (statsSummary) {
+            let sentimentItem = summaryGrid.querySelector('.sentiment-meter-item');
+            if (!sentimentItem) {
+                sentimentItem = document.createElement('div');
+                sentimentItem.className = 'summary-item sentiment-meter-item';
+                sentimentItem.dataset.label = 'Market Sentiment';
+                sentimentItem.innerHTML = `
+                    <span class="label">Market Sentiment:</span>
+                    <div class="sentiment-meter-bar">
+                        <div class="sentiment-meter-fill"></div>
+                    </div>
+                    <div class="sentiment-labels">
+                        <span>Short</span>
+                        <span>Long</span>
+                    </div>
+                `;
+                summaryGrid.appendChild(sentimentItem);
+            }
+            
+            const longRuns = parseInt(statsSummary.long_runs) || 0;
+            const shortRuns = parseInt(statsSummary.short_runs) || 0;
+            const total = longRuns + shortRuns;
+            const sentimentRatio = total > 0 ? longRuns / total : 0.5;
+
+            const fillEl = sentimentItem.querySelector('.sentiment-meter-fill');
+            const newWidth = `${sentimentRatio * 100}%`;
+
+            if (fillEl.style.width !== newWidth) {
+                fillEl.style.width = newWidth;
+                flashElement(sentimentItem);
             }
         }
     }
+
 
     /**
      * Renders the table of individual asset positions.
@@ -581,7 +656,10 @@
                     <thead><tr><th>Coin</th><th>Size</th><th>Entry Px</th><th>Liq. Px</th><th>Pos. Value</th><th>Unrealized PNL</th><th>ROE %</th><th>Margin Used</th></tr></thead>
                     <tbody></tbody>
                 `;
-                container.appendChild(table);
+                // Insert after summary grid
+                const summaryGrid = container.querySelector('.summary-grid');
+                summaryGrid.after(table);
+                
                 const newInstance = new Tablesort(table);
                 tablesortInstances.set(container.dataset.address, newInstance);
             }
@@ -641,50 +719,9 @@
     }
 
     /**
-     * Renders the new summary grid from stats.json data.
-     */
-    function renderStatsSummary(container, walletStats, oldWalletStats) {
-        let statsGrid = container.querySelector('.stats-summary-grid');
-        if (!statsGrid) {
-            statsGrid = document.createElement('div');
-            statsGrid.className = 'summary-grid stats-summary-grid'; // Re-use styling
-            // Insert it after the main summary grid but before the positions table
-            const mainGrid = container.querySelector('.summary-grid');
-            mainGrid.after(statsGrid);
-        }
-
-        const summary = walletStats.summary;
-        const oldSummary = oldWalletStats ? oldWalletStats.summary : null;
-
-        const summaryItems = {
-            'Balance': formatNumber(summary.balance),
-            'PNL': formatNumber(summary.pnl),
-            'Open Runs': parseInt(summary.open_runs),
-            'Long/Short Runs': `${parseInt(summary.long_runs)} / ${parseInt(summary.short_runs)}`,
-        };
-
-        for (const label in summaryItems) {
-            const value = summaryItems[label];
-            let itemDiv = statsGrid.querySelector(`[data-label="${label}"]`);
-            if (!itemDiv) {
-                itemDiv = document.createElement('div');
-                itemDiv.className = 'summary-item';
-                itemDiv.dataset.label = label;
-                itemDiv.innerHTML = `<span class="label">${label}: </span><span class="value"></span>`;
-                statsGrid.appendChild(itemDiv);
-            }
-            const valueSpan = itemDiv.querySelector('.value');
-            if (valueSpan.textContent != value) {
-                valueSpan.textContent = value;
-                if (oldSummary) flashElement(itemDiv);
-            }
-        }
-    }
-
-    /**
      * Renders or updates the equity curve chart.
      */
-    function renderEquityChart(container, walletStats, oldWalletStats) {
+    function renderEquityChart(container, walletStats) {
         const address = container.dataset.address;
         let chartContainer = container.querySelector('.chart-container');
         if (!chartContainer) {
@@ -700,8 +737,6 @@
 
         if (!chart) {
             const ctx = document.getElementById(`chart-${address}`).getContext('2d');
-            const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text-color').trim();
-
             chart = new Chart(ctx, {
                 type: 'line',
                 data: {
@@ -724,10 +759,22 @@
                         x: {
                             type: 'time',
                             time: { unit: 'hour' },
+                            title: { 
+                                display: true, 
+                                text: 'Time', 
+                                color: 'var(--text-color)',
+                                font: { family: 'Courier' }
+                            },
                             ticks: { color: 'var(--secondary-text-color)', fontFamily: 'Courier' },
                             grid: { color: 'rgba(255, 153, 0, 0.2)' }
                         },
                         y: {
+                           title: { 
+                                display: true, 
+                                text: 'Equity (USD)', 
+                                color: 'var(--text-color)',
+                                font: { family: 'Courier' }
+                            },
                             ticks: { color: 'var(--secondary-text-color)', fontFamily: 'Courier' },
                             grid: { color: 'rgba(255, 153, 0, 0.2)' }
                         }
@@ -768,7 +815,6 @@
                 lastUpdateTime = new Date(positionData.timestamp);
             }
 
-            // Only re-render if data has actually changed
             const posChanged = !lastData || JSON.stringify(positionData.positions) !== JSON.stringify(lastData.positions);
             const statsChanged = !lastStatsData || JSON.stringify(statsData.wallets) !== JSON.stringify(lastStatsData.wallets);
 
