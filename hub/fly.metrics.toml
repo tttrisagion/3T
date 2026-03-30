@@ -1,0 +1,39 @@
+# fly.metrics.toml
+app = "3t-metrics-hub"
+primary_region = "nrt"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "8080"
+
+[[mounts]]
+  source = "vm_data"
+  destination = "/storage"
+  initial_size = "10gb"
+
+[[services]]
+  internal_port = 8080
+  protocol = "tcp"
+
+  [[services.ports]]
+    handlers = ["http"]
+    port = 80
+
+  [[services.ports]]
+    handlers = ["tls", "http"]
+    port = 443
+
+  [[services.http_checks]]
+    grace_period = "30s"
+    interval = "15s"
+    method = "get"
+    path = "/health"
+    protocol = "http"
+    timeout = "5s"
+
+[vm]
+  cpu_kind = "shared"
+  cpus = 1
+  memory_mb = 256

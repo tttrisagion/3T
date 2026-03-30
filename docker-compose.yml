@@ -230,19 +230,23 @@ services:
 
   prometheus:
     image: prom/prometheus:v2.47.2
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--web.enable-remote-write-receiver'
+    entrypoint: ["/bin/sh", "/etc/prometheus/entrypoint.sh"]
     ports:
       - "9090:9090"
     volumes:
       - type: bind
         source: ./prometheus/prometheus.yml
         target: /etc/prometheus/prometheus.yml
+      - type: bind
+        source: ./prometheus/entrypoint.sh
+        target: /etc/prometheus/entrypoint.sh
+      - ./config.yml:/app/config.yml:ro
+      - ./secrets.yml:/app/secrets.yml:ro
       - prometheus_data:/prometheus
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    environment:
+      - METRICS_AUTH_TOKEN=${METRICS_AUTH_TOKEN:-default_token}
     restart: unless-stopped
 
   grafana:
@@ -330,7 +334,8 @@ services:
 
   exchange-observer:
     build:
-      context: ./exchange-observer
+      context: .
+      dockerfile: exchange-observer/Dockerfile
     container_name: 3t_exchange_observer
     restart: unless-stopped
     volumes:

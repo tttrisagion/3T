@@ -619,6 +619,128 @@
         lastData = data;
     }
 
+    function initChart() {
+        const chartElement = document.getElementById('equity-chart');
+        if (!chartElement) return;
+        equityChart = LightweightCharts.createChart(chartElement, {
+            width: chartElement.clientWidth,
+            height: 300,
+            layout: {
+                background: { color: '#000000' },
+                textColor: '#ff9900',
+            },
+            grid: {
+                vertLines: { visible: false },
+                horzLines: { visible: false },
+            },
+            rightPriceScale: {
+                borderVisible: false,
+            },
+            timeScale: {
+                borderVisible: false,
+                timeVisible: true,
+                secondsVisible: false,
+            },
+        });
+
+        areaSeries = equityChart.addAreaSeries({
+            topColor: 'rgba(255, 153, 0, 0.4)',
+            bottomColor: 'rgba(255, 153, 0, 0.0)',
+            lineColor: '#ff9900',
+            lineWidth: 2,
+        });
+
+        window.addEventListener('resize', () => {
+            equityChart.applyOptions({ width: chartElement.clientWidth });
+        });
+    }
+
+    function renderStats(stats) {
+        document.getElementById('analytics-container').style.display = 'block';
+        if (!equityChart) initChart();
+
+        const wallet = Object.keys(stats.wallets)[0];
+        if (!wallet) return;
+
+        const data = stats.wallets[wallet];
+        // Update Chart
+        if (data.equity_curve && data.equity_curve.length > 0) {
+            // Sort data by time to prevent Lightweight Charts errors
+            const chartData = data.equity_curve
+                .map(v => ({
+                    time: Math.floor(parseFloat(v[0])),
+                    value: parseFloat(v[1])
+                }))
+                .sort((a, b) => a.time - b.time);
+
+            // Filter out any duplicate timestamps
+            const uniqueData = chartData.filter((item, index, self) => 
+                index === 0 || item.time > self[index - 1].time
+            );
+
+            areaSeries.setData(uniqueData);
+            equityChart.timeScale().fitContent();
+        }
+
+
+        const nodeList = document.getElementById('node-list');
+        nodeList.innerHTML = '';
+        let totalRisk = 0;
+        let nodeCount = 0;
+for (const nodeId in data.nodes) {
+    const node = data.nodes[nodeId];
+    const row = document.createElement('div');
+    row.className = 'node-row';
+    const statusClass = node.status === 'online' ? 'status-online blink' : 'status-offline';
+    row.innerHTML = `
+        <span>${nodeId}</span>
+        <span class="status-tag ${statusClass}">[ ${node.status.toUpperCase()} ]</span>
+    `;
+    nodeList.appendChild(row);
+    totalRisk += node.risk_ratio;
+    nodeCount++;
+}
+
+// Add Distribution Info
+const summary = data.summary;
+const distRow = document.createElement('div');
+distRow.style.marginTop = '10px';
+distRow.style.fontSize = '0.7em';
+distRow.style.color = 'var(--secondary-text-color)';
+distRow.innerHTML = `
+    RUNS: ${summary.open_runs || 0} (L:${summary.long_runs || 0} S:${summary.short_runs || 0} F:${summary.flat_runs || 0})<br>
+    POSITIONS: ${summary.open_positions || 0}<br>
+    DATA_AGE: ${Math.round(summary.max_data_age || 0)}s
+`;
+nodeList.appendChild(distRow);
+
+// Update Exposure Gauge
+
+        const gauge = document.getElementById('exposure-gauge');
+        gauge.innerHTML = '';
+        const avgRisk = nodeCount > 0 ? totalRisk / nodeCount : 0;
+        const segments = 20;
+        const activeSegments = Math.min(segments, Math.floor(avgRisk * 2 * segments));
+
+        for (let i = 0; i < segments; i++) {
+            const seg = document.createElement('div');
+            seg.className = 'gauge-segment' + (i < activeSegments ? ' active' : '');
+            gauge.appendChild(seg);
+        }
+    }
+
+    async function fetchStats() {
+        try {
+            const response = await fetch('https://3t-metrics-hub.fly.dev/stats.json');
+            if (response.ok) {
+                const stats = await response.json();
+                renderStats(stats);
+            }
+        } catch (e) {
+            console.log("Analytics hub unreachable.");
+        }
+    }
+
     async function fetchData() {
         try {
             // The URL for your JSON data
@@ -681,7 +803,9 @@
     setupClock('clock-shanghai', 'Asia/Shanghai');
     setupClock('clock-new-york', 'America/New_York');
     fetchData(); // Initial fetch
+    fetchStats();
     setInterval(fetchData, POLLING_INTERVAL); // Fetch every 15 seconds
+    setInterval(fetchStats, 60000); // Fetch stats every minute
     setInterval(updateTimer, 1000); // Update the 'ago' timer every second
 </script>
   <script>
@@ -778,6 +902,62 @@
                     <ul class="footer-links">
 			<li><a href="/trisagion.pdf">Whitepaper</a>
                         <li><a href="https://trisagion.gitbook.io/trisagion-docs/">Documentation</a></li>
+                        <li><a href="https://trisagion.gitbook.io/trisagion-docs/documentation/praying-the-trisagion">The Trisagion Prayer</a></li>
+                        <li><a href="https://www.ewtn.com/catholicism/devotions/angelic-trisagion-382">The Angelic Trisagion</a></li>
+                        <li><a href="https://stats.trisagion.xyz/">Uptime</a></li>
+                    </ul>
+                </div>
+
+                <div class="footer-column">
+                    <h6>Analytics</h6>
+                    <ul class="footer-links">
+			<li><a href="https://hypurrscan.io/address/0x77dEe11bbF0Ad1143Bf008a84AE776557e2ebADE">Ledger of Transparency for Initial Gift</a></li>
+                        <li><a href="https://app.coinmarketman.com/hypertracker/wallet/0x77dEe11bbF0Ad1143Bf008a84AE776557e2ebADE">CMM Tracker</a></li>
+                    </ul>
+                </div>
+
+                <div class="footer-column">
+                    <h6>Connect</h6>
+                    <ul class="footer-links">
+                        <li><a href="https://x.com/tttrisagion">X (Twitter)</a></li>
+                        <li><a href="https://github.com/tttrisagion/3T">GitHub</a></li>
+                    </ul>
+                </div>
+
+
+            </div>
+        </div>
+        <div class="footer-container">
+    <p>
+      DISCLAIMER: The accuracy and completeness of the content shared on this website cannot be guaranteed. This information is offered for informational purposes only and should not be considered financial or investment advice. No part of this website is intended to be a solicitation or recommendation for any security or crypto product. The Trisagion project is not a licensed securities dealer, broker, investment adviser, or investment bank.
+      All users should conduct their own thorough research and consult with a qualified financial advisor before making any financial decisions. Engaging with cryptocurrencies involves significant risk, and you should be fully aware of the potential for loss. By using this website, you acknowledge that you are responsible for your own financial choices.
+      <br><br>
+      The Trisagion project is an independent initiative of lay Catholics exercising their right to found and direct associations for charitable purposes under Canon 215 of the Code of Canon Law. It operates as a private de facto association governed by its own internal statutes and is not an official entity of the Holy See, the Roman Curia, or the Diocese. It utilizes the name "Trisagion" in a devotional capacity and does not claim the title "Catholic" under the norms of Canon 300. All activities are conducted privately by the Founding Members.
+      <br><br>
+      <span style="text-transform: uppercase;">The Trisagion project is not endorsed by, affiliated with, agents of or in a formalized relationship with the Holy See, the Peter’s Pence Office, or the Secretariat for the Economy.
+      Any third-party copyrighted materials including trademarks listed on this website are the property of their respective owners.
+      </span>
+    </p>
+    <p>
+      &copy; MMXXV Trisagion. All Rights Reserved. 
+    </p>
+        </div>
+   </footer>
+
+   <!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-TD8BHD3BT8"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-TD8BHD3BT8');
+</script>
+
+
+</body>
+</html>
+n</a></li>
                         <li><a href="https://trisagion.gitbook.io/trisagion-docs/documentation/praying-the-trisagion">The Trisagion Prayer</a></li>
                         <li><a href="https://www.ewtn.com/catholicism/devotions/angelic-trisagion-382">The Angelic Trisagion</a></li>
                         <li><a href="https://stats.trisagion.xyz/">Uptime</a></li>

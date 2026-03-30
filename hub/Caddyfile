@@ -1,0 +1,39 @@
+:8080 {
+    log {
+        output stderr
+        level ERROR
+    }
+
+    # 1. Handle Prometheus Remote Write (POST)
+    # This now properly enforces the Bearer Token security
+    handle /api/v1/write {
+        @authenticated header Authorization "Bearer {$METRICS_AUTH_TOKEN}"
+        
+        handle @authenticated {
+            reverse_proxy localhost:8428
+        }
+        
+        handle {
+            respond "Unauthorized" 401
+        }
+    }
+
+    # 2. Handle Public Stats (GET)
+    handle /stats.json {
+        root * /app/www
+        header Access-Control-Allow-Origin *
+        header Access-Control-Allow-Methods "GET, OPTIONS"
+        header Access-Control-Allow-Headers "*"
+        file_server
+    }
+    
+    # 3. Health Check
+    handle /health {
+        respond "OK" 200
+    }
+
+    # 4. Catch-all for everything else
+    handle {
+        respond "Not Authorized" 403
+    }
+}
