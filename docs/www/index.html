@@ -656,76 +656,89 @@
     }
 
     function renderStats(stats) {
-        document.getElementById('analytics-container').style.display = 'block';
-        if (!equityChart) initChart();
+        try {
+            const container = document.getElementById('analytics-container');
+            if (!container) return;
+            container.style.display = 'block';
 
-        const wallet = Object.keys(stats.wallets)[0];
-        if (!wallet) return;
+            if (typeof LightweightCharts === 'undefined') {
+                console.warn("LightweightCharts not loaded. Skipping chart.");
+            } else if (!equityChart) {
+                initChart();
+            }
 
-        const data = stats.wallets[wallet];
-        // Update Chart
-        if (data.equity_curve && data.equity_curve.length > 0) {
-            // Sort data by time to prevent Lightweight Charts errors
-            const chartData = data.equity_curve
-                .map(v => ({
-                    time: Math.floor(parseFloat(v[0])),
-                    value: parseFloat(v[1])
-                }))
-                .sort((a, b) => a.time - b.time);
+            const wallets = stats.wallets || {};
+            const wallet = Object.keys(wallets)[0];
+            if (!wallet) {
+                console.warn("No wallet data found in stats.");
+                return;
+            }
 
-            // Filter out any duplicate timestamps
-            const uniqueData = chartData.filter((item, index, self) => 
-                index === 0 || item.time > self[index - 1].time
-            );
+            const data = wallets[wallet];
+            const summary = data.summary || {};
 
-            areaSeries.setData(uniqueData);
-            equityChart.timeScale().fitContent();
-        }
+            // 1. Update Chart (Fixed ReferenceError)
+            if (equityChart && data.equity_curve && data.equity_curve.length > 0) {
+                const chartData = data.equity_curve
+                    .map(v => ({
+                        time: Math.floor(parseFloat(v[0])),
+                        value: parseFloat(v[1])
+                    }))
+                    .sort((a, b) => a.time - b.time)
+                    .filter((item, index, self) => index === 0 || item.time > self[index - 1].time);
 
+                if (chartData.length > 0) {
+                    areaSeries.setData(chartData); // Corrected variable name
+                    equityChart.timeScale().fitContent();
+                }
+            }
 
-        const nodeList = document.getElementById('node-list');
-        nodeList.innerHTML = '';
-        let totalRisk = 0;
-        let nodeCount = 0;
-for (const nodeId in data.nodes) {
-    const node = data.nodes[nodeId];
-    const row = document.createElement('div');
-    row.className = 'node-row';
-    const statusClass = node.status === 'online' ? 'status-online blink' : 'status-offline';
-    row.innerHTML = `
-        <span>${nodeId}</span>
-        <span class="status-tag ${statusClass}">[ ${node.status.toUpperCase()} ]</span>
-    `;
-    nodeList.appendChild(row);
-    totalRisk += node.risk_ratio;
-    nodeCount++;
-}
+            // 2. Update Heartbeat
+            const nodeList = document.getElementById('node-list');
+            if (nodeList) {
+                nodeList.innerHTML = '';
+                let totalRisk = 0;
+                let nodeCount = 0;
+                const nodes = data.nodes || {};
 
-// Add Distribution Info
-const summary = data.summary;
-const distRow = document.createElement('div');
-distRow.style.marginTop = '10px';
-distRow.style.fontSize = '0.7em';
-distRow.style.color = 'var(--secondary-text-color)';
-distRow.innerHTML = `
-    RUNS: ${summary.open_runs || 0} (L:${summary.long_runs || 0} S:${summary.short_runs || 0} F:${summary.flat_runs || 0})<br>
-    POSITIONS: ${summary.open_positions || 0}<br>
-    DATA_AGE: ${Math.round(summary.max_data_age || 0)}s
-`;
-nodeList.appendChild(distRow);
+                for (const nodeId in nodes) {
+                    const node = nodes[nodeId];
+                    const row = document.createElement('div');
+                    row.className = 'node-row';
+                    const statusClass = node.status === 'online' ? 'status-online blink' : 'status-offline';
+                    row.innerHTML = `<span>${nodeId}</span><span class="status-tag ${statusClass}">[ ${node.status.toUpperCase()} ]</span>`;
+                    nodeList.appendChild(row);
+                    totalRisk += (node.risk_ratio || 0);
+                    nodeCount++;
+                }
 
-// Update Exposure Gauge
+                const distRow = document.createElement('div');
+                distRow.style.marginTop = '10px';
+                distRow.style.fontSize = '0.7em';
+                distRow.style.color = 'var(--secondary-text-color)';
+                distRow.innerHTML = `
+                    RUNS: ${summary.open_runs || 0} (L:${summary.long_runs || 0} S:${summary.short_runs || 0} F:${summary.flat_runs || 0})<br>
+                    POSITIONS: ${summary.open_positions || 0}<br>
+                    DATA_AGE: ${Math.round(summary.max_data_age || 0)}s
+                `;
+                nodeList.appendChild(distRow);
 
-        const gauge = document.getElementById('exposure-gauge');
-        gauge.innerHTML = '';
-        const avgRisk = nodeCount > 0 ? totalRisk / nodeCount : 0;
-        const segments = 20;
-        const activeSegments = Math.min(segments, Math.floor(avgRisk * 2 * segments));
-
-        for (let i = 0; i < segments; i++) {
-            const seg = document.createElement('div');
-            seg.className = 'gauge-segment' + (i < activeSegments ? ' active' : '');
-            gauge.appendChild(seg);
+                // 3. Update Gauge
+                const gauge = document.getElementById('exposure-gauge');
+                if (gauge) {
+                    gauge.innerHTML = '';
+                    const avgRisk = nodeCount > 0 ? totalRisk / nodeCount : 0;
+                    const segments = 20;
+                    const activeSegments = Math.min(segments, Math.floor(avgRisk * 2 * segments));
+                    for (let i = 0; i < segments; i++) {
+                        const seg = document.createElement('div');
+                        seg.className = 'gauge-segment' + (i < activeSegments ? ' active' : '');
+                        gauge.appendChild(seg);
+                    }
+                }
+            }
+        } catch (err) {
+            console.error("Error in renderStats:", err);
         }
     }
 
@@ -735,9 +748,11 @@ nodeList.appendChild(distRow);
             if (response.ok) {
                 const stats = await response.json();
                 renderStats(stats);
+            } else {
+                console.warn("Hub returned error status:", response.status);
             }
         } catch (e) {
-            console.log("Analytics hub unreachable.");
+            console.error("fetchStats failed:", e);
         }
     }
 
