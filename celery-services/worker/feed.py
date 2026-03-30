@@ -47,33 +47,28 @@ def update_prices_in_redis():
 
             price_stream = config.get("redis.streams.price_updates", "prices:updated")
 
+            last_id = "$"  # Start from the end of the stream
+            
             while True:
-                for symbol in symbols:
-                    try:
-                        messages = redis_conn.xrevrange(price_stream, count=100)
-
-                        latest_price = None
-
-                        for _, msg_data in messages:
-                            if msg_data.get("symbol") == symbol:
-                                price = msg_data.get("price")
-
-                                if price:
-                                    latest_price = float(price)
-
-                                    break
-
-                        if latest_price is not None:
-                            redis_conn.set(f"price:{symbol}", latest_price, ex=60)
-
-                    except Exception as e:
-                        logger.error(
-                            f"Error processing price for {symbol}: {e}", exc_info=True
-                        )
-
+                # Read new messages from the stream
+                # block=500 means wait up to 500ms for new data
+                messages_batch = redis_conn.xread({price_stream: last_id}, count=100, block=500)
+                
+                if messages_batch:
+                    for stream, messages in messages_batch:
+                        for msg_id, msg_data in messages:
+                            symbol = msg_data.get("symbol")
+                            price = msg_data.get("price")
+                            
+                            if symbol in symbols and price:
+                                try:
+                                    redis_conn.set(f"price:{symbol}", float(price), ex=60)
+                                except (ValueError, TypeError):
+                                    continue
+                            
+                            last_id = msg_id
+                
                 lock.reacquire()
-
-                time.sleep(0.1)
 
         finally:
             lock.release()
