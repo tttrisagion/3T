@@ -669,6 +669,12 @@
      * Renders the table of individual asset positions.
      */
     function renderAssetPositions(container, positionData, oldPositionData) {
+        positionData.assetPositions.sort((a, b) => {
+            const valA = parseFloat(a.position.positionValue) || 0;
+            const valB = parseFloat(b.position.positionValue) || 0;
+            return valB - valA;
+        });
+
         let table = container.querySelector('table.positions-table');
         if (positionData.assetPositions.length > 0) {
             if (!table) {
@@ -687,20 +693,18 @@
             }
 
             const tbody = table.querySelector('tbody');
-            const existingRows = new Map([...tbody.querySelectorAll('tr')].map(row => [row.dataset.symbol, row]));
-            const newSymbols = new Set();
+            const existingRowsMap = new Map([...tbody.querySelectorAll('tr')].map(row => [row.dataset.symbol, row]));
+            const finalRows = [];
 
             positionData.assetPositions.forEach(asset => {
                 const pos = asset.position;
-                newSymbols.add(pos.coin);
                 
                 const oldAsset = oldPositionData?.assetPositions.find(p => p.position.coin === pos.coin)?.position;
 
-                let row = existingRows.get(pos.coin);
+                let row = existingRowsMap.get(pos.coin);
                 if (!row) {
                     row = document.createElement('tr');
                     row.dataset.symbol = pos.coin;
-                    tbody.appendChild(row);
                 }
                 
                 const cellsData = [
@@ -722,9 +726,14 @@
                        if(oldAsset) flashElement(cell);
                     }
                 }
+
+                finalRows.push(row);
+                existingRowsMap.delete(pos.coin);
             });
 
-            existingRows.forEach((row, symbol) => { if (!newSymbols.has(symbol)) { row.remove(); } });
+            existingRowsMap.forEach(row => row.remove());
+
+            tbody.append(...finalRows);
             
             if (tablesortInstances.has(container.dataset.address)) {
                 tablesortInstances.get(container.dataset.address).refresh();
@@ -753,7 +762,18 @@ function renderEquityChart(container, walletStats) {
             container.appendChild(chartContainer);
         }
         
-        const equityData = walletStats.equity_curve.map(d => ({ x: d[0] * 1000, y: parseFloat(d[1]) }));
+        let equityData = walletStats.equity_curve.map(d => ({ x: d[0] * 1000, y: parseFloat(d[1]) }));
+
+        if (equityData.length > 1) {
+            const lastTimestamp = equityData[equityData.length - 1].x;
+            const timeSpan = lastTimestamp - equityData[0].x;
+            const twentyFourHoursInMillis = 24 * 60 * 60 * 1000;
+
+            if (timeSpan > twentyFourHoursInMillis) {
+                const cutoffTimestamp = lastTimestamp - twentyFourHoursInMillis;
+                equityData = equityData.filter(d => d.x >= cutoffTimestamp);
+            }
+        }
 
         let chart = chartInstances.get(address);
 
