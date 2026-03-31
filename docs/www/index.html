@@ -375,6 +375,15 @@
         overflow: hidden;
         margin-top: 8px;
     }
+    .sentiment-meter-marker {
+        position: absolute;
+        top: 0;
+        left: 50%;
+        width: 2px;
+        height: 100%;
+        background-color: var(--secondary-text-color);
+        transform: translateX(-50%);
+    }
     .sentiment-meter-fill {
         height: 100%;
         background-color: var(--accent-color);
@@ -584,7 +593,7 @@
 
         const summaryItems = {
             'Balance': formatNumber(posSummary.accountValue), // Corrected data source
-            'Open P&amp;L': statsSummary ? formatNumber(statsSummary.pnl) : 'N/A',
+            'Simulated P&amp;L': statsSummary ? formatNumber(statsSummary.pnl) : 'N/A',
             'Total Position Value': formatNumber(displayTotalNtlPos),
             'Total Margin Used': formatNumber(displayTotalMarginUsed),
         };
@@ -627,6 +636,7 @@
                     <span class="label">Market Sentiment:</span>
                     <div class="sentiment-meter-bar">
                         <div class="sentiment-meter-fill"></div>
+                        <div class="sentiment-meter-marker"></div>
                     </div>
                     <div class="sentiment-labels">
                         <span>Short</span>
@@ -662,7 +672,7 @@
                 table = document.createElement('table');
                 table.className = 'positions-table';
                 table.innerHTML = `
-                    <thead><tr><th>Coin</th><th>Size</th><th>Entry Px</th><th>Liq. Px</th><th>Pos. Value</th><th>Unrlzd. P&amp;L</th><th>ROE %</th><th>Margin Used</th></tr></thead>
+                    <thead><tr><th>Symbol</th><th>Size</th><th>Entry Px</th><th>Liq. Px</th><th>Pos. Value</th><th>Unrlzd. P&amp;L</th><th>ROE %</th><th>Margin Used</th></tr></thead>
                     <tbody></tbody>
                 `;
                 // Insert after summary grid
@@ -674,19 +684,19 @@
             }
 
             const tbody = table.querySelector('tbody');
-            const existingRows = new Map([...tbody.querySelectorAll('tr')].map(row => [row.dataset.coin, row]));
-            const newCoins = new Set();
+            const existingRows = new Map([...tbody.querySelectorAll('tr')].map(row => [row.dataset.symbol, row]));
+            const newSymbols = new Set();
 
             positionData.assetPositions.forEach(asset => {
                 const pos = asset.position;
-                newCoins.add(pos.coin);
+                newSymbols.add(pos.coin);
                 
                 const oldAsset = oldPositionData?.assetPositions.find(p => p.position.coin === pos.coin)?.position;
 
                 let row = existingRows.get(pos.coin);
                 if (!row) {
                     row = document.createElement('tr');
-                    row.dataset.coin = pos.coin;
+                    row.dataset.symbol = pos.coin;
                     tbody.appendChild(row);
                 }
                 
@@ -711,7 +721,7 @@
                 }
             });
 
-            existingRows.forEach((row, coin) => { if (!newCoins.has(coin)) { row.remove(); } });
+            existingRows.forEach((row, symbol) => { if (!newSymbols.has(symbol)) { row.remove(); } });
             
             if (tablesortInstances.has(container.dataset.address)) {
                 tablesortInstances.get(container.dataset.address).refresh();
