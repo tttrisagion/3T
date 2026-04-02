@@ -818,9 +818,12 @@ function renderEquityChart(container, walletStats) {
                                 display: true, 
                                 text: 'Time', 
                                 color: textColor,
+                                font: { family: 'Courier', size: 16 }
+                            },
+                            ticks: { 
+                                color: textColor, 
                                 font: { family: 'Courier' }
                             },
-                            ticks: { color: textColor, fontFamily: 'Courier' },
                             grid: { color: 'rgba(255, 153, 0, 0.2)' }
                         },
                         y: {
@@ -828,9 +831,12 @@ function renderEquityChart(container, walletStats) {
                                 display: true, 
                                 text: 'Equity (USD)', 
                                 color: textColor,
+                                font: { family: 'Courier', size: 16 }
+                            },
+                            ticks: { 
+                                color: textColor, 
                                 font: { family: 'Courier' }
                             },
-                            ticks: { color: textColor, fontFamily: 'Courier' },
                             grid: { color: 'rgba(255, 153, 0, 0.2)' }
                         }
                     },
@@ -838,8 +844,8 @@ function renderEquityChart(container, walletStats) {
                         legend: { display: false },
                         tooltip: {
                             backgroundColor: 'rgba(0, 0, 0, 0.7)',
-                            titleFont: { family: 'Courier' },
-                            bodyFont: { family: 'Courier' },
+                            titleFont: { family: 'Courier', size: 14 },
+                            bodyFont: { family: 'Courier', size: 12 },
                             displayColors: false
                         }
                     }
@@ -915,9 +921,12 @@ function renderEquityChart(container, walletStats) {
                                 display: true, 
                                 text: 'Time', 
                                 color: textColor,
+                                font: { family: 'Courier', size: 16 }
+                            },
+                            ticks: { 
+                                color: textColor, 
                                 font: { family: 'Courier' }
                             },
-                            ticks: { color: textColor, fontFamily: 'Courier' },
                             grid: { color: 'rgba(204, 102, 0, 0.1)' }
                         },
                         y: {
@@ -925,24 +934,22 @@ function renderEquityChart(container, walletStats) {
                                 display: true, 
                                 text: 'Margin Utilization (%)', 
                                 color: textColor,
-                                font: { family: 'Courier' }
+                                font: { family: 'Courier', size: 16 }
                             },
                             ticks: { 
                                 color: textColor, 
-                                fontFamily: 'Courier',
+                                font: { family: 'Courier' },
                                 callback: function(value) { return value + '%'; }
                             },
-                            grid: { color: 'rgba(204, 102, 0, 0.1)' },
-                            min: 0,
-                            suggestedMax: 100
+                            grid: { color: 'rgba(204, 102, 0, 0.1)' }
                         }
                     },
                     plugins: {
                         legend: { display: false },
                         tooltip: {
                             backgroundColor: 'rgba(0, 0, 0, 0.7)',
-                            titleFont: { family: 'Courier' },
-                            bodyFont: { family: 'Courier' },
+                            titleFont: { family: 'Courier', size: 14 },
+                            bodyFont: { family: 'Courier', size: 12 },
                             displayColors: false,
                             callbacks: {
                                 label: function(context) {
