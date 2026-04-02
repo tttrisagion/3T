@@ -520,10 +520,13 @@
                     tablesortInstances.get(address).destroy();
                     tablesortInstances.delete(address);
                 }
-                if (chartInstances.has(address)) {
-                    chartInstances.get(address).destroy();
-                    chartInstances.delete(address);
-                }
+                ['equity', 'margin'].forEach(type => {
+                    const key = `${address}-${type}`;
+                    if (chartInstances.has(key)) {
+                        chartInstances.get(key).destroy();
+                        chartInstances.delete(key);
+                    }
+                });
             }
         });
 
@@ -561,6 +564,9 @@
 
             if (walletStats) {
                 renderEquityChart(addressContainer, walletStats);
+                if (walletStats.margin_curve) {
+                    renderMarginChart(addressContainer, walletStats);
+                }
             }
         }
         
@@ -754,11 +760,12 @@
      */
 function renderEquityChart(container, walletStats) {
         const address = container.dataset.address;
-        let chartContainer = container.querySelector('.chart-container');
+        const chartId = `chart-${address}-equity`;
+        let chartContainer = container.querySelector(`.chart-container-equity`);
         if (!chartContainer) {
             chartContainer = document.createElement('div');
-            chartContainer.className = 'chart-container';
-            chartContainer.innerHTML = `<canvas id="chart-${address}"></canvas>`;
+            chartContainer.className = 'chart-container chart-container-equity';
+            chartContainer.innerHTML = `<canvas id="${chartId}"></canvas>`;
             container.appendChild(chartContainer);
         }
         
@@ -775,7 +782,8 @@ function renderEquityChart(container, walletStats) {
             }
         }
 
-        let chart = chartInstances.get(address);
+        const chartKey = `${address}-equity`;
+        let chart = chartInstances.get(chartKey);
 
         if (!chart) {
             // Grab actual hex values from the CSS variables to feed into Chart.js
@@ -783,7 +791,7 @@ function renderEquityChart(container, walletStats) {
             const textColor = computedStyle.getPropertyValue('--text-color').trim() || '#ff9900';
             const accentColor = computedStyle.getPropertyValue('--accent-color').trim() || '#FFA500';
 
-            const ctx = document.getElementById(`chart-${address}`).getContext('2d');
+            const ctx = document.getElementById(chartId).getContext('2d');
             chart = new Chart(ctx, {
                 type: 'line',
                 data: {
@@ -837,10 +845,117 @@ function renderEquityChart(container, walletStats) {
                     }
                 }
             });
-            chartInstances.set(address, chart);
+            chartInstances.set(chartKey, chart);
         } else {
             // Update existing chart
             chart.data.datasets[0].data = equityData;
+            chart.update();
+        }
+    }
+
+    /**
+     * Renders or updates the margin utilization chart.
+     */
+    function renderMarginChart(container, walletStats) {
+        const address = container.dataset.address;
+        const chartId = `chart-${address}-margin`;
+        let chartContainer = container.querySelector(`.chart-container-margin`);
+        if (!chartContainer) {
+            chartContainer = document.createElement('div');
+            chartContainer.className = 'chart-container chart-container-margin';
+            chartContainer.innerHTML = `<canvas id="${chartId}"></canvas>`;
+            container.appendChild(chartContainer);
+        }
+        
+        let marginData = walletStats.margin_curve.map(d => ({ x: d[0] * 1000, y: parseFloat(d[1]) * 100 }));
+
+        if (marginData.length > 1) {
+            const lastTimestamp = marginData[marginData.length - 1].x;
+            const timeSpan = lastTimestamp - marginData[0].x;
+            const twentyFourHoursInMillis = 24 * 60 * 60 * 1000;
+
+            if (timeSpan > twentyFourHoursInMillis) {
+                const cutoffTimestamp = lastTimestamp - twentyFourHoursInMillis;
+                marginData = marginData.filter(d => d.x >= cutoffTimestamp);
+            }
+        }
+
+        const chartKey = `${address}-margin`;
+        let chart = chartInstances.get(chartKey);
+
+        if (!chart) {
+            const computedStyle = getComputedStyle(document.documentElement);
+            const textColor = computedStyle.getPropertyValue('--text-color').trim() || '#ff9900';
+            const secondaryColor = computedStyle.getPropertyValue('--secondary-text-color').trim() || '#c60';
+
+            const ctx = document.getElementById(chartId).getContext('2d');
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    datasets: [{
+                        label: 'Margin Utilization',
+                        data: marginData,
+                        borderColor: secondaryColor,
+                        backgroundColor: 'rgba(204, 102, 0, 0.1)',
+                        borderWidth: 2,
+                        pointRadius: 1.5,
+                        pointBackgroundColor: secondaryColor,
+                        tension: 0.1,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: { unit: 'hour' },
+                            title: { 
+                                display: true, 
+                                text: 'Time', 
+                                color: textColor,
+                                font: { family: 'Courier' }
+                            },
+                            ticks: { color: textColor, fontFamily: 'Courier' },
+                            grid: { color: 'rgba(204, 102, 0, 0.1)' }
+                        },
+                        y: {
+                           title: { 
+                                display: true, 
+                                text: 'Margin Utilization (%)', 
+                                color: textColor,
+                                font: { family: 'Courier' }
+                            },
+                            ticks: { 
+                                color: textColor, 
+                                fontFamily: 'Courier',
+                                callback: function(value) { return value + '%'; }
+                            },
+                            grid: { color: 'rgba(204, 102, 0, 0.1)' },
+                            min: 0,
+                            suggestedMax: 100
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                            titleFont: { family: 'Courier' },
+                            bodyFont: { family: 'Courier' },
+                            displayColors: false,
+                            callbacks: {
+                                label: function(context) {
+                                    return context.dataset.label + ': ' + context.parsed.y.toFixed(2) + '%';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+            chartInstances.set(chartKey, chart);
+        } else {
+            chart.data.datasets[0].data = marginData;
             chart.update();
         }
     }
