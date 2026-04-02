@@ -410,6 +410,29 @@
         width: 85%;
         max-width: 90%;
     }
+
+    /* --- TRADING HALT NOTICE --- */
+    .trading-halt-notice {
+        display: inline-block;
+        background-color: #ff3300; /* Bright orange-red */
+        color: #fff;
+        font-family: 'Courier New', Courier, monospace;
+        font-weight: bold;
+        padding: 4px 12px;
+        margin: 5px 0 15px 0;
+        border: 2px solid #fff;
+        border-radius: 4px;
+        text-transform: uppercase;
+        font-size: 1.1em;
+        letter-spacing: 2px;
+        box-shadow: 0 0 15px #ff3300;
+        animation: blinker 1.2s cubic-bezier(.5, 0, 1, 1) infinite alternate;
+    }
+
+    @keyframes blinker {
+      from { opacity: 1.0; }
+      to { opacity: 0.2; }
+    }
   </style>
 </head>
 <body>
@@ -570,6 +593,7 @@
             }
         }
         
+        updateTradingHaltUI();
         lastData = positionData;
         lastStatsData = statsData;
     }
@@ -1082,14 +1106,92 @@ function renderEquityChart(container, walletStats) {
         updateClock();
     }
 
+    /**
+     * Checks if the market is open based on Vatican City time (CET/CEST).
+     * Matches the logic in reconciliation_engine.py
+     */
+    function isMarketOpen() {
+        const now = new Date();
+        const options = { 
+            timeZone: 'Europe/Vatican', 
+            year: 'numeric', month: 'numeric', day: 'numeric', 
+            hour: 'numeric', minute: 'numeric', second: 'numeric', 
+            weekday: 'short', hour12: false 
+        };
+        const formatter = new Intl.DateTimeFormat('en-US', options);
+        const parts = formatter.formatToParts(now).reduce((acc, p) => { acc[p.type] = p.value; return acc; }, {});
+
+        const year = parseInt(parts.year);
+        const month = parseInt(parts.month);
+        const day = parseInt(parts.day);
+        const hour = parseInt(parts.hour === '24' ? '0' : parts.hour);
+        const weekday = parts.weekday; // 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'
+
+        // 1. Fixed Holidays
+        if ((month === 1 && day === 1) || (month === 12 && day === 25)) return false;
+
+        // 2. Good Friday (Gregorian Algorithm)
+        const a = year % 19,
+              b = Math.floor(year / 100),
+              c = year % 100,
+              d = Math.floor(b / 4),
+              e = b % 4,
+              f = Math.floor((b + 8) / 25),
+              g = Math.floor((b - f + 1) / 3),
+              h = (19 * a + b - d - g + 15) % 30,
+              i = Math.floor(c / 4),
+              k = c % 4,
+              l = (32 + 2 * e + 2 * i - h - k) % 7,
+              m = Math.floor((a + 11 * h + 22 * l) / 451),
+              easterMonth = Math.floor((h + l - 7 * m + 114) / 31),
+              easterDay = ((h + l - 7 * m + 114) % 31) + 1;
+
+        const easter = new Date(Date.UTC(year, easterMonth - 1, easterDay));
+        const goodFriday = new Date(easter.getTime() - 2 * 24 * 60 * 60 * 1000);
+        
+        if (month === (goodFriday.getUTCMonth() + 1) && day === goodFriday.getUTCDate()) return false;
+
+        // 3. Weekly Schedule
+        const weekdayMap = { 'Mon': 0, 'Tue': 1, 'Wed': 2, 'Thu': 3, 'Fri': 4, 'Sat': 5, 'Sun': 6 };
+        const wd = weekdayMap[weekday];
+
+        if (wd >= 5) return false; // Sat (5), Sun (6)
+        if (wd === 4 && hour >= 23) return false; // Fri after 23:00
+
+        return true;
+    }
+
+    /**
+     * Updates the UI to show/hide the Trading Halt notice under each wallet heading.
+     */
+    function updateTradingHaltUI() {
+        const isOpen = isMarketOpen();
+        document.querySelectorAll('.address-container').forEach(container => {
+            let haltNotice = container.querySelector('.trading-halt-notice');
+            if (!isOpen) {
+                if (!haltNotice) {
+                    haltNotice = document.createElement('div');
+                    haltNotice.className = 'trading-halt-notice';
+                    haltNotice.textContent = 'Trading Halt';
+                    const h3 = container.querySelector('h3');
+                    if (h3) h3.after(haltNotice);
+                }
+            } else {
+                if (haltNotice) haltNotice.remove();
+            }
+        });
+    }
+
     // --- INITIALIZATION ---
     setupClock('clock-vatican', 'Europe/Vatican', 41.90, 12.45);
     setupClock('clock-shanghai', 'Asia/Shanghai', 31.23, 121.47);
     setupClock('clock-new-york', 'America/New_York', 45.50, -73.56);
     
     fetchData(); // Initial fetch
+    updateTradingHaltUI(); // Initial halt status check
     setInterval(fetchData, POLLING_INTERVAL); // Fetch every 15 seconds
     setInterval(updateTimer, 1000); // Update the 'ago' timer every second
+    setInterval(updateTradingHaltUI, 30000); // Periodic halt status check every 30s
 </script>
   <script>
     // --- THEME TOGGLE LOGIC (UNCHANGED) ---
