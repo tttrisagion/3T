@@ -77,7 +77,7 @@ def update_snapshot():
         # 3. Summary Block
         summary_metrics = {
             "balance": f'sum(account_balance_value{{wallet="{wallet}"}})',
-            "pnl": f'sum(providence_active_runs_pnl_total{{wallet="{wallet}"}})',
+            "pnl": f'sum(providence_open_runs_pnl_total{{wallet="{wallet}"}})',
             "positions": f'sum(positions_total_value{{wallet="{wallet}"}})',
             "open_runs": f'sum(providence_active_runs_count{{wallet="{wallet}"}})',
             "long_runs": f'sum(providence_active_runs_direction{{wallet="{wallet}", direction="long"}})',
