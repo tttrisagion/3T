@@ -2,18 +2,11 @@
 
 # Tactical Trend Trader (3T)
 
-```
-              P
-
-           /  .  \
-       S  /  -|-  \  S 
-         /`•. | .•`\
-        /    `.`    \
-              |   
-         _ _ _|_ _ _
-
-              F
-```
+<p align="center">
+  <img src="docs/www/web-app-manifest-192x192.png" width="192" height="192" alt="3T Logo">
+  <br>
+  DOCILIS • MITIS • HUMILIS
+</p>
 
 ## Introduction
 
