@@ -61,6 +61,11 @@ async def poll_positions_periodically():
                         state = await exchange.public_post_info(payload)
                         
                         if state:
+                            # Aggregate marginSummary across main and HIP-3 dexes
+                            margin_summary = state.get("marginSummary", {})
+                            account_value = float(margin_summary.get("accountValue", 0))
+                            total_margin_used = float(margin_summary.get("totalMarginUsed", 0))
+
                             # Fetch HIP-3 dex positions and merge into assetPositions
                             for dex in HIP3_DEXES:
                                 try:
@@ -69,12 +74,25 @@ async def poll_positions_periodically():
                                         "user": address,
                                         "dex": dex,
                                     })
-                                    if hip3_state and hip3_state.get("assetPositions"):
-                                        state.setdefault("assetPositions", []).extend(
-                                            hip3_state["assetPositions"]
-                                        )
+                                    if hip3_state:
+                                        # Aggregate account value and margin used
+                                        hip3_margin = hip3_state.get("marginSummary", {})
+                                        account_value += float(hip3_margin.get("accountValue", 0))
+                                        total_margin_used += float(hip3_margin.get("totalMarginUsed", 0))
+
+                                        # Merge asset positions
+                                        if hip3_state.get("assetPositions"):
+                                            state.setdefault("assetPositions", []).extend(
+                                                hip3_state["assetPositions"]
+                                            )
                                 except Exception as e:
                                     print(f"Observer: HIP-3 error for {address} on {dex}: {e}")
+                            
+                            # Update the main state with aggregated values (as strings to match API format)
+                            if "marginSummary" not in state:
+                                state["marginSummary"] = {}
+                            state["marginSummary"]["accountValue"] = str(account_value)
+                            state["marginSummary"]["totalMarginUsed"] = str(total_margin_used)
                             
                             new_positions[address] = state
                     except Exception as e:

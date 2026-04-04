@@ -54,7 +54,7 @@ def update_snapshot():
         }
         
         # 1. Total Equity Curve (Balance) - 5m resolution for the "Curve" feel
-        equity_query = f'sum(account_balance_value{{wallet="{wallet}"}})'
+        equity_query = f'max(account_balance_value{{wallet="{wallet}"}})'
         equity_results = query_vm_range(equity_query, step="5m")
         if equity_results and len(equity_results[0]['values']) > 0:
             wallet_data["equity_curve"] = equity_results[0]['values']
@@ -65,7 +65,7 @@ def update_snapshot():
                 wallet_data["equity_curve"] = [latest_val[0]['value']]
             
         # 2. Margin Utilization Curve
-        margin_query = f'avg(account_margin_ratio{{wallet="{wallet}"}})'
+        margin_query = f'max(account_margin_ratio{{wallet="{wallet}"}})'
         margin_results = query_vm_range(margin_query, step="5m")
         if margin_results and len(margin_results[0]['values']) > 0:
             wallet_data["margin_curve"] = margin_results[0]['values']
@@ -86,14 +86,14 @@ def update_snapshot():
             
         # 4. Summary Block
         summary_metrics = {
-            "balance": f'sum(account_balance_value{{wallet="{wallet}"}})',
-            "pnl": f'sum(providence_open_runs_pnl_total{{wallet="{wallet}"}})',
-            "positions": f'sum(positions_total_value{{wallet="{wallet}"}})',
-            "open_runs": f'sum(providence_active_runs_count{{wallet="{wallet}"}})',
-            "long_runs": f'sum(providence_active_runs_direction{{wallet="{wallet}", direction="long"}})',
-            "short_runs": f'sum(providence_active_runs_direction{{wallet="{wallet}", direction="short"}})',
-            "flat_runs": f'sum(providence_active_runs_direction{{wallet="{wallet}", direction="flat"}})',
-            "open_positions": f'sum(positions_open_count{{wallet="{wallet}"}})',
+            "balance": f'max(account_balance_value{{wallet="{wallet}"}})',
+            "pnl": f'max(providence_open_runs_pnl_total{{wallet="{wallet}"}})',
+            "positions": f'max(positions_total_value{{wallet="{wallet}"}})',
+            "open_runs": f'max(providence_active_runs_count{{wallet="{wallet}"}})',
+            "long_runs": f'max(providence_active_runs_direction{{wallet="{wallet}", direction="long"}})',
+            "short_runs": f'max(providence_active_runs_direction{{wallet="{wallet}", direction="short"}})',
+            "flat_runs": f'max(providence_active_runs_direction{{wallet="{wallet}", direction="flat"}})',
+            "open_positions": f'max(positions_open_count{{wallet="{wallet}"}})',
             "max_data_age": f'max(market_data_age_seconds{{wallet="{wallet}"}})'
         }
         
