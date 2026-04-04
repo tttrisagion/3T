@@ -21,9 +21,6 @@ Read the latest [whitepaper](https://trisagion.xyz/trisagion.pdf) and documentat
   <a href="https://github.com/tttrisagion/3T/releases">
     <img src="https://img.shields.io/github/v/release/tttrisagion/3T?include_prereleases&label=Latest%20Release&logo=github" alt="Latest Release">
   </a>
-  <a href="https://github.com/tttrisagion/3T">
-    <img src="https://img.shields.io/endpoint?url=https://api.codetabs.com/v1/loc?github=tttrisagion/3T&label=Lines%20of%20Code&logo=github" alt="Lines of Code">
-  </a>
   <img src="https://img.shields.io/github/languages/top/tttrisagion/3T?logo=python&logoColor=white" alt="Top Language">
   <a href="https://github.com/tttrisagion/3T/blob/main/LICENSE">
     <img src="https://img.shields.io/github/license/tttrisagion/3T?color=blue" alt="License">
