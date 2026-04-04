@@ -1,6 +1,7 @@
 .PHONY: install test clean restart render-diagrams
 
 install:
+	docker compose down
 	docker compose up -d --build
 
 test:
