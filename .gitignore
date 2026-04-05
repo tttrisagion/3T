@@ -14,3 +14,4 @@ database/internal-*
 providence/completed_runs
 providence/saved_runs
 commit.txt
+mission-control/health.json

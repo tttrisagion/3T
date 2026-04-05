@@ -379,6 +379,7 @@ services:
       - ./shared:/app/shared
       - ./config.yml:/app/config.yml
       - ./secrets.yml:/app/secrets.yml
+      - ./mission-control:/app/mission-control
     restart: unless-stopped
 
 
