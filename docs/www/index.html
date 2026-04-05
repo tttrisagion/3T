@@ -4,12 +4,16 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Trisagion</title>
-  <link rel="icon" type="image/png" href="/TTT.PNG">
-  <link rel="apple-touch-icon" href="/TTT.PNG">
+  <link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="shortcut icon" href="/favicon.ico" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <link rel="manifest" href="/site.webmanifest" />
   <script src="/js/tablesort.min.js"></script>
   <script src="/js/tablesort.number.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/suncalc/1.8.0/suncalc.min.js"></script>
   <style>
     /* --- THEME AND COLOR VARIABLES --- */
     :root {
@@ -243,7 +247,8 @@
       position: relative;
       background-color: var(--bg-color);
       box-shadow: 0 0 15px var(--accent-color);
-      transition: border-color 0.3s, background-color 0.3s, box-shadow 0.3s;
+      /* Modified transition for subtle diurnal changes */
+      transition: border-color 0.3s, background-color 3s linear, box-shadow 0.3s;
     }
     .clock-face {
       width: 100%;
@@ -257,6 +262,7 @@
       left: 50%;
       bottom: 50%;
       border-radius: 2px;
+      filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.8));
     }
     .hour-hand {
       width: 4px;
@@ -372,6 +378,15 @@
         overflow: hidden;
         margin-top: 8px;
     }
+    .sentiment-meter-marker {
+        position: absolute;
+        top: 0;
+        left: 50%;
+        width: 2px;
+        height: 100%;
+        background-color: var(--secondary-text-color);
+        transform: translateX(-50%);
+    }
     .sentiment-meter-fill {
         height: 100%;
         background-color: var(--accent-color);
@@ -394,6 +409,29 @@
         height: 40vh;
         width: 85%;
         max-width: 90%;
+    }
+
+    /* --- TRADING HALT NOTICE --- */
+    .trading-halt-notice {
+        display: inline-block;
+        background-color: #ff3300; /* Bright orange-red */
+        color: #fff;
+        font-family: 'Courier New', Courier, monospace;
+        font-weight: bold;
+        padding: 4px 12px;
+        margin: 5px 0 15px 0;
+        border: 2px solid #fff;
+        border-radius: 4px;
+        text-transform: uppercase;
+        font-size: 1.1em;
+        letter-spacing: 2px;
+        box-shadow: 0 0 15px #ff3300;
+        animation: blinker 1.2s cubic-bezier(.5, 0, 1, 1) infinite alternate;
+    }
+
+    @keyframes blinker {
+      from { opacity: 1.0; }
+      to { opacity: 0.2; }
     }
   </style>
 </head>
@@ -505,10 +543,13 @@
                     tablesortInstances.get(address).destroy();
                     tablesortInstances.delete(address);
                 }
-                if (chartInstances.has(address)) {
-                    chartInstances.get(address).destroy();
-                    chartInstances.delete(address);
-                }
+                ['equity', 'margin'].forEach(type => {
+                    const key = `${address}-${type}`;
+                    if (chartInstances.has(key)) {
+                        chartInstances.get(key).destroy();
+                        chartInstances.delete(key);
+                    }
+                });
             }
         });
 
@@ -546,9 +587,13 @@
 
             if (walletStats) {
                 renderEquityChart(addressContainer, walletStats);
+                if (walletStats.margin_curve) {
+                    renderMarginChart(addressContainer, walletStats);
+                }
             }
         }
         
+        updateTradingHaltUI();
         lastData = positionData;
         lastStatsData = statsData;
     }
@@ -581,7 +626,7 @@
 
         const summaryItems = {
             'Balance': formatNumber(posSummary.accountValue), // Corrected data source
-            'Open P&amp;L': statsSummary ? formatNumber(statsSummary.pnl) : 'N/A',
+            'Simulated P&amp;L': statsSummary ? formatNumber(statsSummary.pnl) : 'N/A',
             'Total Position Value': formatNumber(displayTotalNtlPos),
             'Total Margin Used': formatNumber(displayTotalMarginUsed),
         };
@@ -624,6 +669,7 @@
                     <span class="label">Market Sentiment:</span>
                     <div class="sentiment-meter-bar">
                         <div class="sentiment-meter-fill"></div>
+                        <div class="sentiment-meter-marker"></div>
                     </div>
                     <div class="sentiment-labels">
                         <span>Short</span>
@@ -653,13 +699,19 @@
      * Renders the table of individual asset positions.
      */
     function renderAssetPositions(container, positionData, oldPositionData) {
+        positionData.assetPositions.sort((a, b) => {
+            const valA = parseFloat(a.position.positionValue) || 0;
+            const valB = parseFloat(b.position.positionValue) || 0;
+            return valB - valA;
+        });
+
         let table = container.querySelector('table.positions-table');
         if (positionData.assetPositions.length > 0) {
             if (!table) {
                 table = document.createElement('table');
                 table.className = 'positions-table';
                 table.innerHTML = `
-                    <thead><tr><th>Coin</th><th>Size</th><th>Entry Px</th><th>Liq. Px</th><th>Pos. Value</th><th>Unrlzd. P&amp;L</th><th>ROE %</th><th>Margin Used</th></tr></thead>
+                    <thead><tr><th>Symbol</th><th>Size</th><th>Entry Px</th><th>Liq. Px</th><th>Pos. Value</th><th>Unrlzd. P&amp;L</th><th>ROE %</th><th>Margin Used</th></tr></thead>
                     <tbody></tbody>
                 `;
                 // Insert after summary grid
@@ -671,20 +723,18 @@
             }
 
             const tbody = table.querySelector('tbody');
-            const existingRows = new Map([...tbody.querySelectorAll('tr')].map(row => [row.dataset.coin, row]));
-            const newCoins = new Set();
+            const existingRowsMap = new Map([...tbody.querySelectorAll('tr')].map(row => [row.dataset.symbol, row]));
+            const finalRows = [];
 
             positionData.assetPositions.forEach(asset => {
                 const pos = asset.position;
-                newCoins.add(pos.coin);
                 
                 const oldAsset = oldPositionData?.assetPositions.find(p => p.position.coin === pos.coin)?.position;
 
-                let row = existingRows.get(pos.coin);
+                let row = existingRowsMap.get(pos.coin);
                 if (!row) {
                     row = document.createElement('tr');
-                    row.dataset.coin = pos.coin;
-                    tbody.appendChild(row);
+                    row.dataset.symbol = pos.coin;
                 }
                 
                 const cellsData = [
@@ -706,9 +756,14 @@
                        if(oldAsset) flashElement(cell);
                     }
                 }
+
+                finalRows.push(row);
+                existingRowsMap.delete(pos.coin);
             });
 
-            existingRows.forEach((row, coin) => { if (!newCoins.has(coin)) { row.remove(); } });
+            existingRowsMap.forEach(row => row.remove());
+
+            tbody.append(...finalRows);
             
             if (tablesortInstances.has(container.dataset.address)) {
                 tablesortInstances.get(container.dataset.address).refresh();
@@ -729,17 +784,30 @@
      */
 function renderEquityChart(container, walletStats) {
         const address = container.dataset.address;
-        let chartContainer = container.querySelector('.chart-container');
+        const chartId = `chart-${address}-equity`;
+        let chartContainer = container.querySelector(`.chart-container-equity`);
         if (!chartContainer) {
             chartContainer = document.createElement('div');
-            chartContainer.className = 'chart-container';
-            chartContainer.innerHTML = `<canvas id="chart-${address}"></canvas>`;
+            chartContainer.className = 'chart-container chart-container-equity';
+            chartContainer.innerHTML = `<canvas id="${chartId}"></canvas>`;
             container.appendChild(chartContainer);
         }
         
-        const equityData = walletStats.equity_curve.map(d => ({ x: d[0] * 1000, y: parseFloat(d[1]) }));
+        let equityData = walletStats.equity_curve.map(d => ({ x: d[0] * 1000, y: parseFloat(d[1]) }));
 
-        let chart = chartInstances.get(address);
+        if (equityData.length > 1) {
+            const lastTimestamp = equityData[equityData.length - 1].x;
+            const timeSpan = lastTimestamp - equityData[0].x;
+            const twentyFourHoursInMillis = 24 * 60 * 60 * 1000;
+
+            if (timeSpan > twentyFourHoursInMillis) {
+                const cutoffTimestamp = lastTimestamp - twentyFourHoursInMillis;
+                equityData = equityData.filter(d => d.x >= cutoffTimestamp);
+            }
+        }
+
+        const chartKey = `${address}-equity`;
+        let chart = chartInstances.get(chartKey);
 
         if (!chart) {
             // Grab actual hex values from the CSS variables to feed into Chart.js
@@ -747,7 +815,7 @@ function renderEquityChart(container, walletStats) {
             const textColor = computedStyle.getPropertyValue('--text-color').trim() || '#ff9900';
             const accentColor = computedStyle.getPropertyValue('--accent-color').trim() || '#FFA500';
 
-            const ctx = document.getElementById(`chart-${address}`).getContext('2d');
+            const ctx = document.getElementById(chartId).getContext('2d');
             chart = new Chart(ctx, {
                 type: 'line',
                 data: {
@@ -774,9 +842,12 @@ function renderEquityChart(container, walletStats) {
                                 display: true, 
                                 text: 'Time', 
                                 color: textColor,
+                                font: { family: 'Courier', size: 16 }
+                            },
+                            ticks: { 
+                                color: textColor, 
                                 font: { family: 'Courier' }
                             },
-                            ticks: { color: textColor, fontFamily: 'Courier' },
                             grid: { color: 'rgba(255, 153, 0, 0.2)' }
                         },
                         y: {
@@ -784,9 +855,12 @@ function renderEquityChart(container, walletStats) {
                                 display: true, 
                                 text: 'Equity (USD)', 
                                 color: textColor,
+                                font: { family: 'Courier', size: 16 }
+                            },
+                            ticks: { 
+                                color: textColor, 
                                 font: { family: 'Courier' }
                             },
-                            ticks: { color: textColor, fontFamily: 'Courier' },
                             grid: { color: 'rgba(255, 153, 0, 0.2)' }
                         }
                     },
@@ -794,17 +868,125 @@ function renderEquityChart(container, walletStats) {
                         legend: { display: false },
                         tooltip: {
                             backgroundColor: 'rgba(0, 0, 0, 0.7)',
-                            titleFont: { family: 'Courier' },
-                            bodyFont: { family: 'Courier' },
+                            titleFont: { family: 'Courier', size: 14 },
+                            bodyFont: { family: 'Courier', size: 12 },
                             displayColors: false
                         }
                     }
                 }
             });
-            chartInstances.set(address, chart);
+            chartInstances.set(chartKey, chart);
         } else {
             // Update existing chart
             chart.data.datasets[0].data = equityData;
+            chart.update();
+        }
+    }
+
+    /**
+     * Renders or updates the margin utilization chart.
+     */
+    function renderMarginChart(container, walletStats) {
+        const address = container.dataset.address;
+        const chartId = `chart-${address}-margin`;
+        let chartContainer = container.querySelector(`.chart-container-margin`);
+        if (!chartContainer) {
+            chartContainer = document.createElement('div');
+            chartContainer.className = 'chart-container chart-container-margin';
+            chartContainer.innerHTML = `<canvas id="${chartId}"></canvas>`;
+            container.appendChild(chartContainer);
+        }
+        
+        let marginData = walletStats.margin_curve.map(d => ({ x: d[0] * 1000, y: parseFloat(d[1]) * 100 }));
+
+        if (marginData.length > 1) {
+            const lastTimestamp = marginData[marginData.length - 1].x;
+            const timeSpan = lastTimestamp - marginData[0].x;
+            const twentyFourHoursInMillis = 24 * 60 * 60 * 1000;
+
+            if (timeSpan > twentyFourHoursInMillis) {
+                const cutoffTimestamp = lastTimestamp - twentyFourHoursInMillis;
+                marginData = marginData.filter(d => d.x >= cutoffTimestamp);
+            }
+        }
+
+        const chartKey = `${address}-margin`;
+        let chart = chartInstances.get(chartKey);
+
+        if (!chart) {
+            const computedStyle = getComputedStyle(document.documentElement);
+            const textColor = computedStyle.getPropertyValue('--text-color').trim() || '#ff9900';
+            const secondaryColor = computedStyle.getPropertyValue('--secondary-text-color').trim() || '#c60';
+
+            const ctx = document.getElementById(chartId).getContext('2d');
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    datasets: [{
+                        label: 'Margin Utilization',
+                        data: marginData,
+                        borderColor: secondaryColor,
+                        backgroundColor: 'rgba(204, 102, 0, 0.1)',
+                        borderWidth: 2,
+                        pointRadius: 1.5,
+                        pointBackgroundColor: secondaryColor,
+                        tension: 0.1,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: { unit: 'hour' },
+                            title: { 
+                                display: true, 
+                                text: 'Time', 
+                                color: textColor,
+                                font: { family: 'Courier', size: 16 }
+                            },
+                            ticks: { 
+                                color: textColor, 
+                                font: { family: 'Courier' }
+                            },
+                            grid: { color: 'rgba(204, 102, 0, 0.1)' }
+                        },
+                        y: {
+                           title: { 
+                                display: true, 
+                                text: 'Margin Utilization (%)', 
+                                color: textColor,
+                                font: { family: 'Courier', size: 16 }
+                            },
+                            ticks: { 
+                                color: textColor, 
+                                font: { family: 'Courier' },
+                                callback: function(value) { return value + '%'; }
+                            },
+                            grid: { color: 'rgba(204, 102, 0, 0.1)' }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                            titleFont: { family: 'Courier', size: 14 },
+                            bodyFont: { family: 'Courier', size: 12 },
+                            displayColors: false,
+                            callbacks: {
+                                label: function(context) {
+                                    return context.dataset.label + ': ' + context.parsed.y.toFixed(2) + '%';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+            chartInstances.set(chartKey, chart);
+        } else {
+            chart.data.datasets[0].data = marginData;
             chart.update();
         }
     }
@@ -847,35 +1029,169 @@ function renderEquityChart(container, walletStats) {
         }
     }
 
-	// --- CLOCK LOGIC (UNCHANGED) ---
-	function setupClock(clockId, timeZone) {
+    // --- CLOCK LOGIC (ENHANCED) ---
+    function lerpColor(a, b, amount) {
+        const ar = parseInt(a.slice(1, 3), 16),
+              ag = parseInt(a.slice(3, 5), 16),
+              ab = parseInt(a.slice(5, 7), 16);
+        const br = parseInt(b.slice(1, 3), 16),
+              bg = parseInt(b.slice(3, 5), 16),
+              bb = parseInt(b.slice(5, 7), 16);
+        const rr = Math.round(ar + amount * (br - ar)).toString(16).padStart(2, '0');
+        const rg = Math.round(ag + amount * (bg - ag)).toString(16).padStart(2, '0');
+        const rb = Math.round(ab + amount * (bb - ab)).toString(16).padStart(2, '0');
+        return `#${rr}${rg}${rb}`;
+    }
+
+    function setupClock(clockId, timeZone, lat, lng) {
+        const clockElement = document.getElementById(clockId);
         const hourHand = document.querySelector(`#${clockId} .hour-hand`);
         const minuteHand = document.querySelector(`#${clockId} .minute-hand`);
         const secondHand = document.querySelector(`#${clockId} .second-hand`);
+
+        const nightColor = '#000000';
+        const twilightColor = '#FFA500'; // Matches --accent-color
+        const dayColor = '#FFFFFF';
+
+        // Altitude thresholds in radians
+        const nightAltitude = -0.25; // Astronomical twilight
+        const twilightAltitude = -0.1; // Nautical/Civil twilight
+        const dayAltitude = -0.01;   // Sun just dipping below horizon
+
         function updateClock() {
-            const nowInTimeZone = new Date().toLocaleString("en-US", { timeZone });
-            const date = new Date(nowInTimeZone);
-            const seconds = date.getSeconds();
-            const secondsDegrees = ((seconds / 60) * 360) + 90;
+            const now = new Date(); // The correct, universal moment in time.
+
+            // --- Hand Calculation (Corrected) ---
+            // Use Intl.DateTimeFormat to get reliable time parts for any timezone.
+            const options = { timeZone, hour: 'numeric', minute: 'numeric', second: 'numeric', hour12: false };
+            const formatter = new Intl.DateTimeFormat('en-US', options);
+            const parts = formatter.formatToParts(now).reduce((acc, p) => { acc[p.type] = p.value; return acc; }, {});
+            
+            const seconds = parseInt(parts.second || '0');
+            const minutes = parseInt(parts.minute || '0');
+            const hours = parseInt(parts.hour === '24' ? '0' : parts.hour);
+
+            // Calculate rotation degrees for each hand
+            const secondsDegrees = (seconds / 60) * 360;
+            const minutesDegrees = (minutes / 60) * 360 + (seconds / 60) * 6;
+            const hoursDegrees = (hours / 12) * 360 + (minutes / 60) * 30;
+
             secondHand.style.transform = `rotate(${secondsDegrees}deg)`;
-            const minutes = date.getMinutes();
-            const minutesDegrees = ((minutes / 60) * 360) + ((seconds / 60) * 6);
             minuteHand.style.transform = `rotate(${minutesDegrees}deg)`;
-            const hours = date.getHours();
-            const hoursDegrees = ((hours / 12) * 360) + ((minutes / 60) * 30);
             hourHand.style.transform = `rotate(${hoursDegrees}deg)`;
+
+            // --- Diurnal State Calculation (Corrected) ---
+            // Use the original `now` object. SunCalc calculates position based on
+            // the universal time and the specific lat/lng coordinates.
+            const sunPosition = SunCalc.getPosition(now, lat, lng);
+            const altitude = sunPosition.altitude;
+            let stateColor = nightColor;
+
+            if (altitude > dayAltitude) {
+                stateColor = dayColor;
+            } else if (altitude > twilightAltitude) {
+                const amount = (altitude - twilightAltitude) / (dayAltitude - twilightAltitude);
+                stateColor = lerpColor(twilightColor, dayColor, amount);
+            } else if (altitude > nightAltitude) {
+                const amount = (altitude - nightAltitude) / (twilightAltitude - nightAltitude);
+                stateColor = lerpColor(nightColor, twilightColor, amount);
+            }
+
+            // Apply color dynamically
+            if (clockElement.style.backgroundColor !== stateColor) {
+                clockElement.style.backgroundColor = stateColor;
+            }
         }
         setInterval(updateClock, 1000);
         updateClock();
     }
 
+    /**
+     * Checks if the market is open based on Vatican City time (CET/CEST).
+     * Matches the logic in reconciliation_engine.py
+     */
+    function isMarketOpen() {
+        const now = new Date();
+        const options = { 
+            timeZone: 'Europe/Vatican', 
+            year: 'numeric', month: 'numeric', day: 'numeric', 
+            hour: 'numeric', minute: 'numeric', second: 'numeric', 
+            weekday: 'short', hour12: false 
+        };
+        const formatter = new Intl.DateTimeFormat('en-US', options);
+        const parts = formatter.formatToParts(now).reduce((acc, p) => { acc[p.type] = p.value; return acc; }, {});
+
+        const year = parseInt(parts.year);
+        const month = parseInt(parts.month);
+        const day = parseInt(parts.day);
+        const hour = parseInt(parts.hour === '24' ? '0' : parts.hour);
+        const weekday = parts.weekday; // 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'
+
+        // 1. Fixed Holidays
+        if ((month === 1 && day === 1) || (month === 12 && day === 25)) return false;
+
+        // 2. Good Friday (Gregorian Algorithm)
+        const a = year % 19,
+              b = Math.floor(year / 100),
+              c = year % 100,
+              d = Math.floor(b / 4),
+              e = b % 4,
+              f = Math.floor((b + 8) / 25),
+              g = Math.floor((b - f + 1) / 3),
+              h = (19 * a + b - d - g + 15) % 30,
+              i = Math.floor(c / 4),
+              k = c % 4,
+              l = (32 + 2 * e + 2 * i - h - k) % 7,
+              m = Math.floor((a + 11 * h + 22 * l) / 451),
+              easterMonth = Math.floor((h + l - 7 * m + 114) / 31),
+              easterDay = ((h + l - 7 * m + 114) % 31) + 1;
+
+        const easter = new Date(Date.UTC(year, easterMonth - 1, easterDay));
+        const goodFriday = new Date(easter.getTime() - 2 * 24 * 60 * 60 * 1000);
+        
+        if (month === (goodFriday.getUTCMonth() + 1) && day === goodFriday.getUTCDate()) return false;
+
+        // 3. Weekly Schedule
+        const weekdayMap = { 'Mon': 0, 'Tue': 1, 'Wed': 2, 'Thu': 3, 'Fri': 4, 'Sat': 5, 'Sun': 6 };
+        const wd = weekdayMap[weekday];
+
+        if (wd >= 5) return false; // Sat (5), Sun (6)
+        if (wd === 4 && hour >= 23) return false; // Fri after 23:00
+
+        return true;
+    }
+
+    /**
+     * Updates the UI to show/hide the Trading Halt notice under each wallet heading.
+     */
+    function updateTradingHaltUI() {
+        const isOpen = isMarketOpen();
+        document.querySelectorAll('.address-container').forEach(container => {
+            let haltNotice = container.querySelector('.trading-halt-notice');
+            if (!isOpen) {
+                if (!haltNotice) {
+                    haltNotice = document.createElement('div');
+                    haltNotice.className = 'trading-halt-notice';
+                    haltNotice.textContent = 'Trading Halt';
+                    const h3 = container.querySelector('h3');
+                    if (h3) h3.after(haltNotice);
+                }
+            } else {
+                if (haltNotice) haltNotice.remove();
+            }
+        });
+    }
+
     // --- INITIALIZATION ---
-    setupClock('clock-vatican', 'Europe/Vatican');
-    setupClock('clock-shanghai', 'Asia/Shanghai');
-    setupClock('clock-new-york', 'America/New_York');
+    setupClock('clock-vatican', 'Europe/Vatican', 41.90, 12.45);
+    setupClock('clock-shanghai', 'Asia/Shanghai', 31.23, 121.47);
+    setupClock('clock-new-york', 'America/New_York', 45.50, -73.56);
+    
     fetchData(); // Initial fetch
+    updateTradingHaltUI(); // Initial halt status check
     setInterval(fetchData, POLLING_INTERVAL); // Fetch every 15 seconds
     setInterval(updateTimer, 1000); // Update the 'ago' timer every second
+    setInterval(updateTradingHaltUI, 30000); // Periodic halt status check every 30s
 </script>
   <script>
     // --- THEME TOGGLE LOGIC (UNCHANGED) ---
@@ -990,6 +1306,7 @@ function renderEquityChart(container, walletStats) {
                     <ul class="footer-links">
                         <li><a href="https://x.com/tttrisagion">X (Twitter)</a></li>
                         <li><a href="https://github.com/tttrisagion/3T">GitHub</a></li>
+                        <li><a href="https://github.com/tttrisagion/3T/actions/workflows/deploy.yml" target="_blank" rel="noopener noreferrer"><img src="https://github.com/tttrisagion/3T/actions/workflows/deploy.yml/badge.svg" alt="Deploy Status" style="vertical-align: middle;"></a></li>
                     </ul>
                 </div>
 

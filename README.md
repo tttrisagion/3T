@@ -1,20 +1,12 @@
-> 🎉 **Official 0.1.0 Release**
-> This marks the first ever official release (v0.1.0) of the Tactical Trend Trader (3T) project, unifying all components (including the Providence strategy) under a single version. *Disclaimer:* The 3T project is in a highly experimental and pre-alpha state. It is **not ready for production use** and may contain significant bugs, breaking changes, or incomplete features. Proceed with use under extreme levels of caution and avoid allocating anything more than a small amount of test funds for live scenarios.
+> *DISCLAIMER:* The 3T project is in a highly experimental and pre-alpha state. It is **not ready for production use** and may contain significant bugs, breaking changes, or incomplete features. Proceed with use under extreme levels of caution and avoid allocating anything more than a small amount of test funds for live scenarios. The symbols listed are for informational purposes only. This project is not financial, investment, or trading advice, nor is it a solicitation or recommendation for any asset. The Trisagion project is not a licensed financial entity.  All users must conduct their own research and consult a qualified financial advisor before making decisions. Engaging with cryptocurrencies involves significant risk, including the potential for total loss. By using this code, you acknowledge full responsibility for your financial choices.
 
 # Tactical Trend Trader (3T)
 
-```
-              P
-
-           /  .  \
-       S  /  -|-  \  S 
-         /`•. | .•`\
-        /    `.`    \
-              |   
-         _ _ _|_ _ _
-
-              F
-```
+<p align="center">
+  <img src="docs/www/web-app-manifest-192x192.png" width="192" height="192" alt="3T Logo">
+  <br>
+  DOCILIS • MITIS • HUMILIS
+</p>
 
 ## Introduction
 
@@ -22,10 +14,30 @@ Tactical Trend Trader (3T) is a sophisticated, distributed trading platform powe
 
 Read the latest [whitepaper](https://trisagion.xyz/trisagion.pdf) and documentation at [trisagion.gitbook.io](https://trisagion.gitbook.io/trisagion-docs/).
 
-[![LOC][loc-badge]][loc-report]
+<p align="center">
+  <a href="https://github.com/tttrisagion/3T/actions/workflows/ci.yml">
+    <img src="https://img.shields.io/github/actions/workflow/status/tttrisagion/3T/ci.yml?branch=main&label=CI&logo=github" alt="CI Status">
+  </a>
+  <a href="https://github.com/tttrisagion/3T/releases">
+    <img src="https://img.shields.io/github/v/release/tttrisagion/3T?include_prereleases&label=Latest%20Release&logo=github" alt="Latest Release">
+  </a>
+  <img src="https://img.shields.io/github/languages/top/tttrisagion/3T?logo=python&logoColor=white" alt="Top Language">
+  <a href="https://github.com/tttrisagion/3T/blob/main/LICENSE">
+    <img src="https://img.shields.io/github/license/tttrisagion/3T?color=blue" alt="License">
+  </a>
+</p>
 
-[loc-badge]: https://tokei.rs/b1/github/tttrisagion/3T
-[loc-report]: https://github.com/tttrisagion/3T
+<p align="center">
+  <img src="https://img.shields.io/github/repo-size/tttrisagion/3T?logo=github" alt="Repo Size">
+  <img src="https://img.shields.io/github/last-commit/tttrisagion/3T?logo=github" alt="Last Commit">
+  <a href="https://github.com/tttrisagion/3T/issues">
+    <img src="https://img.shields.io/github/issues/tttrisagion/3T?logo=github" alt="Open Issues">
+  </a>
+  <a href="https://github.com/tttrisagion/3T/pulls">
+    <img src="https://img.shields.io/github/issues-pr/tttrisagion/3T?logo=github" alt="Open PRs">
+  </a>
+  <img src="https://img.shields.io/github/commit-activity/m/tttrisagion/3T?logo=github" alt="Commit Activity">
+</p>
 
 ### ✨ Key Features
 
