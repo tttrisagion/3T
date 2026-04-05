@@ -44,9 +44,9 @@ services:
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318/v1/traces
       - OTEL_SERVICE_NAME=celery_worker
     healthcheck:
-      test: ["CMD", "python", "-c", "from shared.exchange_manager import exchange_manager; exchange_manager.get_exchange()"]
-      interval: 300s
-      timeout: 30s
+      test: ["CMD-SHELL", "celery -A worker.tasks inspect ping -d celery@$$HOSTNAME"]
+      interval: 60s
+      timeout: 15s
       retries: 3
       start_period: 60s
     depends_on:
@@ -86,9 +86,9 @@ services:
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318/v1/traces
       - OTEL_SERVICE_NAME=celery_worker_high
     healthcheck:
-      test: ["CMD", "python", "-c", "from shared.exchange_manager import exchange_manager; exchange_manager.get_exchange()"]
-      interval: 300s
-      timeout: 30s
+      test: ["CMD-SHELL", "celery -A worker.tasks inspect ping -d celery@$$HOSTNAME"]
+      interval: 60s
+      timeout: 15s
       retries: 3
       start_period: 60s
     depends_on:

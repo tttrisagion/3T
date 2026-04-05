@@ -1,3 +1,6 @@
+# fmt: off
+import shared.eventlet_patch  # isort: skip
+# fmt: on
 import ctypes
 import json
 import os

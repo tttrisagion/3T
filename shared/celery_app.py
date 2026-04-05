@@ -1,14 +1,11 @@
+# fmt: off
+import shared.eventlet_patch  # isort: skip
+# fmt: on
 import logging
 import os
 import signal
 
-if os.environ.get("CELERY_WORKER_POOL") == "eventlet":
-    import eventlet
-
-    eventlet.monkey_patch()
-
 from celery import Celery
-from celery.signals import task_postrun
 
 logger = logging.getLogger(__name__)
 
@@ -49,23 +46,3 @@ app.conf.update(
     },
     task_default_queue="high_priority",  # Default to high priority for safety
 )
-
-
-# Worker recycling for eventlet pools (which don't support max_tasks_per_child).
-# Python's memory allocator fragments arenas over millions of short-lived task
-# allocations and never returns that memory to the OS. Periodic process restart
-# is the only reliable way to reclaim it.
-_task_count = 0
-_RECYCLE_THRESHOLD = 50000
-
-
-@task_postrun.connect
-def _check_worker_recycle(sender=None, **kwargs):
-    global _task_count
-    _task_count += 1
-    if _task_count >= _RECYCLE_THRESHOLD:
-        logger.info(
-            "Worker reached %d tasks, sending SIGTERM to recycle and reclaim memory",
-            _RECYCLE_THRESHOLD,
-        )
-        os.kill(os.getpid(), signal.SIGTERM)

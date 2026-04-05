@@ -466,11 +466,14 @@ def providence_iteration_scheduler(self):
         """)
         active_runs = cursor.fetchall()
 
-        # Spawn an iteration task for each active run
-        for run in active_runs:
-            providence_trading_iteration.delay(run["id"])
+        if active_runs:
+            from celery import group
+            # Use a group to batch the dispatch of all iteration tasks
+            # This reduces 4,000 individual Redis round-trips to a single pipelined operation.
+            job = group(providence_trading_iteration.s(run["id"]) for run in active_runs)
+            job.apply_async()
 
-        logger.info(f"Iteration scheduler: Spawned {len(active_runs)} iteration tasks")
+        logger.info(f"Iteration scheduler: Batch dispatched {len(active_runs)} iteration tasks")
 
     except Exception as e:
         logger.error(f"Iteration scheduler failed: {e}", exc_info=True)
