@@ -69,13 +69,18 @@
       100% { opacity: 0.95; }
     }
 
-    body::after {
+    .scanline-effect {
+      position: relative;
+      overflow: hidden;
+    }
+
+    .scanline-effect::after {
       content: '';
-      position: fixed;
+      position: absolute;
       top: 0;
       left: 0;
       width: 100%;
-      height: 100vh;
+      height: 100%;
       background: repeating-linear-gradient(
         0deg,
         rgba(0, 0, 0, 0.4) 0,
@@ -84,7 +89,7 @@
         transparent 3px
       );
       pointer-events: none;
-      z-index: 9999;
+      z-index: 10;
       animation: flicker 15s infinite;
     }
 
@@ -439,7 +444,7 @@
 <!--
   <button id="theme-toggle" aria-label="Toggle theme"></button>
  -->
-  <div id="logo-wrapper">
+  <div id="logo-wrapper" class="scanline-effect">
 <svg id="uuid-d42eca4d-b207-4968-85d8-fef4dbf0358c" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 331.766 431.38">
   <defs>
     <style>
@@ -788,7 +793,7 @@ function renderEquityChart(container, walletStats) {
         let chartContainer = container.querySelector(`.chart-container-equity`);
         if (!chartContainer) {
             chartContainer = document.createElement('div');
-            chartContainer.className = 'chart-container chart-container-equity';
+            chartContainer.className = 'chart-container chart-container-equity scanline-effect';
             chartContainer.innerHTML = `<canvas id="${chartId}"></canvas>`;
             container.appendChild(chartContainer);
         }
@@ -859,7 +864,10 @@ function renderEquityChart(container, walletStats) {
                             },
                             ticks: { 
                                 color: textColor, 
-                                font: { family: 'Courier' }
+                                font: { family: 'Courier' },
+                                callback: function(value) { 
+                                    return '$' + (typeof value === 'number' ? value.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : value);
+                                }
                             },
                             grid: { color: 'rgba(255, 153, 0, 0.2)' }
                         }
@@ -870,7 +878,12 @@ function renderEquityChart(container, walletStats) {
                             backgroundColor: 'rgba(0, 0, 0, 0.7)',
                             titleFont: { family: 'Courier', size: 14 },
                             bodyFont: { family: 'Courier', size: 12 },
-                            displayColors: false
+                            displayColors: false,
+                            callbacks: {
+                                label: function(context) {
+                                    return context.dataset.label + ': $' + (typeof context.parsed.y === 'number' ? context.parsed.y.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : context.parsed.y);
+                                }
+                            }
                         }
                     }
                 }
@@ -892,7 +905,7 @@ function renderEquityChart(container, walletStats) {
         let chartContainer = container.querySelector(`.chart-container-margin`);
         if (!chartContainer) {
             chartContainer = document.createElement('div');
-            chartContainer.className = 'chart-container chart-container-margin';
+            chartContainer.className = 'chart-container chart-container-margin scanline-effect';
             chartContainer.innerHTML = `<canvas id="${chartId}"></canvas>`;
             container.appendChild(chartContainer);
         }
@@ -963,7 +976,9 @@ function renderEquityChart(container, walletStats) {
                             ticks: { 
                                 color: textColor, 
                                 font: { family: 'Courier' },
-                                callback: function(value) { return value + '%'; }
+                                callback: function(value) { 
+                                    return (typeof value === 'number' ? parseFloat(value.toFixed(2)) : value) + '%'; 
+                                }
                             },
                             grid: { color: 'rgba(204, 102, 0, 0.1)' }
                         }
