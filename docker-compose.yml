@@ -11,9 +11,15 @@ services:
 
   redis:
     image: redis:7.2-alpine
-    command: redis-server --maxclients 50000 --maxmemory 16gb --maxmemory-policy allkeys-lru
+    command: redis-server --maxclients 50000 --maxmemory 16gb --maxmemory-policy allkeys-lru --tcp-keepalive 60
     ports:
       - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     restart: unless-stopped
 
   celery_worker:
@@ -51,7 +57,7 @@ services:
       start_period: 60s
     depends_on:
       redis:
-        condition: service_started
+        condition: service_healthy
       mariadb:
         condition: service_started
       otel-collector:
@@ -93,7 +99,7 @@ services:
       start_period: 60s
     depends_on:
       redis:
-        condition: service_started
+        condition: service_healthy
       mariadb:
         condition: service_started
       otel-collector:
@@ -120,9 +126,12 @@ services:
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318/v1/traces
       - OTEL_SERVICE_NAME=celery_beat
     depends_on:
-      - redis
-      - mariadb
-      - otel-collector
+      redis:
+        condition: service_healthy
+      mariadb:
+        condition: service_started
+      otel-collector:
+        condition: service_started
     restart: unless-stopped
 
   balance_consumer:

@@ -36,7 +36,11 @@ def _get_redis_pool(decode_responses=False):
                 port=config.get("redis.port"),
                 db=config.get("redis.db"),
                 decode_responses=True,
-                max_connections=1000,  # 10x increase
+                max_connections=1000,
+                socket_timeout=10,
+                socket_connect_timeout=5,
+                retry_on_timeout=True,
+                health_check_interval=30,
             )
         return _redis_pool_decoded
     else:
@@ -46,7 +50,11 @@ def _get_redis_pool(decode_responses=False):
                 port=config.get("redis.port"),
                 db=config.get("redis.db"),
                 decode_responses=False,
-                max_connections=1000,  # 10x increase
+                max_connections=1000,
+                socket_timeout=10,
+                socket_connect_timeout=5,
+                retry_on_timeout=True,
+                health_check_interval=30,
             )
         return _redis_pool
 

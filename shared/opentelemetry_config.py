@@ -123,12 +123,43 @@ def setup_telemetry(service_name: str):
         exporter = OTLPSpanExporter(
             endpoint=os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT")
         )
-        processor = BatchSpanProcessor(exporter)
+        # Tighten timeouts for eventlet compatibility.
+        # BatchSpanProcessor spawns a background thread that becomes a greenlet
+        # under eventlet monkey patching. Short export timeouts prevent a stalled
+        # OTEL collector from blocking the greenlet scheduler, and a capped queue
+        # prevents unbounded memory growth if exports fall behind.
+        processor = BatchSpanProcessor(
+            exporter,
+            export_timeout_millis=5000,  # 5s vs default 30s
+            schedule_delay_millis=5000,  # flush every 5s vs default 5s (explicit)
+            max_queue_size=2048,  # cap memory; default is 2048 (explicit)
+            max_export_batch_size=512,  # default is 512 (explicit)
+        )
         provider.add_span_processor(processor)
 
     trace.set_tracer_provider(provider)
     _TRACER_PROVIDER = provider
     return provider
+
+
+def shutdown_telemetry(timeout_millis: int = 3000):
+    """
+    Flush and shut down the tracer provider.
+
+    Call this during Celery worker shutdown (e.g., worker_shutting_down signal)
+    BEFORE eventlet's hub is torn down, to avoid atexit deadlocks.
+    """
+    global _TRACER_PROVIDER
+    if _TRACER_PROVIDER is not None:
+        try:
+            _TRACER_PROVIDER.force_flush(timeout_millis=timeout_millis)
+        except Exception:
+            pass  # Best-effort; don't block shutdown
+        try:
+            _TRACER_PROVIDER.shutdown()
+        except Exception:
+            pass
+        _TRACER_PROVIDER = None
 
 
 def get_tracer(service_name: str):

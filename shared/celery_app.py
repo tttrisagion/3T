@@ -29,6 +29,19 @@ app.conf.update(
     task_ignore_result=True,
     result_expires=3600,
     worker_prefetch_multiplier=1,
+    # Broker connection resilience - reconnect on Redis connection drops
+    broker_connection_retry_on_startup=True,
+    broker_connection_retry=True,
+    broker_connection_max_retries=None,  # Retry forever
+    broker_connection_timeout=10,
+    broker_transport_options={
+        "socket_timeout": 15,
+        "socket_connect_timeout": 5,
+        "socket_keepalive": True,
+        "retry_on_timeout": True,
+        "health_check_interval": 30,
+    },
+    broker_heartbeat=120,
     task_routes={
         # High priority: Critical system tasks
         "worker.tasks.update_balance": {"queue": "high_priority"},
