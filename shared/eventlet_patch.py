@@ -13,6 +13,7 @@ is_eventlet = (
 if is_eventlet:
     try:
         import eventlet
+
         eventlet.monkey_patch()
         # Direct print to stdout as logging may not be initialized yet
         print("✅ Eventlet monkey patch applied successfully")

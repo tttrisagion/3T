@@ -1,9 +1,6 @@
 # fmt: off
-import shared.eventlet_patch  # isort: skip
 # fmt: on
 import logging
-import os
-import signal
 
 from celery import Celery
 
@@ -12,7 +9,6 @@ logger = logging.getLogger(__name__)
 app = Celery(
     "tasks",
     broker="redis://redis:6379/0",
-    backend="redis://redis:6379/0",
     include=[
         "worker.tasks",
         "worker.trading_range",
@@ -27,7 +23,6 @@ app = Celery(
 # Configure task routing with priorities
 app.conf.update(
     task_ignore_result=True,
-    result_expires=3600,
     worker_prefetch_multiplier=1,
     # Broker connection resilience - reconnect on Redis connection drops
     broker_connection_retry_on_startup=True,

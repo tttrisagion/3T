@@ -2,7 +2,7 @@ import json
 import os
 import sys
 import time
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
 import mysql.connector
 import requests
@@ -52,23 +52,23 @@ def check_database_freshness(cursor, tables, threshold):
                 )
             else:
                 latest_timestamp_dt = latest_timestamp.replace(tzinfo=UTC)
-            
+
             staleness = (datetime.now(UTC) - latest_timestamp_dt).total_seconds()
             is_healthy = staleness <= threshold
-            
+
             results[table] = {
                 "healthy": is_healthy,
                 "latest_update": str(latest_timestamp_dt),
-                "staleness_seconds": staleness
+                "staleness_seconds": staleness,
             }
-            
+
             if not is_healthy:
                 print(f"- Table '{table}' is stale. Last update: {latest_timestamp_dt}")
                 all_healthy = False
         else:
             results[table] = {"healthy": False, "error": "No data"}
             all_healthy = False
-            
+
     return all_healthy, results
 
 
@@ -78,7 +78,7 @@ def check_observer_nodes_freshness(threshold):
     print(f"Checking observer nodes: {observer_nodes}")
     all_healthy = True
     results = {}
-    
+
     for url in observer_nodes:
         try:
             response = requests.get(url, timeout=10)
@@ -86,35 +86,53 @@ def check_observer_nodes_freshness(threshold):
             response.raise_for_status()
             data = response.json()
             latest_timestamp_str = data.get("timestamp")
-            
+
             if latest_timestamp_str:
-                latest_timestamp = datetime.fromisoformat(latest_timestamp_str.replace('Z', '+00:00'))
+                latest_timestamp = datetime.fromisoformat(
+                    latest_timestamp_str.replace("Z", "+00:00")
+                )
                 staleness = (datetime.now(UTC) - latest_timestamp).total_seconds()
                 is_healthy = staleness <= threshold
-                
+
                 results[url] = {
                     "healthy": is_healthy,
                     "latest_update": str(latest_timestamp),
                     "staleness_seconds": staleness,
-                    "status_code": status_code
+                    "status_code": status_code,
                 }
-                
+
                 if not is_healthy:
-                    print(f"- Observer node '{url}' is stale. Last update: {latest_timestamp}")
+                    print(
+                        f"- Observer node '{url}' is stale. Last update: {latest_timestamp}"
+                    )
                     all_healthy = False
             else:
                 print(f"- Observer node '{url}' is missing the 'timestamp' field.")
-                results[url] = {"healthy": False, "error": "Missing timestamp", "status_code": status_code}
+                results[url] = {
+                    "healthy": False,
+                    "error": "Missing timestamp",
+                    "status_code": status_code,
+                }
                 all_healthy = False
         except requests.RequestException as e:
             print(f"- Error connecting to observer node '{url}': {e}")
-            results[url] = {"healthy": False, "error": str(e), "status_code": getattr(e.response, 'status_code', 500) if hasattr(e, 'response') else 500}
+            results[url] = {
+                "healthy": False,
+                "error": str(e),
+                "status_code": getattr(e.response, "status_code", 500)
+                if hasattr(e, "response")
+                else 500,
+            }
             all_healthy = False
         except (json.JSONDecodeError, TypeError) as e:
             print(f"- Observer node '{url}' returned invalid JSON: {e}")
-            results[url] = {"healthy": False, "error": "Invalid JSON", "status_code": 200}
+            results[url] = {
+                "healthy": False,
+                "error": "Invalid JSON",
+                "status_code": 200,
+            }
             all_healthy = False
-            
+
     return all_healthy, results
 
 
@@ -127,9 +145,9 @@ def check_service_endpoints():
         "prometheus": "http://prometheus:9090/-/healthy",
         "tempo": "http://tempo:3200/ready",
         "order-gateway": "http://order-gateway:8002/health",
-        "exchange-observer": "http://exchange-observer:8001/3T-observer.json"
+        "exchange-observer": "http://exchange-observer:8001/3T-observer.json",
     }
-    
+
     results = {}
     for name, url in services_to_check.items():
         try:
@@ -137,14 +155,10 @@ def check_service_endpoints():
             results[name] = {
                 "healthy": response.status_code < 400,
                 "status_code": response.status_code,
-                "response_time": response.elapsed.total_seconds()
+                "response_time": response.elapsed.total_seconds(),
             }
         except Exception as e:
-            results[name] = {
-                "healthy": False,
-                "error": str(e),
-                "status_code": 0
-            }
+            results[name] = {"healthy": False, "error": str(e), "status_code": 0}
     return results
 
 
@@ -160,11 +174,7 @@ def main():
         report = {
             "timestamp": str(datetime.now(UTC)),
             "status": "healthy",
-            "checks": {
-                "database": {},
-                "observers": {},
-                "services": {}
-            }
+            "checks": {"database": {}, "observers": {}, "services": {}},
         }
         healthy = True
 
@@ -185,13 +195,13 @@ def main():
             report["checks"]["observers"] = obs_results
             if not obs_healthy:
                 healthy = False
-                
+
             # Check individual service endpoints
             service_results = check_service_endpoints()
             report["checks"]["services"] = service_results
             for s in service_results.values():
                 if not s["healthy"]:
-                    # We don't necessarily mark the WHOLE system as degraded 
+                    # We don't necessarily mark the WHOLE system as degraded
                     # if Grafana is down, but we could. For now, let's keep it informative.
                     pass
 

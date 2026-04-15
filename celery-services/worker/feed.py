@@ -3,7 +3,6 @@ Price Feed Engine - Celery Worker Implementation
 """
 
 import os
-import time
 
 from celery.utils.log import get_task_logger
 
@@ -48,26 +47,30 @@ def update_prices_in_redis():
             price_stream = config.get("redis.streams.price_updates", "prices:updated")
 
             last_id = "$"  # Start from the end of the stream
-            
+
             while True:
                 # Read new messages from the stream
                 # block=500 means wait up to 500ms for new data
-                messages_batch = redis_conn.xread({price_stream: last_id}, count=100, block=500)
-                
+                messages_batch = redis_conn.xread(
+                    {price_stream: last_id}, count=100, block=500
+                )
+
                 if messages_batch:
                     for stream, messages in messages_batch:
                         for msg_id, msg_data in messages:
                             symbol = msg_data.get("symbol")
                             price = msg_data.get("price")
-                            
+
                             if symbol in symbols and price:
                                 try:
-                                    redis_conn.set(f"price:{symbol}", float(price), ex=60)
+                                    redis_conn.set(
+                                        f"price:{symbol}", float(price), ex=60
+                                    )
                                 except (ValueError, TypeError):
                                     continue
-                            
+
                             last_id = msg_id
-                
+
                 lock.reacquire()
 
         finally:
