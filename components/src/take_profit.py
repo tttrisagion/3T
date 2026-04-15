@@ -1,4 +1,5 @@
 import os
+import statistics
 import sys
 import time
 
@@ -126,6 +127,8 @@ def listen_for_balance_updates():
     config = Config()
     redis_cnx = None
     db_cnx = None
+    init_samples = []
+    init_sample_size = 5
 
     while True:
         try:
@@ -180,11 +183,21 @@ def listen_for_balance_updates():
                                 last_balance = get_last_balance(db_cnx)
 
                                 if last_balance is None:
+                                    init_samples.append(current_balance)
                                     print(
-                                        "First run. Setting initial balance.",
+                                        f"Collecting initial sample {len(init_samples)}/{init_sample_size}: {current_balance}",
                                         flush=True,
                                     )
-                                    update_last_balance(db_cnx, current_balance)
+                                    if len(init_samples) >= init_sample_size:
+                                        median_balance = statistics.median(init_samples)
+                                        print(
+                                            f"Initial baseline established from {init_sample_size} samples. "
+                                            f"Median: {median_balance:.2f} "
+                                            f"(range: {min(init_samples):.2f} - {max(init_samples):.2f})",
+                                            flush=True,
+                                        )
+                                        update_last_balance(db_cnx, median_balance)
+                                        init_samples.clear()
                                 else:
                                     profit = current_balance - last_balance
                                     if last_balance > 0:
