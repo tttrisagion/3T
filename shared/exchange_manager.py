@@ -408,10 +408,6 @@ class ExchangeManager:
                     span.add_event(f"Attempt {attempt + 1} failed: {str(e)}")
                     span.record_exception(e)
 
-                    # Record a failure if we have exchange info. This is crucial as it increments the proxy index.
-                    if exchange_name:
-                        self._record_failure(exchange_name)
-
                     if attempt < self.max_retries - 1:
                         # Exponential backoff: 1s, 2s, 4s
                         delay = 2**attempt
@@ -420,6 +416,11 @@ class ExchangeManager:
                     else:
                         span.set_attribute("retry.success", False)
 
+            # Record one failure per exhausted operation, not per retry attempt.
+            # This prevents a single slow fetch from burning through the
+            # circuit breaker threshold (previously 3 retries = 3 failures).
+            if exchange_name:
+                self._record_failure(exchange_name)
             raise last_exception
 
     def _classify_error(self, error: Exception) -> str:
