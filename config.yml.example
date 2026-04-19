@@ -64,6 +64,10 @@ reconciliation_engine:
   # How often to run reconciliation checks (in seconds)
   rebalance_frequency: 600.0 # in seconds
 
+  # Trading permissions (set to false to disable market execution for these directions)
+  can_go_long: true
+  can_go_short: true
+
   # Maximum margin allowed as percentage of total balance
   max_margin_usage_percentage: 0.5
 

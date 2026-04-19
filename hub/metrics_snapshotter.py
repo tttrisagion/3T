@@ -17,7 +17,7 @@ OUTPUT_FILE = os.path.join(OUTPUT_DIR, "stats.json")
 def query_vm_range(query, step="5m"):
     try:
         end = int(time.time())
-        start = end - (7 * 24 * 3600)  # 7 days
+        start = end - (1 * 24 * 3600)  # 1 day
         params = {"query": query, "start": start, "end": end, "step": step}
         resp = requests.get(f"{VM_URL}/api/v1/query_range", params=params)
         resp.raise_for_status()

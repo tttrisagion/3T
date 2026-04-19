@@ -115,6 +115,86 @@ class TestReconciliationEngine(unittest.TestCase):
         self.assertEqual(result, 0.0)
 
     @patch("reconciliation_engine.get_db_connection")
+    @patch("reconciliation_engine.get_latest_balance")
+    @patch("reconciliation_engine.config")
+    @patch("reconciliation_engine.get_current_price")
+    @patch("reconciliation_engine.calculate_kelly_position_size")
+    def test_get_desired_state_blocked_short(
+        self, mock_kelly, mock_price, mock_config, mock_balance, mock_db
+    ):
+        """Test that short position is blocked when can_go_short=False"""
+
+        # Mock configuration: can_go_short is False
+        def config_get_side_effect(key, default=None):
+            if key == "reconciliation_engine.can_go_short":
+                return False
+            if key == "reconciliation_engine.can_go_long":
+                return True
+            if key == "reconciliation_engine.risk_pos_percentage":
+                return 0.0025
+            return default
+
+        mock_config.get.side_effect = config_get_side_effect
+
+        mock_balance.return_value = 100000.0
+        mock_price.return_value = 118000.0
+        mock_kelly.return_value = 250.0
+
+        # Mock database response suggesting a SHORT position (-2.0 direction)
+        mock_cursor = Mock()
+        mock_cursor.fetchone.return_value = ("BTC", -2.0, 100.0, 5)
+        mock_conn = Mock()
+        mock_conn.cursor.return_value = mock_cursor
+        mock_conn.__enter__ = Mock(return_value=mock_conn)
+        mock_conn.__exit__ = Mock(return_value=None)
+        mock_db.return_value = mock_conn
+
+        result = get_desired_state("BTC/USDC:USDC")
+
+        # Result should be 0.0 because can_go_short=False
+        self.assertEqual(result, 0.0)
+
+    @patch("reconciliation_engine.get_db_connection")
+    @patch("reconciliation_engine.get_latest_balance")
+    @patch("reconciliation_engine.config")
+    @patch("reconciliation_engine.get_current_price")
+    @patch("reconciliation_engine.calculate_kelly_position_size")
+    def test_get_desired_state_blocked_long(
+        self, mock_kelly, mock_price, mock_config, mock_balance, mock_db
+    ):
+        """Test that long position is blocked when can_go_long=False"""
+
+        # Mock configuration: can_go_long is False
+        def config_get_side_effect(key, default=None):
+            if key == "reconciliation_engine.can_go_short":
+                return True
+            if key == "reconciliation_engine.can_go_long":
+                return False
+            if key == "reconciliation_engine.risk_pos_percentage":
+                return 0.0025
+            return default
+
+        mock_config.get.side_effect = config_get_side_effect
+
+        mock_balance.return_value = 100000.0
+        mock_price.return_value = 118000.0
+        mock_kelly.return_value = 250.0
+
+        # Mock database response suggesting a LONG position (2.0 direction)
+        mock_cursor = Mock()
+        mock_cursor.fetchone.return_value = ("BTC", 2.0, 100.0, 5)
+        mock_conn = Mock()
+        mock_conn.cursor.return_value = mock_cursor
+        mock_conn.__enter__ = Mock(return_value=mock_conn)
+        mock_conn.__exit__ = Mock(return_value=None)
+        mock_db.return_value = mock_conn
+
+        result = get_desired_state("BTC/USDC:USDC")
+
+        # Result should be 0.0 because can_go_long=False
+        self.assertEqual(result, 0.0)
+
+    @patch("reconciliation_engine.get_db_connection")
     def test_get_current_price_from_market_data(self, mock_db):
         """Test price retrieval from market data table"""
         # Mock database response

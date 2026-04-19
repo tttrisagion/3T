@@ -457,6 +457,25 @@ def get_desired_state(symbol: str) -> float:
                         position_direction * risk_pos_size / instrument_price
                     )
 
+                    # Apply can_go_long and can_go_short flags
+                    can_go_long = config.get("reconciliation_engine.can_go_long", True)
+                    can_go_short = config.get(
+                        "reconciliation_engine.can_go_short", True
+                    )
+
+                    if not can_go_long and target_position > 0:
+                        span.add_event(
+                            "Desired long position blocked by can_go_long=False",
+                            {"original_target": target_position},
+                        )
+                        target_position = 0.0
+                    elif not can_go_short and target_position < 0:
+                        span.add_event(
+                            "Desired short position blocked by can_go_short=False",
+                            {"original_target": target_position},
+                        )
+                        target_position = 0.0
+
                     span.set_attribute("desired_position", target_position)
                     span.add_event(
                         "Calculated desired state",
