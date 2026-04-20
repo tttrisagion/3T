@@ -143,9 +143,9 @@ CREATE TABLE `take_profit_state` (
 INSERT INTO `exchanges` (`id`, `name`, `api_url`) VALUES (1, 'HyperLiquid', 'https://api.hyperliquid.xyz');
 
 INSERT INTO `instruments` (`name`) VALUES
-('BTC'), ('HYPE'), ('CL');
+('BTC'), ('HYPE'), ('INTC');
 
 INSERT INTO `products` (`instrument_id`, `exchange_id`, `symbol`, `product_type`, `max_leverage`) VALUES
 ((SELECT id from `instruments` where name = 'BTC'), 1, 'BTC/USDC:USDC', 'PERP', 40),
 ((SELECT id from `instruments` where name = 'HYPE'), 1, 'HYPE/USDC:USDC', 'PERP', 40),
-((SELECT id from `instruments` where name = 'CL'), 1, 'XYZ-CL/USDC:USDC', 'HIP3_PERP', 40);
+((SELECT id from `instruments` where name = 'INTC'), 1, 'XYZ-INTC/USDC:USDC', 'HIP3_PERP', 40);

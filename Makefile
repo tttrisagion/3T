@@ -1,8 +1,7 @@
 .PHONY: install test clean restart render-diagrams
 
 install:
-	docker compose down
-	docker compose up -d --build
+	docker compose up -d --build --force-recreate
 
 test:
 	@cleanup() { \
