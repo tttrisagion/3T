@@ -6,24 +6,25 @@ import random
 
 
 def generate_ann_params(
-    symb, leverage, virtual_balance=7000, choose=None, ann_ranges=None
+    symb, leverage, virtual_balance=7000, symbol=None, ann_ranges=None
 ):
     """
     Generates a new set of randomized ANN parameters for a trading run.
 
     Args:
-        symb: List of symbols.
+        symb: List of symbols (used for fallback if symbol is None).
         leverage: The max leverage for the chosen symbol (from products table).
         virtual_balance: Starting virtual balance for VOMS.
-        choose: Index into symb for the chosen symbol. Random if None.
+        symbol: The trading symbol string.
         ann_ranges: Optional dict of parameter ranges from config. Each range
             param is [min, max]; scalar params are used directly. Falls back
             to hardcoded defaults when keys are missing.
     """
     r = ann_ranges or {}
 
-    if choose is None:
-        choose = random.randint(0, len(symb) - 1)
+    if symbol is None:
+        symbol = random.choice(symb)
+
     system_swing = bool(random.randint(0, 1))
 
     dur = r.get("max_duration", [300, 432000])
@@ -45,8 +46,9 @@ def generate_ann_params(
     mg = r.get("min_goal", [1, 9])
     min_goal = random.randint(mg[0], mg[1]) / 10
 
-    xg = r.get("max_goal", [1, 10])
-    max_goal = random.randint(xg[0], xg[1])
+    # Correcting the range access for max_goal
+    xg_val = r.get("max_goal", [1, 10])
+    max_goal = random.randint(xg_val[0], xg_val[1])
 
     gw_div = r.get("goal_weight_divisor", 10000)
     mgw = r.get("min_goal_weight", [1, 38])
@@ -75,7 +77,7 @@ def generate_ann_params(
 
     ann_params = {
         "virtual_balance": virtual_balance,
-        "choose": choose,
+        "symbol": symbol,
         "leverage": leverage,
         "max_duration": max_duration,
         "max_direction_reversal": max_direction_reversal,

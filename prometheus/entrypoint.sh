@@ -10,7 +10,7 @@ if [ -f "$CONFIG_FILE" ] && grep -q "www:" "$CONFIG_FILE" && grep -A 5 "www:" "$
     echo "Prometheus: WWW replication enabled. Injecting remote_write..."
     
     # Extract wallet and node_id
-    WALLET=$(grep -A 5 "www:" "$CONFIG_FILE" | grep "wallet:" | awk '{print $2}' | tr -d '\r')
+    WALLET=$(grep -A 5 "www:" "$CONFIG_FILE" | grep "wallet:" | awk '{print $2}' | tr -d '\r'\''"')
     NODE_ID=$(hostname)
     
     # Initialize AUTH_TOKEN from env or fallback

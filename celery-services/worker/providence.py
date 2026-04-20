@@ -106,7 +106,7 @@ def providence_trading_iteration(self, run_id):
             db_cnx = get_db_connection()
             cursor = db_cnx.cursor(dictionary=True)
             cursor.execute(
-                "SELECT run_state, exit_run, end_time FROM runs WHERE id = %s",
+                "SELECT run_state, exit_run, end_time, symbol FROM runs WHERE id = %s",
                 (run_id,),
             )
             run_data = cursor.fetchone()
@@ -128,9 +128,25 @@ def providence_trading_iteration(self, run_id):
                 return {"status": "no_state", "run_id": run_id}
 
             state = json.loads(run_data["run_state"])
+
+            # Ensure symbol is in state
+            if "symbol" not in state:
+                if run_data.get("symbol"):
+                    state["symbol"] = run_data["symbol"]
+                else:
+                    logger.error(
+                        f"Run {run_id}: No symbol found in database for this run."
+                    )
+                    mark_run_completed_redis(run_id)
+                    delete_state_from_redis(run_id)
+                    return {
+                        "status": "error",
+                        "run_id": run_id,
+                        "error": "missing_symbol",
+                    }
+
             # Cache to Redis for next iteration
             save_state_to_redis(run_id, state)
-
         except Exception as e:
             logger.error(f"Run {run_id}: Failed to load state: {e}")
             return {"status": "error", "run_id": run_id, "error": str(e)}
@@ -154,8 +170,13 @@ def _perform_trading_iteration(run_id, state):
     Returns status dict indicating whether run should continue.
     """
     ann_params = state["ann_params"]
-    symb = config.get("reconciliation_engine.symbols")
-    choose = ann_params["choose"]
+    symbol = state.get("symbol")
+
+    if not symbol:
+        logger.error(f"Run {run_id}: No symbol found in state. Ending run.")
+        _end_run(run_id, state.get("start_balance", 0), state)
+        return {"status": "completed", "reason": "missing_symbol", "run_id": run_id}
+
     leverage = ann_params["leverage"]
 
     # Reconstruct VOMS
@@ -177,11 +198,11 @@ def _perform_trading_iteration(run_id, state):
         return {"status": "completed", "reason": "max_duration", "run_id": run_id}
 
     # --- Get Market Data ---
-    instrument_price = get_price_from_redis(symb[choose])
+    instrument_price = get_price_from_redis(symbol)
     if instrument_price is None:
         return {"status": "continue", "run_id": run_id, "info": "price_unavailable"}
 
-    volatility = get_volatility_from_redis(symb[choose])
+    volatility = get_volatility_from_redis(symbol)
     if volatility is None:
         return {
             "status": "continue",
@@ -191,7 +212,7 @@ def _perform_trading_iteration(run_id, state):
 
     # --- Update VOMS and Calculate Metrics ---
     voms.update_price(instrument_price)
-    latest_weight = _get_market_weight_impl(symb[choose])
+    latest_weight = _get_market_weight_impl(symbol)
     state["weights"].append(latest_weight)
     state["weights_timestamp"].append(time.time())
 
@@ -590,13 +611,12 @@ def _run_supervisor():
                     weights = [leverage_map[s] for s in eligible]
                     chosen_symbol = random.choices(eligible, weights=weights, k=1)[0]
                     chosen_leverage = leverage_map[chosen_symbol]
-                    choose_idx = symb.index(chosen_symbol)
 
                     ann_params = generate_ann_params(
                         symb,
                         chosen_leverage,
                         virtual_balance,
-                        choose=choose_idx,
+                        symbol=chosen_symbol,
                         ann_ranges=ann_ranges,
                     )
 
@@ -604,6 +624,7 @@ def _run_supervisor():
                     initial_state = {
                         "start_time": time.time(),
                         "start_balance": virtual_balance,
+                        "symbol": chosen_symbol,
                         "ann_params": ann_params,
                         "weights": [],
                         "weights_timestamp": [],

@@ -28,8 +28,8 @@ render-diagrams:
 clean:
 	docker compose down
 	docker system prune -f
-	docker volume rm 3t_mariadb_data
-	docker volume prune
+	docker volume rm 3t_mariadb_data 3t_prometheus_data 3t_grafana_data 3t_tempo_data || true
+	docker volume prune -f
 
 restart:
 	docker compose restart
