@@ -107,6 +107,14 @@
     
     #data-container {
       line-height: 1.6;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: flex-start;
+      gap: 1.5rem;
+      width: 100%;
+      padding: 10px;
+      box-sizing: border-box;
     }
     #update-status {
         font-family: 'Courier New', Courier, monospace;
@@ -146,11 +154,25 @@
       max-width: 90%;
       margin-top: 1em;
       margin-bottom: 2em;
+      display: block;
+      overflow-x: auto;
     }
     th {
       cursor: pointer;
     }
     
+    .address-container {
+      flex: 1 1 600px;
+      max-width: 800px;
+      min-width: 0;
+    }
+    @media (max-width: 650px) {
+      .address-container {
+        flex: 1 1 100%;
+        max-width: 100%;
+      }
+    }
+
     .address-container h3 {
         font-family: 'Courier New', Courier, monospace;
         font-size: 1.2em;
@@ -411,7 +433,7 @@
     .chart-container {
         position: relative;
         margin: 2em auto;
-        height: 40vh;
+        height: 20vh;
         width: 85%;
         max-width: 90%;
     }
@@ -589,7 +611,6 @@
             const oldWalletStats = lastStatsData ? lastStatsData.wallets[address] : null;
 
             renderUnifiedSummary(addressContainer, posData, oldPosData, walletStats, oldWalletStats);
-            renderAssetPositions(addressContainer, posData, oldPosData);
 
             if (walletStats) {
                 renderEquityChart(addressContainer, walletStats);
@@ -597,6 +618,8 @@
                     renderMarginChart(addressContainer, walletStats);
                 }
             }
+            
+            renderAssetPositions(addressContainer, posData, oldPosData);
         }
         
         updateTradingHaltUI();
@@ -720,9 +743,7 @@
                     <thead><tr><th>Symbol</th><th>Size</th><th>Entry Px</th><th>Liq. Px</th><th>Pos. Value</th><th>Unrlzd. P&amp;L</th><th>ROE %</th><th>Margin Used</th></tr></thead>
                     <tbody></tbody>
                 `;
-                // Insert after summary grid
-                const summaryGrid = container.querySelector('.summary-grid');
-                summaryGrid.after(table);
+                container.appendChild(table);
                 
                 const newInstance = new Tablesort(table);
                 tablesortInstances.set(container.dataset.address, newInstance);
