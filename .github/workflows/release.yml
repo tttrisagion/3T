@@ -28,57 +28,13 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
+            const fs = require('fs');
             const tag = context.payload.inputs.tag;
             const target = context.payload.inputs.target_commitish;
-
-            // Build release notes inline
-            const notes = `# ${tag}: MCP OBSERVABILITY INTERFACE & HOMEPAGE UPGRADES
-
-## SUMMARY
-Version ${tag} expands the platform's observability surface by introducing a Model Context Protocol (MCP) server that exposes read-only, AI-consumable trading data endpoints. It also ships several UI enhancements to the Mission Control homepage for improved multi-wallet monitoring.
-
----
-
-## KEY CHANGES
-
-### 🤖 AI OBSERVABILITY (NEW)
-*   **Read-Only MCP Server:** A new \`mcp-server\` Docker service has been added, powered by Google's \`toolbox\` image. It exposes the trading database through a structured MCP interface on port \`5000\`, enabling LLM agents and AI tools to query live trading data without any write access.
-*   **Dedicated MariaDB User:** A new \`mcp_user\` database account (read-only, \`SELECT\` grants only) is provisioned automatically at database initialization, following the principle of least privilege.
-*   **Pre-Built Trading Tools:** The server ships with eight purpose-built SQL tools out of the box:
-    *   \`get_active_trading_runs\` — Lists all active Providence runs with live PNL.
-    *   \`get_portfolio_summary\` — Returns the latest account balance and margin usage per exchange.
-    *   \`get_current_positions\` — Shows all open positions with unrealized PNL.
-    *   \`get_recent_execution_logs\` — Retrieves the 20 most recent order executions.
-    *   \`get_top_performing_runs\` — Ranks the top 10 most profitable active runs.
-    *   \`check_reconciliation_drift\` — Compares desired vs. actual positions to surface rebalancing drift.
-    *   \`execute_sql\` — Executes arbitrary read-only SQL queries for ad-hoc analysis.
-    *   \`list_tables\` / \`get_table_schema\` — Database introspection tools.
-
-### 📊 HOMEPAGE & OBSERVABILITY
-*   **Multi-Wallet Side-by-Side Layout:** The Mission Control homepage (\`docs/www/index.html\`) now renders each monitored wallet address in its own flex container, enabling side-by-side comparison of multiple endowment accounts.
-*   **CRT Radial Background:** Dark mode now uses a subtle radial gradient background for improved visual depth.
-*   **Motto Typography Refinement:** The site motto now uses a serif font (\`Times New Roman\`) for a more distinguished aesthetic.
-*   **Chart Height Optimization:** Balance history charts have been resized from \`40vh\` to \`20vh\` to accommodate multi-wallet side-by-side display without excessive scrolling.
-*   **Asset Position Table Ordering Fix:** The asset positions table now renders after the equity and margin charts, improving visual hierarchy.
-
-### ⚙️ CONFIGURATION
-*   **New Observer Address:** Added \`github.com/nisamaasoglu\` as a tracked wallet address for open source contributor testing and validation.
-
----
-
-## TECHNICAL NOTES
-*   **MCP Server Deployment:** The \`mcp-server\` service is defined in \`docker-compose.yml\` and uses \`mcp-server/3t-tools.yaml\` as its configuration. Run \`make install\` to start it.
-*   **Database Migration:** New installations will automatically provision the \`mcp_user\` via \`database/init.sql\`. For existing deployments, run the equivalent SQL from \`database/init.sql\` directly against the running MariaDB instance.
-*   **MCP Password:** The default password is intentionally minimal for local development. For production deployments, set a strong password and override the value in both \`database/init.sql\` and \`mcp-server/3t-tools.yaml\` before deploying.
-*   **No Breaking Changes:** This release is fully backward-compatible. Existing services and configurations require no changes.
-
----
-
-## VERIFICATION
-*   **MCP Server:** After \`make install\`, confirm the server is accessible at \`http://localhost:5000\` and the tool list is returned correctly.
-*   **Read-Only Safety:** Verify that \`mcp_user\` can execute \`SELECT\` statements but cannot \`INSERT\`, \`UPDATE\`, or \`DELETE\`.
-*   **Multi-Wallet Layout:** Open the homepage and confirm that multiple wallet cards render side by side on wide viewports and stack vertically on mobile.
-`;
+            const notesPath = `release-notes/${tag}.md`;
+            const notes = fs.existsSync(notesPath)
+              ? fs.readFileSync(notesPath, 'utf8')
+              : '';
 
             await github.rest.repos.createRelease({
               owner: context.repo.owner,
