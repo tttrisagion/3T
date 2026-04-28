@@ -1,0 +1,80 @@
+sources:
+  3t-mariadb:
+    kind: mysql
+    host: mariadb
+    port: 3306
+    user: mcp_user
+    password: "mcp_read_only_pass"
+    database: 3t
+
+tools:
+  get_active_trading_runs:
+    kind: mysql-sql
+    source: 3t-mariadb
+    description: "Lists all currently active trading runs managed by the Providence engine, showing their current PNL and state."
+    statement: "SELECT id, symbol, start_time, live_pnl, run_state FROM runs WHERE end_time IS NULL AND exit_run = 0 ORDER BY start_time DESC;"
+
+  get_portfolio_summary:
+    kind: mysql-sql
+    source: 3t-mariadb
+    description: "Returns the latest account balance and cross margin usage from all exchanges."
+    statement: "SELECT e.name as exchange, bh.account_value, bh.cross_maintenance_margin_used, bh.timestamp FROM balance_history bh JOIN exchanges e ON bh.exchange_id = e.id WHERE bh.timestamp = (SELECT MAX(timestamp) FROM balance_history WHERE exchange_id = bh.exchange_id);"
+
+  get_current_positions:
+    kind: mysql-sql
+    source: 3t-mariadb
+    description: "Shows all open positions across products, including size, value and unrealized PNL."
+    statement: "SELECT prod.symbol, pos.position_size, pos.position_value, pos.unrealized_pnl, pos.timestamp FROM positions pos JOIN products prod ON pos.product_id = prod.id WHERE pos.timestamp = (SELECT MAX(timestamp) FROM positions WHERE product_id = pos.product_id);"
+
+  get_recent_execution_logs:
+    kind: mysql-sql
+    source: 3t-mariadb
+    description: "Retrieves the 20 most recent order executions with their status and any error messages."
+    statement: "SELECT client_order_id, product_id, side, size, price, status, error_message, created_at FROM order_execution_log ORDER BY created_at DESC LIMIT 20;"
+
+  get_top_performing_runs:
+    kind: mysql-sql
+    source: 3t-mariadb
+    description: "Identifies the top 10 most profitable active trading runs."
+    statement: "SELECT id, symbol, live_pnl, start_time FROM runs WHERE end_time IS NULL AND exit_run = 0 ORDER BY live_pnl DESC LIMIT 10;"
+
+  check_reconciliation_drift:
+    kind: mysql-sql
+    source: 3t-mariadb
+    description: "Compares the desired position state from 'runs' (aggregated by symbol) with the actual reported 'positions' to identify drift that requires rebalancing."
+    statement: |
+      SELECT 
+        r.symbol, 
+        SUM(r.position_direction) as desired_net_direction,
+        COALESCE(p.position_size, 0) as actual_size,
+        (SUM(r.position_direction) - COALESCE(p.position_size, 0)) as drift
+      FROM runs r
+      LEFT JOIN products prod ON r.symbol = prod.symbol
+      LEFT JOIN (
+        SELECT product_id, position_size 
+        FROM positions p1 
+        WHERE timestamp = (SELECT MAX(timestamp) FROM positions p2 WHERE p2.product_id = p1.product_id)
+      ) p ON prod.id = p.product_id
+      WHERE r.end_time IS NULL
+      GROUP BY r.symbol;
+
+  execute_sql:
+    kind: mysql-execute-sql
+    source: 3t-mariadb
+    description: "Executes an arbitrary read-only SQL query. Takes a single parameter named 'sql'."
+
+  list_tables:
+    kind: mysql-sql
+    source: 3t-mariadb
+    description: "Lists all tables in the database."
+    statement: "SHOW TABLES;"
+
+  get_table_schema:
+    kind: mysql-sql
+    source: 3t-mariadb
+    description: "Gets the schema for a specific table."
+    parameters:
+      - name: table_name
+        type: string
+        description: "The name of the table to describe."
+    statement: "DESCRIBE $1;"

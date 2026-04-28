@@ -139,6 +139,11 @@ CREATE TABLE `take_profit_state` (
   `last_updated` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
+-- Create read-only user for MCP
+CREATE USER IF NOT EXISTS 'mcp_user'@'%' IDENTIFIED BY 'mcp_read_only_pass';
+GRANT SELECT ON 3t.* TO 'mcp_user'@'%';
+FLUSH PRIVILEGES;
+
 -- Insert initial data
 INSERT INTO `exchanges` (`id`, `name`, `api_url`) VALUES (1, 'HyperLiquid', 'https://api.hyperliquid.xyz');
 
