@@ -38,26 +38,6 @@ tools:
     description: "Identifies the top 10 most profitable active trading runs."
     statement: "SELECT id, symbol, live_pnl, start_time FROM runs WHERE end_time IS NULL AND exit_run = 0 ORDER BY live_pnl DESC LIMIT 10;"
 
-  check_reconciliation_drift:
-    kind: mysql-sql
-    source: 3t-mariadb
-    description: "Compares the desired position state from 'runs' (aggregated by symbol) with the actual reported 'positions' to identify drift that requires rebalancing."
-    statement: |
-      SELECT 
-        r.symbol, 
-        SUM(r.position_direction) as desired_net_direction,
-        COALESCE(p.position_size, 0) as actual_size,
-        (SUM(r.position_direction) - COALESCE(p.position_size, 0)) as drift
-      FROM runs r
-      LEFT JOIN products prod ON r.symbol = prod.symbol
-      LEFT JOIN (
-        SELECT product_id, position_size 
-        FROM positions p1 
-        WHERE timestamp = (SELECT MAX(timestamp) FROM positions p2 WHERE p2.product_id = p1.product_id)
-      ) p ON prod.id = p.product_id
-      WHERE r.end_time IS NULL
-      GROUP BY r.symbol;
-
   execute_sql:
     kind: mysql-execute-sql
     source: 3t-mariadb
