@@ -266,6 +266,39 @@ def send_to_exchange(order_details: dict, client_order_id: str) -> dict:
         # Get exchange instance
         exchange = exchange_manager.get_exchange("hyperliquid")
 
+        # HIP-3 Specific: Set isolated margin and leverage if symbol contains '-' in base
+        if "-" in order_details["symbol"].split("/")[0]:
+            try:
+                tp_threshold = config.get("take_profit.threshold", 1)
+                tp_reward = config.get("take_profit.reward_multiple", 5)
+                target_leverage = int(1.0 / (tp_threshold / tp_reward))
+                
+                # Fetch current position to check if we need to 'top up' margin
+                # This is necessary because set_leverage doesn't automatically pull funds from main account
+                try:
+                    positions = exchange.fetch_positions([order_details["symbol"]])
+                    if positions:
+                        pos = positions[0]
+                        current_leverage = float(pos.get("leverage", 10))
+                        
+                        # If we are trying to DECREASE leverage (e.g. 10x -> 5x), we must add margin first
+                        if current_leverage > target_leverage:
+                            notional = abs(float(pos.get("notional", 0)))
+                            current_margin = float(pos.get("isolatedMargin", 0))
+                            required_margin = notional / target_leverage
+                            shortfall = required_margin - current_margin
+                            
+                            if shortfall > 1.0: # Only bother if > $1
+                                logger.info(f"Adding ${shortfall:.2f} margin to {order_details['symbol']} to support leverage reduction")
+                                exchange.add_margin(order_details["symbol"], shortfall)
+                except Exception as pos_err:
+                    logger.warning(f"Could not calculate margin shortfall: {pos_err}")
+
+                logger.info(f"Setting HIP-3 isolated margin with {target_leverage}x leverage for {order_details['symbol']}")
+                exchange.set_leverage(target_leverage, order_details["symbol"], {"marginMode": "isolated"})
+            except Exception as e:
+                logger.warning(f"Failed to set HIP-3 leverage for {order_details['symbol']}: {e}")
+
         # Prepare order parameters for CCXT
         order_params = {
             "clientOrderId": client_order_id,

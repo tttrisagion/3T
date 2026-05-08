@@ -178,6 +178,9 @@ class ExchangeManager:
                     "options": {
                         "defaultType": "swap",  # For perpetual futures
                         "createMarketBuyOrderRequiresPrice": False,
+                        "fetchMarkets": {
+                            "types": ["swap", "hip3"],
+                        },
                     },
                 }
 
@@ -192,6 +195,13 @@ class ExchangeManager:
                     span.add_event(f"Using origin: {origin}")
 
                 exchange = ccxt.hyperliquid(exchange_config)
+
+                # Enable User DEX Abstraction for automatic HIP-3 collateral management
+                try:
+                    span.add_event("Enabling User DEX Abstraction")
+                    exchange.enable_user_dex_abstraction(True)
+                except Exception as e:
+                    span.add_event(f"Failed to enable User DEX Abstraction: {e}")
 
                 span.add_event("Created HyperLiquid exchange instance")
                 return exchange
