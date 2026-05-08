@@ -1,5 +1,6 @@
 # fmt: off
 # fmt: on
+import shared.eventlet_patch  # Must be first for greening
 import ctypes
 import json
 import os

@@ -939,8 +939,17 @@ def send_order_to_gateway(symbol: str, side: str, size: float) -> bool:
 
             timeout = config.get("reconciliation_engine.order_timeout", 30)
 
+            # Inject trace context for cross-service propagation
+            from opentelemetry.propagate import inject
+
+            headers = {}
+            inject(headers)
+
             response = requests.post(
-                f"{gateway_url}/execute_order", json=order_data, timeout=timeout
+                f"{gateway_url}/execute_order",
+                json=order_data,
+                timeout=timeout,
+                headers=headers,
             )
 
             response.raise_for_status()

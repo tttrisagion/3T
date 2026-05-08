@@ -8,6 +8,7 @@ from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.sdk.trace.sampling import (
+    Decision,
     ParentBased,
     Sampler,
     SamplingResult,
@@ -24,6 +25,7 @@ from shared.config import config
 class DispatchingSampler(Sampler):
     """
     Dispatches to one of two samplers based on the span name.
+    Strictly throttles noisy tasks even if a parent is sampled.
     """
 
     def __init__(
@@ -46,10 +48,36 @@ class DispatchingSampler(Sampler):
         links=None,
         trace_state=None,
     ) -> SamplingResult:
+        # Priority spans: Always sample these regardless of parent
+        priority_spans = {
+            # Reconciliation
+            "reconcile_positions",
+            "worker.reconciliation_engine.reconcile_positions",
+            "run/worker.reconciliation_engine.reconcile_positions",
+            "reconcile_symbol",
+            "calculate_reconciliation_action",
+            "send_order_to_gateway",
+            # Order Gateway
+            "execute_order",
+            "POST /execute_order",
+            "order-gateway",
+            # Balance
+            "update_balance",
+            "worker.tasks.update_balance",
+            "run/worker.tasks.update_balance",
+            "update_balance_task",
+        }
+
+        if name in priority_spans:
+            return SamplingResult(Decision.RECORD_AND_SAMPLE, attributes, trace_state)
+
+        # Noisy spans: Apply low rate even if parent is sampled (throttling)
         if name in self._target_tasks:
             return self._low_rate_sampler.should_sample(
                 parent_context, trace_id, name, kind, attributes, links, trace_state
             )
+
+        # For all others, defer to the default sampler (100% for root spans)
         return self._default_sampler.should_sample(
             parent_context, trace_id, name, kind, attributes, links, trace_state
         )
@@ -114,8 +142,15 @@ def setup_telemetry(service_name: str):
         default_sampler=TraceIdRatioBased(1.0),  # Sample all other traces
     )
 
-    # Use ParentBased to ensure our sampler is the root and its decision is final
-    sampler = ParentBased(root=dispatching_sampler)
+    # Use ParentBased but ensure our dispatching logic is applied in all cases
+    # to support forcing sampling for priority spans and forcing drops for noisy ones.
+    sampler = ParentBased(
+        root=dispatching_sampler,
+        remote_parent_sampled=dispatching_sampler,
+        remote_parent_not_sampled=dispatching_sampler,
+        local_parent_sampled=dispatching_sampler,
+        local_parent_not_sampled=dispatching_sampler,
+    )
 
     provider = TracerProvider(sampler=sampler, resource=resource)
 
