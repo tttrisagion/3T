@@ -457,6 +457,14 @@ def get_desired_state(symbol: str) -> float:
                         position_direction * risk_pos_size / instrument_price
                     )
 
+                    # Invert decisions if configured
+                    if config.get("reconciliation_engine.invert_decisions", False):
+                        span.add_event(
+                            "Inverting target position",
+                            {"original_target": target_position},
+                        )
+                        target_position = -target_position
+
                     # Apply can_go_long and can_go_short flags
                     can_go_long = config.get("reconciliation_engine.can_go_long", True)
                     can_go_short = config.get(

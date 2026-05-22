@@ -62,7 +62,18 @@ class TestReconciliationEngine(unittest.TestCase):
     ):
         """Test desired state calculation with active runs"""
         # Mock configuration
-        mock_config.get.return_value = 0.0025  # risk_pos_percentage
+        def config_get_side_effect(key, default=None):
+            if key == "reconciliation_engine.risk_pos_percentage":
+                return 0.0025
+            if key == "reconciliation_engine.invert_decisions":
+                return False
+            if key == "reconciliation_engine.can_go_long":
+                return True
+            if key == "reconciliation_engine.can_go_short":
+                return True
+            return default
+
+        mock_config.get.side_effect = config_get_side_effect
 
         # Mock latest balance
         mock_balance.return_value = 100000.0  # $100,000 balance
@@ -193,6 +204,50 @@ class TestReconciliationEngine(unittest.TestCase):
 
         # Result should be 0.0 because can_go_long=False
         self.assertEqual(result, 0.0)
+
+    @patch("reconciliation_engine.get_db_connection")
+    @patch("reconciliation_engine.get_latest_balance")
+    @patch("reconciliation_engine.config")
+    @patch("reconciliation_engine.get_current_price")
+    @patch("reconciliation_engine.calculate_kelly_position_size")
+    def test_get_desired_state_inverted(
+        self, mock_kelly, mock_price, mock_config, mock_balance, mock_db
+    ):
+        """Test that position is inverted when invert_decisions=True"""
+
+        # Mock configuration: invert_decisions is True, can_go_short is False
+        def config_get_side_effect(key, default=None):
+            if key == "reconciliation_engine.invert_decisions":
+                return True
+            if key == "reconciliation_engine.can_go_short":
+                return False
+            if key == "reconciliation_engine.can_go_long":
+                return True
+            if key == "reconciliation_engine.risk_pos_percentage":
+                return 0.0025
+            return default
+
+        mock_config.get.side_effect = config_get_side_effect
+
+        mock_balance.return_value = 100000.0
+        mock_price.return_value = 118000.0
+        mock_kelly.return_value = 250.0
+
+        # Mock database response suggesting a SHORT position (-2.0 direction)
+        mock_cursor = Mock()
+        mock_cursor.fetchone.return_value = ("BTC", -2.0, 100.0, 5)
+        mock_conn = Mock()
+        mock_conn.cursor.return_value = mock_cursor
+        mock_conn.__enter__ = Mock(return_value=mock_conn)
+        mock_conn.__exit__ = Mock(return_value=None)
+        mock_db.return_value = mock_conn
+
+        result = get_desired_state("BTC/USDC:USDC")
+
+        # Original direction: -2.0 -> target_position < 0
+        # Inverted direction: 2.0 -> target_position > 0
+        # Filter: can_go_long=True -> target_position remains > 0
+        self.assertGreater(result, 0.0)
 
     @patch("reconciliation_engine.get_db_connection")
     def test_get_current_price_from_market_data(self, mock_db):

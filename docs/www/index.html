@@ -1231,8 +1231,15 @@ function renderEquityChart(container, walletStats) {
     function updateTradingHaltUI() {
         const isOpen = isMarketOpen();
         document.querySelectorAll('.address-container').forEach(container => {
+            const address = container.dataset.address;
+            const label = addressLabels[address] || "";
+            
+            // Development wallets often run in test mode and ignore market hours.
+            // We exempt them from the "Trading Halt" notice to avoid misleading the UI.
+            const isExempt = label.includes("Development") || label.includes("github.com");
+            
             let haltNotice = container.querySelector('.trading-halt-notice');
-            if (!isOpen) {
+            if (!isOpen && !isExempt) {
                 if (!haltNotice) {
                     haltNotice = document.createElement('div');
                     haltNotice.className = 'trading-halt-notice';
