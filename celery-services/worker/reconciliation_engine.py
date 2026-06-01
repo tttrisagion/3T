@@ -232,7 +232,10 @@ def calculate_kelly_position_size(base_risk_pos_size: float, symbol: str) -> flo
                 span.add_event("No valid Kelly data - using probationary base size")
                 # we don't have enough data so treat symbol as "High Risk"
                 # allocate reduced risk until we have more historical norming
-                return base_risk_pos_size * 0.5
+                probationary_multiplier = config.get(
+                    "reconciliation_engine.probationary_multiplier", 0.25
+                )
+                return base_risk_pos_size * probationary_multiplier
 
             if kelly_historical == 0:
                 span.add_event(

@@ -80,6 +80,7 @@ reconciliation_engine:
 
   # Kelly Strategy Configuration
   kelly_threshold: 0.5  # maximum Kelly performance scaling threshold (ex: 0.5 = 50%)
+  probationary_multiplier: 0.25  # default sizing multiplier for symbols in exploration/probation (ex: 0.25 = 25%)
   
   # Symbols to manage 
   # --- DISCLAIMER ---

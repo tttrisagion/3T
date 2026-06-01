@@ -101,12 +101,19 @@ class TestKellyStrategy:
         mock_tracer.start_as_current_span.return_value.__enter__.return_value = (
             mock_span
         )
+        
+        # Mock config.get to return default or configured probationary_multiplier
+        def config_get_side_effect(key, default=None):
+            if key == "reconciliation_engine.probationary_multiplier":
+                return default if default is not None else 0.25
+            return default
+        mock_config.get.side_effect = config_get_side_effect
 
         base_size = 100.0
         adjusted_size = calculate_kelly_position_size(base_size, "TEST/USDC:USDC")
 
-        # Expect reduced probation size (50%) when no Kelly data available
-        assert adjusted_size == base_size * 0.5
+        # Expect reduced probation size (25%) when no Kelly data available and default is 0.25
+        assert adjusted_size == base_size * 0.25
 
     @patch("worker.reconciliation_engine._calculate_kelly_metrics")
     @patch("worker.reconciliation_engine.config")
