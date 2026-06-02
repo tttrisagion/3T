@@ -33,13 +33,40 @@ exchanges:
   hyperliquid:
     # Optional proxy configuration for bypassing IP restrictions
     proxy:
-        - "http://3tsgp01.trisagion.xyz:8080/"
-        - "http://3tche01.trisagion.xyz:8080/"
         - "http://cors-proxy:8080/"
     origin: "https://trisagion.finance"
     # Polling configuration for non-websocket price updates
     poll_interval: 1.0  # seconds between price polls
     poll_batch_size: 10  # number of symbols to fetch per batch
+    risk:
+      max_margin_usage_percentage: 0.5
+      risk_pos_percentage: 0.000003
+      kelly_threshold: 0.5
+      probationary_multiplier: 0.25
+      symbols:
+        - "XYZ-AAPL/USDC:USDC"
+      take_profit:
+        threshold: 1 # 100% / double
+        reward_multiple: 5 # max draw down 20%
+
+  tradfi:
+    iqfeed:
+      host: "4.tcp.ngrok.io"
+      port: 29657
+    ib:
+      host: "192.168.2.37"
+      port: 7497
+      client_id: 1
+    risk:
+      max_margin_usage_percentage: 0.25
+      risk_pos_percentage: 0.01  # 1% for stocks
+      kelly_threshold: 0.5
+      probationary_multiplier: 0.25
+      symbols:
+        - "AAPL"
+      take_profit:
+        threshold: 0.1 # 10%
+        reward_multiple: 3
 
 # Trading hours configuration
 trading_hours:
@@ -57,7 +84,7 @@ market_data:
   lookback_bars:
     default: 20
     "4h": 50
-    "1m": 20
+    "1m": 200
 
 # Reconciliation Engine Configuration
 reconciliation_engine:
@@ -71,36 +98,6 @@ reconciliation_engine:
   # Trading permissions (set to false to disable market execution for these directions)
   can_go_long: true
   can_go_short: true
-
-  # Maximum margin allowed as percentage of total balance
-  max_margin_usage_percentage: 0.5
-
-  # Risk position size as a percentage of total balance
-  risk_pos_percentage: 0.000003
-
-  # Kelly Strategy Configuration
-  kelly_threshold: 0.5  # maximum Kelly performance scaling threshold (ex: 0.5 = 50%)
-  probationary_multiplier: 0.25  # default sizing multiplier for symbols in exploration/probation (ex: 0.25 = 25%)
-  
-  # Symbols to manage 
-  # --- DISCLAIMER ---
-  # The symbols listed are for informational purposes only.
-  # This project is not financial, investment, or trading advice, nor is it a
-  # solicitation or recommendation for any asset. The Trisagion project is not a
-  # licensed financial entity.
-  # All users must conduct their own research and consult a qualified financial
-  # advisor before making decisions. Engaging with cryptocurrencies involves
-  # significant risk, including the potential for total loss. By using this
-  # configuration, you acknowledge full responsibility for your financial choices.
-  # ---
-  symbols:
-    - "BTC/USDC:USDC"
-    - "ETH/USDC:USDC"
-    - "SOL/USDC:USDC"
-    - "HYPE/USDC:USDC"
-    - "ZEC/USDC:USDC"
-    - "APT/USDC:USDC"
-    - "XYZ-CL/USDC:USDC"
 
   # Observer nodes for consensus validation
   observer_nodes:
@@ -124,11 +121,6 @@ reconciliation_engine:
   
   # Order gateway request timeout in seconds
   order_timeout: 30
-
-# Take Profit Configuration
-take_profit:
-  threshold: 1 # 100% / double
-  reward_multiple: 5 # max draw down 20%
 
 # Health Monitor Configuration (in seconds)
 health_monitor:

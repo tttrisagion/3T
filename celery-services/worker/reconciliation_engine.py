@@ -293,9 +293,9 @@ def calculate_kelly_position_size(base_risk_pos_size: float, symbol: str) -> flo
             return base_risk_pos_size
 
 
-def get_latest_margin_usage() -> float | None:
+def get_latest_margin_usage(exchange_id: int = 1) -> float | None:
     """
-    Get the latest cross maintenance margin used from the balance_history table.
+    Get the latest cross maintenance margin used for a specific exchange from the balance_history table.
     """
     with tracer.start_as_current_span("get_latest_margin_usage") as span:
         try:
@@ -303,10 +303,11 @@ def get_latest_margin_usage() -> float | None:
                 cursor = conn.cursor()
                 query = """
                 SELECT cross_maintenance_margin_used FROM balance_history
+                WHERE exchange_id = %s
                 ORDER BY timestamp DESC
                 LIMIT 1
                 """
-                cursor.execute(query)
+                cursor.execute(query, (exchange_id,))
                 result = cursor.fetchone()
                 if result:
                     margin = float(result[0])
@@ -317,34 +318,37 @@ def get_latest_margin_usage() -> float | None:
         except Exception as e:
             span.record_exception(e)
             span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
-            print(f"Error getting latest margin usage: {e}")
+            print(f"Error getting latest margin usage for exchange {exchange_id}: {e}")
             return None
 
 
-def get_latest_balance() -> float | None:
+def get_latest_balance(exchange_id: int = 1) -> float | None:
     """
-    Get the latest total balance from the Redis stream.
-    Returns:
-        Latest total balance, or None if not available.
+    Get the latest total balance for a specific exchange from the balance_history table.
     """
-    try:
-        redis_host = config.get("redis.host", "redis")
-        redis_port = config.get("redis.port", 6379)
-        redis_db = config.get("redis.db", 0)
-        stream_name = config.get("redis.streams.balance_updates", "balance:updated")
-
-        r = redis.Redis(host=redis_host, port=redis_port, db=redis_db)
-        # Get the last entry in the stream
-        messages = r.xrevrange(stream_name, count=1)
-
-        if messages:
-            latest_message = messages[0][1]
-            balance = float(latest_message.get(b"account_value", 0.0))
-            return balance
-        return None
-    except (redis.exceptions.RedisError, ValueError) as e:
-        print(f"Error getting latest balance from Redis: {e}")
-        return None
+    with tracer.start_as_current_span("get_latest_balance") as span:
+        try:
+            with get_db_connection() as conn:
+                cursor = conn.cursor()
+                query = """
+                SELECT account_value FROM balance_history
+                WHERE exchange_id = %s
+                ORDER BY timestamp DESC
+                LIMIT 1
+                """
+                cursor.execute(query, (exchange_id,))
+                result = cursor.fetchone()
+                if result:
+                    balance = float(result[0])
+                    span.set_attribute("balance", balance)
+                    return balance
+                span.add_event("No balance information found in balance_history.")
+                return None
+        except Exception as e:
+            span.record_exception(e)
+            span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
+            print(f"Error getting latest balance for exchange {exchange_id}: {e}")
+            return None
 
 
 def get_base_symbol(symbol: str) -> str:
@@ -410,11 +414,22 @@ def get_desired_state(symbol: str) -> float:
                 result = cursor.fetchone()
 
                 if result and result[1] is not None:  # position column
+                    from shared.database import get_exchange_name_for_symbol
+                    exchange_name = get_exchange_name_for_symbol(symbol)
+                    
+                    # Lookup exchange ID
+                    try:
+                        cursor.execute("SELECT id FROM exchanges WHERE name = %s", (exchange_name,))
+                        exc_row = cursor.fetchone()
+                        exchange_id = exc_row[0] if exc_row else 1
+                    except Exception:
+                        exchange_id = 1
+
                     # Get risk position size from balance percentage
                     risk_pos_percentage = config.get(
-                        "reconciliation_engine.risk_pos_percentage", 0.0016180339887
+                        f"exchanges.{exchange_name}.risk.risk_pos_percentage", 0.0016180339887
                     )
-                    latest_balance = get_latest_balance()
+                    latest_balance = get_latest_balance(exchange_id)
 
                     if latest_balance:
                         base_risk_pos_size = latest_balance * risk_pos_percentage
@@ -687,6 +702,18 @@ def get_actual_state(symbol: str) -> tuple[float | None, bool, float]:
             span.set_attribute(
                 "local_position", local_position if local_position else 0.0
             )
+
+            # Check if this is a TradFi symbol
+            from shared.database import get_exchange_name_for_symbol
+            exchange_name = get_exchange_name_for_symbol(symbol)
+            
+            if exchange_name == "tradfi":
+                # TradFi does not utilize blockchain observer nodes.
+                # The local position (synced directly from IB Gateway) is the canonical source of truth.
+                local_pos = local_position if local_position is not None else 0.0
+                span.set_attribute("consensus_position", local_pos)
+                span.add_event("TradFi consensus achieved without observer", {"position": local_pos})
+                return local_pos, True, 0.0
 
             # Get position from observer node
             observer_position, error_message, margin_used = get_observer_state(symbol)
@@ -1029,7 +1056,7 @@ def cancel_all_open_orders(symbols):
 def reconcile_positions(self):
     """
     Main reconciliation engine task.
-    Runs the reconciliation loop for all configured symbols.
+    Runs the reconciliation loop for all configured symbols across all active exchanges.
     Uses a distributed lock to prevent concurrent execution (e.g. Beat + startup overlap).
     """
     with tracer.start_as_current_span("reconcile_positions") as span:
@@ -1051,172 +1078,189 @@ def reconcile_positions(self):
                 return
 
         try:
-            symbols = config.get("reconciliation_engine.symbols", ["BTC", "ETH"])
-            span.set_attribute("symbols_count", len(symbols))
+            # Query all active exchanges from DB
+            exchanges = []
+            try:
+                with get_db_connection() as conn:
+                    cursor = conn.cursor(dictionary=True)
+                    cursor.execute("SELECT id, name FROM exchanges")
+                    exchanges = cursor.fetchall()
+            except Exception as e:
+                print(f"Error loading exchanges for reconciliation: {e}")
+                exchanges = [{"id": 1, "name": "HyperLiquid"}]
 
-            # Cancel all open orders before reconciling to ensure a clean slate
-            cancel_all_open_orders(symbols)
+            for exc in exchanges:
+                exc_id = exc["id"]
+                exc_name = exc["name"].lower()
 
-            # Pre-compute per-symbol margin caps using leverage weights
-            latest_balance_for_caps = get_latest_balance()
-            max_margin_pct = config.get(
-                "reconciliation_engine.max_margin_usage_percentage", 0.01
-            )
-            if latest_balance_for_caps:
-                total_margin_budget = latest_balance_for_caps * max_margin_pct
-                symbol_margin_caps = _get_symbol_margin_caps(
-                    symbols, total_margin_budget
+                symbols = config.get(f"exchanges.{exc_name}.risk.symbols", [])
+                if not symbols:
+                    continue
+
+                print(f"Starting reconciliation for exchange '{exc_name}' (ID: {exc_id}) with symbols {symbols}...")
+                span.add_event(f"Reconciling exchange: {exc_name}", {"symbols_count": len(symbols)})
+
+                # Cancel all open orders before reconciling to ensure a clean slate
+                cancel_all_open_orders(symbols)
+
+                # Pre-compute per-symbol margin caps using leverage weights
+                latest_balance_for_caps = get_latest_balance(exc_id)
+                max_margin_pct = config.get(
+                    f"exchanges.{exc_name}.risk.max_margin_usage_percentage", 0.01
                 )
-            else:
-                symbol_margin_caps = {}
+                if latest_balance_for_caps:
+                    total_margin_budget = latest_balance_for_caps * max_margin_pct
+                    symbol_margin_caps = _get_symbol_margin_caps(
+                        symbols, total_margin_budget
+                    )
+                else:
+                    symbol_margin_caps = {}
 
-            for symbol in symbols:
-                with tracer.start_as_current_span("reconcile_symbol") as symbol_span:
-                    symbol_span.set_attribute("symbol", symbol)
+                for symbol in symbols:
+                    with tracer.start_as_current_span("reconcile_symbol") as symbol_span:
+                        symbol_span.set_attribute("symbol", symbol)
+                        symbol_span.set_attribute("exchange", exc_name)
 
-                    try:
-                        # Get desired state
-                        desired_position = get_desired_state(symbol)
+                        try:
+                            # Get desired state
+                            desired_position = get_desired_state(symbol)
 
-                        # Get actual state with consensus
-                        actual_position, has_consensus, symbol_margin_used = (
-                            get_actual_state(symbol)
-                        )
-
-                        if not has_consensus:
-                            print(f"No consensus for {symbol} - skipping trade")
-                            symbol_span.add_event(
-                                "No consensus - skipping", {"symbol": symbol}
+                            # Get actual state with consensus
+                            actual_position, has_consensus, symbol_margin_used = (
+                                get_actual_state(symbol)
                             )
-                            continue
 
-                        if actual_position is None:
-                            print(f"Could not determine actual position for {symbol}")
-                            symbol_span.add_event("Could not determine actual position")
-                            continue
-
-                        # Clamp desired position to per-symbol margin cap
-                        margin_cap_multiplier = config.get(
-                            "reconciliation_engine.margin_cap_multiplier", 1
-                        )
-                        if (
-                            symbol_margin_caps
-                            and symbol in symbol_margin_caps
-                            and symbol_margin_used > 0
-                            and abs(desired_position) > 1e-8
-                        ):
-                            symbol_cap = (
-                                symbol_margin_caps[symbol] * margin_cap_multiplier
-                            )
-                            if symbol_margin_used > symbol_cap:
-                                scale = symbol_cap / symbol_margin_used
-                                original = desired_position
-                                desired_position = desired_position * scale
+                            if not has_consensus:
+                                print(f"No consensus for {symbol} - skipping trade")
                                 symbol_span.add_event(
-                                    "Desired position clamped by per-symbol margin cap",
-                                    {
-                                        "symbol": symbol,
-                                        "original_desired": original,
-                                        "clamped_desired": desired_position,
-                                        "symbol_margin_used": symbol_margin_used,
-                                        "symbol_margin_cap": symbol_cap,
-                                        "scale_factor": scale,
-                                    },
+                                    "No consensus - skipping", {"symbol": symbol}
                                 )
-                                print(
-                                    f"Per-symbol margin cap: {symbol} using "
-                                    f"${symbol_margin_used:.2f} of "
-                                    f"${symbol_cap:.2f} cap. Scaling desired "
-                                    f"position from {original} to {desired_position}."
+                                continue
+
+                            if actual_position is None:
+                                print(f"Could not determine actual position for {symbol}")
+                                symbol_span.add_event("Could not determine actual position")
+                                continue
+
+                            # Clamp desired position to per-symbol margin cap
+                            margin_cap_multiplier = config.get(
+                                "reconciliation_engine.margin_cap_multiplier", 1
+                            )
+                            if (
+                                symbol_margin_caps
+                                and symbol in symbol_margin_caps
+                                and symbol_margin_used > 0
+                                and abs(desired_position) > 1e-8
+                            ):
+                                symbol_cap = (
+                                    symbol_margin_caps[symbol] * margin_cap_multiplier
                                 )
+                                if symbol_margin_used > symbol_cap:
+                                    scale = symbol_cap / symbol_margin_used
+                                    original = desired_position
+                                    desired_position = desired_position * scale
+                                    symbol_span.add_event(
+                                        "Desired position clamped by per-symbol margin cap",
+                                        {
+                                            "symbol": symbol,
+                                            "original_desired": original,
+                                            "clamped_desired": desired_position,
+                                            "symbol_margin_used": symbol_margin_used,
+                                            "symbol_margin_cap": symbol_cap,
+                                            "scale_factor": scale,
+                                        },
+                                    )
+                                    print(
+                                        f"Per-symbol margin cap: {symbol} using "
+                                        f"${symbol_margin_used:.2f} of "
+                                        f"${symbol_cap:.2f} cap. Scaling desired "
+                                        f"position from {original} to {desired_position}."
+                                    )
 
-                        # Calculate reconciliation action
-                        (
-                            execute_trade,
-                            side,
-                            position_delta,
-                        ) = calculate_reconciliation_action(
-                            actual_position, desired_position, symbol
-                        )
-
-                        if execute_trade and side and position_delta:
-                            trade_allowed = True
-                            # Check if the trade increases exposure
-                            is_increasing_exposure = abs(desired_position) > abs(
-                                actual_position
+                            # Calculate reconciliation action
+                            (
+                                execute_trade,
+                                side,
+                                position_delta,
+                            ) = calculate_reconciliation_action(
+                                actual_position, desired_position, symbol
                             )
 
-                            if is_increasing_exposure:
-                                with tracer.start_as_current_span(
-                                    "margin_check"
-                                ) as margin_span:
-                                    latest_balance = get_latest_balance()
-                                    max_margin = latest_balance * config.get(
-                                        "reconciliation_engine.max_margin_usage_percentage",
-                                        0.01,
-                                    )
-                                    current_margin = get_latest_margin_usage()
+                            if execute_trade and side and position_delta:
+                                trade_allowed = True
+                                # Check if the trade increases exposure
+                                is_increasing_exposure = abs(desired_position) > abs(
+                                    actual_position
+                                )
 
-                                    margin_span.set_attribute(
-                                        "max_margin_allowed", max_margin
-                                    )
+                                if is_increasing_exposure:
+                                    with tracer.start_as_current_span(
+                                        "margin_check"
+                                    ) as margin_span:
+                                        latest_balance = get_latest_balance(exc_id)
+                                        max_margin = latest_balance * max_margin_pct
+                                        current_margin = get_latest_margin_usage(exc_id)
 
-                                    if current_margin is not None:
                                         margin_span.set_attribute(
-                                            "current_margin_usage", current_margin
+                                            "max_margin_allowed", max_margin
                                         )
-                                        if current_margin >= max_margin:
+
+                                        if current_margin is not None:
+                                            margin_span.set_attribute(
+                                                "current_margin_usage", current_margin
+                                            )
+                                            if current_margin >= max_margin:
+                                                trade_allowed = False
+                                                margin_span.add_event(
+                                                    "Margin limit reached. Trade blocked.",
+                                                    {
+                                                        "current_margin": current_margin,
+                                                        "max_margin": max_margin,
+                                                    },
+                                                )
+                                                print(
+                                                    f"Margin limit of ${max_margin} reached. Current margin: ${current_margin}. Skipping trade for {symbol}."
+                                                )
+                                        else:
+                                            # Block trade for safety if margin is unknown
                                             trade_allowed = False
                                             margin_span.add_event(
-                                                "Margin limit reached. Trade blocked.",
-                                                {
-                                                    "current_margin": current_margin,
-                                                    "max_margin": max_margin,
-                                                },
+                                                "Could not determine current margin. Trade blocked for safety."
                                             )
                                             print(
-                                                f"Margin limit of ${max_margin} reached. Current margin: ${current_margin}. Skipping trade for {symbol}."
+                                                f"Could not determine current margin for {symbol}. Skipping trade for safety."
                                             )
-                                    else:
-                                        # Block trade for safety if margin is unknown
-                                        trade_allowed = False
-                                        margin_span.add_event(
-                                            "Could not determine current margin. Trade blocked for safety."
-                                        )
-                                        print(
-                                            f"Could not determine current margin for {symbol}. Skipping trade for safety."
-                                        )
 
-                            if trade_allowed:
-                                print(
-                                    "Reconciliation needed for "
-                                    f"{symbol}: {side} {abs(position_delta)}"
-                                )
-
-                                # Send order to gateway
-                                success = send_order_to_gateway(
-                                    symbol, side, abs(position_delta)
-                                )
-
-                                if success:
-                                    symbol_span.add_event(
-                                        "Order executed",
-                                        {"side": side, "size": abs(position_delta)},
+                                if trade_allowed:
+                                    print(
+                                        "Reconciliation needed for "
+                                        f"{symbol}: {side} {abs(position_delta)}"
                                     )
+
+                                    # Send order to gateway
+                                    success = send_order_to_gateway(
+                                        symbol, side, abs(position_delta)
+                                    )
+
+                                    if success:
+                                        symbol_span.add_event(
+                                            "Order executed",
+                                            {"side": side, "size": abs(position_delta)},
+                                        )
+                                    else:
+                                        symbol_span.add_event("Order failed")
                                 else:
-                                    symbol_span.add_event("Order failed")
+                                    symbol_span.add_event(
+                                        "Trade skipped due to margin limit"
+                                    )
                             else:
-                                symbol_span.add_event(
-                                    "Trade skipped due to margin limit"
-                                )
-                        else:
-                            symbol_span.add_event("No action needed")
-                    except Exception as e:
-                        symbol_span.record_exception(e)
-                        symbol_span.set_status(
-                            trace.Status(trace.StatusCode.ERROR, str(e))
-                        )
-                        print(f"Error reconciling {symbol}: {e}")
+                                symbol_span.add_event("No action needed")
+                        except Exception as e:
+                            symbol_span.record_exception(e)
+                            symbol_span.set_status(
+                                trace.Status(trace.StatusCode.ERROR, str(e))
+                            )
+                            print(f"Error reconciling {symbol}: {e}")
 
             span.add_event("Reconciliation cycle completed")
 

@@ -17,8 +17,9 @@ from pydantic import BaseModel, Field
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
 from shared.config import config
-from shared.database import get_db_connection
+from shared.database import get_db_connection, get_exchange_name_for_symbol
 from shared.exchange_manager import ExchangeManager
+from shared.ib_client import ib_client
 from shared.opentelemetry_config import get_tracer
 
 # Setup OpenTelemetry
@@ -234,6 +235,39 @@ def get_latest_price_from_stream(symbol: str) -> float:
     except Exception as e:
         logger.error(f"Failed to get price from stream for {symbol}: {e}")
         return None
+
+
+def send_to_tradfi_exchange(order_details: dict, client_order_id: str) -> dict:
+    """
+    Send order to Interactive Brokers (tradfi) exchange.
+    """
+    try:
+        logger.info(
+            f"Executing TradFi order: {order_details['side']} {order_details['size']} {order_details['symbol']} ({order_details['type']})"
+        )
+
+        result = ib_client.place_order(
+            symbol=order_details["symbol"],
+            side=order_details["side"],
+            size=order_details["size"],
+            order_type=order_details["type"],
+            price=order_details.get("price")
+        )
+
+        return {
+            "success": True,
+            "exchange_order_id": result["id"],
+            "error_message": None,
+            "retry_possible": False,
+        }
+    except Exception as e:
+        logger.error(f"TradFi order execution failed: {str(e)}")
+        return {
+            "success": False,
+            "exchange_order_id": None,
+            "error_message": str(e),
+            "retry_possible": True,
+        }
 
 
 def send_to_exchange(order_details: dict, client_order_id: str) -> dict:
@@ -464,7 +498,11 @@ async def execute_order(order_request: OrderRequest):
                         "price": order_request.price,
                     }
 
-                    result = send_to_exchange(order_details, client_order_id)
+                    exchange_name = get_exchange_name_for_symbol(order_request.symbol)
+                    if exchange_name == "tradfi":
+                        result = send_to_tradfi_exchange(order_details, client_order_id)
+                    else:
+                        result = send_to_exchange(order_details, client_order_id)
 
                     if result["success"]:
                         update_order_status(

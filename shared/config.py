@@ -38,6 +38,13 @@ class Config:
         Get a value from the application config using dot notation.
         e.g., 'database.host'
         """
+        if key_path == "reconciliation_engine.symbols":
+            # Combine all symbols across active exchanges dynamically
+            hl_syms = self.get("exchanges.hyperliquid.risk.symbols", [])
+            tradfi_syms = self.get("exchanges.tradfi.risk.symbols", [])
+            combined = hl_syms + tradfi_syms
+            return combined if combined else default
+
         keys = key_path.split(".")
         value = self.app_config
         for key in keys:

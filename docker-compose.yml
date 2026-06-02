@@ -369,7 +369,7 @@ services:
     environment:
       - CORSANYWHERE_WHITELIST=https://trisagion.finance
     ports:
-      - "8080:8080"
+      - "8085:8080"
     logging:
       driver: "json-file"
       options:

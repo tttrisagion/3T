@@ -16,3 +16,5 @@ hyperliquid-python-sdk
 fastapi
 uvicorn
 pydantic
+ib-insync
+

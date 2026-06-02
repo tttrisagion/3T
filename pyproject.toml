@@ -21,6 +21,7 @@ dependencies = [
     "mysql-connector-python",
     "ccxt",
     "pyyaml",
+    "ib-insync",
 ]
 
 [project.optional-dependencies]

@@ -146,11 +146,11 @@ FLUSH PRIVILEGES;
 
 -- Insert initial data
 INSERT INTO `exchanges` (`id`, `name`, `api_url`) VALUES (1, 'HyperLiquid', 'https://api.hyperliquid.xyz');
+INSERT INTO `exchanges` (`id`, `name`, `api_url`) VALUES (2, 'tradfi', 'localhost:9100');
 
 INSERT INTO `instruments` (`name`) VALUES
-('BTC'), ('HYPE'), ('INTC');
+('AAPL');
 
 INSERT INTO `products` (`instrument_id`, `exchange_id`, `symbol`, `product_type`, `max_leverage`) VALUES
-((SELECT id from `instruments` where name = 'BTC'), 1, 'BTC/USDC:USDC', 'PERP', 40),
-((SELECT id from `instruments` where name = 'HYPE'), 1, 'HYPE/USDC:USDC', 'PERP', 40),
-((SELECT id from `instruments` where name = 'INTC'), 1, 'XYZ-INTC/USDC:USDC', 'HIP3_PERP', 40);
+((SELECT id from `instruments` where name = 'AAPL'), 1, 'XYZ-AAPL/USDC:USDC', 'HIP3_PERP', 40.00),
+((SELECT id from `instruments` where name = 'AAPL'), 2, 'AAPL', 'SPOT', 40.00);

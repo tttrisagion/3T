@@ -119,3 +119,25 @@ def is_run_completed_redis(run_id: int) -> bool:
     """Check if a run is marked as completed in Redis."""
     with get_redis_connection(decode_responses=False) as r:
         return r.exists(f"providence:completed:{run_id}") > 0
+
+
+def get_exchange_name_for_symbol(symbol: str) -> str:
+    """Lookup the exchange name for a given symbol."""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute(
+            """
+            SELECT e.name 
+            FROM products p
+            JOIN exchanges e ON p.exchange_id = e.id
+            WHERE p.symbol = %s
+        """,
+            (symbol,),
+        )
+        row = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        return row["name"].lower() if row else "hyperliquid"
+    except Exception:
+        return "hyperliquid"
