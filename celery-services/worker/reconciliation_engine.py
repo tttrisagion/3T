@@ -475,6 +475,12 @@ def get_desired_state(symbol: str) -> float:
                         position_direction * risk_pos_size / instrument_price
                     )
 
+                    if exchange_name == "tradfi":
+                        # TradFi (standard stocks) require whole integer share quantities.
+                        # Enforce integer rounding to prevent fractional share execution rejection
+                        # and eliminate infinite remainder rebalance loops.
+                        target_position = float(round(target_position))
+
                     # Invert decisions if configured
                     if config.get("reconciliation_engine.invert_decisions", False):
                         span.add_event(
