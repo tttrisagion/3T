@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 def get_price_from_redis(symbol: str) -> float | None:
-    """Gets the latest price for a symbol from Redis stream."""
+    """Gets the latest price for a symbol from Redis stream with dynamic 10-minute staleness checks."""
     try:
         with get_redis_connection(decode_responses=True) as redis_conn:
             # First try the simple key (if feed task is running)
@@ -26,6 +26,26 @@ def get_price_from_redis(symbol: str) -> float | None:
                 if msg_data.get("symbol") == symbol:
                     price_str = msg_data.get("price")
                     if price_str:
+                        # Extract and validate timestamp for staleness
+                        ts_str = msg_data.get("timestamp")
+                        if ts_str:
+                            try:
+                                import time
+                                ts = float(ts_str)
+                                # Dynamically convert millisecond timestamps to seconds
+                                if ts > 5000000000:
+                                    ts /= 1000.0
+                                
+                                age = time.time() - ts
+                                if age > 600:  # 10 minutes max age
+                                    logger.warning(
+                                        f"Price update for {symbol} is too stale ({age:.1f}s old, limit 600s). "
+                                        f"Pausing Providence iterations."
+                                    )
+                                    return None
+                            except Exception as ts_err:
+                                logger.warning(f"Failed to parse timestamp '{ts_str}' for {symbol}: {ts_err}")
+                        
                         return float(price_str)
 
             return None
