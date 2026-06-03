@@ -659,16 +659,23 @@ def get_observer_state(
         - error_message: A string describing the error, or None if successful.
         - margin_used: Margin used for this position (0.0 if unavailable).
     """
-    observer_nodes = config.get(
-        "reconciliation_engine.observer_nodes",
-        ["http://exchange-observer:8001/3T-observer.json"],
-    )
     if not wallet_address:
         wallet_address = config.get_secret("exchanges.hyperliquid.walletAddress")
     max_heartbeat_age = timedelta(minutes=5)
 
     if not wallet_address:
         return None, "No wallet address configured", 0.0
+
+    if wallet_address == "tradfi":
+        # TradFi positions are private to your local brokerage link.
+        # Only query our own independent, private local observer node.
+        observer_nodes = ["http://exchange-observer:8001/3T-observer.json"]
+    else:
+        # Blockchain perps use both public and private decentralized observer nodes
+        observer_nodes = config.get(
+            "reconciliation_engine.observer_nodes",
+            ["http://exchange-observer:8001/3T-observer.json"],
+        )
 
     for observer_url in observer_nodes:
         try:
