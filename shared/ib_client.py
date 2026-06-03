@@ -8,6 +8,10 @@ TWS clientId conflicts across Celery replicas and threads.
 import logging
 import asyncio
 import random
+import nest_asyncio
+
+# Apply nest_asyncio globally to support nested event loop runs inside Uvicorn/FastAPI
+nest_asyncio.apply()
 
 # --- Pre-Import Safe Event Loop Policy ---
 # eventkit (imported by ib_insync) attempts to fetch the event loop during package import.
