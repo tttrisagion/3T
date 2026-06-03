@@ -149,8 +149,35 @@ INSERT INTO `exchanges` (`id`, `name`, `api_url`) VALUES (1, 'HyperLiquid', 'htt
 INSERT INTO `exchanges` (`id`, `name`, `api_url`) VALUES (2, 'tradfi', 'localhost:9100');
 
 INSERT INTO `instruments` (`name`) VALUES
-('AAPL');
+('AAPL'), ('SPY'), ('INTC'), ('SLV'), ('MU'), ('GLD'), ('SNDK'), ('NVDA'), ('CRCL'), ('TSLA');
 
 INSERT INTO `products` (`instrument_id`, `exchange_id`, `symbol`, `product_type`, `max_leverage`) VALUES
 ((SELECT id from `instruments` where name = 'AAPL'), 1, 'XYZ-AAPL/USDC:USDC', 'HIP3_PERP', 40.00),
-((SELECT id from `instruments` where name = 'AAPL'), 2, 'AAPL', 'SPOT', 40.00);
+((SELECT id from `instruments` where name = 'AAPL'), 2, 'AAPL', 'SPOT', 40.00),
+
+((SELECT id from `instruments` where name = 'SPY'), 1, 'XYZ-SP500/USDC:USDC', 'HIP3_PERP', 40.00),
+((SELECT id from `instruments` where name = 'SPY'), 2, 'SPY', 'SPOT', 40.00),
+
+((SELECT id from `instruments` where name = 'INTC'), 1, 'XYZ-INTC/USDC:USDC', 'HIP3_PERP', 40.00),
+((SELECT id from `instruments` where name = 'INTC'), 2, 'INTC', 'SPOT', 40.00),
+
+((SELECT id from `instruments` where name = 'SLV'), 1, 'XYZ-SILVER/USDC:USDC', 'HIP3_PERP', 40.00),
+((SELECT id from `instruments` where name = 'SLV'), 2, 'SLV', 'SPOT', 40.00),
+
+((SELECT id from `instruments` where name = 'MU'), 1, 'XYZ-MU/USDC:USDC', 'HIP3_PERP', 40.00),
+((SELECT id from `instruments` where name = 'MU'), 2, 'MU', 'SPOT', 40.00),
+
+((SELECT id from `instruments` where name = 'GLD'), 1, 'XYZ-GOLD/USDC:USDC', 'HIP3_PERP', 40.00),
+((SELECT id from `instruments` where name = 'GLD'), 2, 'GLD', 'SPOT', 40.00),
+
+((SELECT id from `instruments` where name = 'SNDK'), 1, 'XYZ-SNDK/USDC:USDC', 'HIP3_PERP', 40.00),
+((SELECT id from `instruments` where name = 'SNDK'), 2, 'SNDK', 'SPOT', 40.00),
+
+((SELECT id from `instruments` where name = 'NVDA'), 1, 'XYZ-NVDA/USDC:USDC', 'HIP3_PERP', 40.00),
+((SELECT id from `instruments` where name = 'NVDA'), 2, 'NVDA', 'SPOT', 40.00),
+
+((SELECT id from `instruments` where name = 'CRCL'), 1, 'XYZ-CRCL/USDC:USDC', 'HIP3_PERP', 40.00),
+((SELECT id from `instruments` where name = 'CRCL'), 2, 'CRCL', 'SPOT', 40.00),
+
+((SELECT id from `instruments` where name = 'TSLA'), 1, 'XYZ-TSLA/USDC:USDC', 'HIP3_PERP', 40.00),
+((SELECT id from `instruments` where name = 'TSLA'), 2, 'TSLA', 'SPOT', 40.00);

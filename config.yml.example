@@ -45,6 +45,15 @@ exchanges:
       probationary_multiplier: 0.25
       symbols:
         - "XYZ-AAPL/USDC:USDC"
+        - "XYZ-SP500/USDC:USDC"
+        - "XYZ-INTC/USDC:USDC"
+        - "XYZ-SILVER/USDC:USDC"
+        - "XYZ-MU/USDC:USDC"
+        - "XYZ-GOLD/USDC:USDC"
+        - "XYZ-SNDK/USDC:USDC"
+        - "XYZ-NVDA/USDC:USDC"
+        - "XYZ-CRCL/USDC:USDC"
+        - "XYZ-TSLA/USDC:USDC"
       take_profit:
         threshold: 1 # 100% / double
         reward_multiple: 5 # max draw down 20%
@@ -64,6 +73,15 @@ exchanges:
       probationary_multiplier: 0.25
       symbols:
         - "AAPL"
+        - "SPY"
+        - "INTC"
+        - "SLV"
+        - "MU"
+        - "GLD"
+        - "SNDK"
+        - "NVDA"
+        - "CRCL"
+        - "TSLA"
       take_profit:
         threshold: 0.1 # 10%
         reward_multiple: 3
@@ -133,7 +151,7 @@ observability:
 
 providence:
   # Desired number of concurrent trading tasks to be managed by the supervisor
-  desired_run_count: 100
+  desired_run_count: 6000
   # Starting virtual balance for VOMS
   virtual_balance: 7000
 
