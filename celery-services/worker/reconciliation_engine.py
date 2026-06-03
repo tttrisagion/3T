@@ -296,6 +296,7 @@ def calculate_kelly_position_size(base_risk_pos_size: float, symbol: str) -> flo
 def get_latest_margin_usage(exchange_id: int = 1) -> float | None:
     """
     Get the latest cross maintenance margin used for a specific exchange from the balance_history table.
+    Falls back to exchange_id = 1 if no records exist.
     """
     with tracer.start_as_current_span("get_latest_margin_usage") as span:
         try:
@@ -313,6 +314,17 @@ def get_latest_margin_usage(exchange_id: int = 1) -> float | None:
                     margin = float(result[0])
                     span.set_attribute("margin_usage", margin)
                     return margin
+                
+                # Fallback to consolidated exchange_id = 1 margin if no records exist
+                if exchange_id != 1:
+                    span.add_event(f"No margin records for exchange {exchange_id}. Falling back to consolidated exchange_id = 1.")
+                    cursor.execute(query, (1,))
+                    result = cursor.fetchone()
+                    if result:
+                        margin = float(result[0])
+                        span.set_attribute("margin_usage", margin)
+                        return margin
+
                 span.add_event("No margin information found in balance_history.")
                 return None
         except Exception as e:
@@ -325,6 +337,7 @@ def get_latest_margin_usage(exchange_id: int = 1) -> float | None:
 def get_latest_balance(exchange_id: int = 1) -> float | None:
     """
     Get the latest total balance for a specific exchange from the balance_history table.
+    Falls back to the primary aggregated exchange_id = 1 if no balance records exist.
     """
     with tracer.start_as_current_span("get_latest_balance") as span:
         try:
@@ -342,6 +355,17 @@ def get_latest_balance(exchange_id: int = 1) -> float | None:
                     balance = float(result[0])
                     span.set_attribute("balance", balance)
                     return balance
+                
+                # Fallback to consolidated exchange_id = 1 balance if no records exist
+                if exchange_id != 1:
+                    span.add_event(f"No balance records for exchange {exchange_id}. Falling back to consolidated exchange_id = 1.")
+                    cursor.execute(query, (1,))
+                    result = cursor.fetchone()
+                    if result:
+                        balance = float(result[0])
+                        span.set_attribute("balance", balance)
+                        return balance
+
                 span.add_event("No balance information found in balance_history.")
                 return None
         except Exception as e:
