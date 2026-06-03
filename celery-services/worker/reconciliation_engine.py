@@ -392,6 +392,11 @@ def get_api_coin(symbol: str) -> str:
     a dash like XYZ-CL), converts to API format (xyz:CL) since CCXT doesn't
     load HIP-3 markets.
     """
+    from shared.database import get_exchange_name_for_symbol
+    exc_name = get_exchange_name_for_symbol(symbol)
+    if exc_name == "tradfi":
+        return symbol
+
     exchange = exchange_manager.get_exchange("hyperliquid")
     if exchange.markets and symbol in exchange.markets:
         return exchange.markets[symbol]["info"].get("name", get_base_symbol(symbol))
