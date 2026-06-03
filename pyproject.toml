@@ -22,6 +22,7 @@ dependencies = [
     "ccxt",
     "pyyaml",
     "ib-insync",
+    "tzdata",
 ]
 
 [project.optional-dependencies]

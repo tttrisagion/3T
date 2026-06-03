@@ -5,3 +5,4 @@ aiohttp
 python-dotenv
 ib-insync
 nest-asyncio
+tzdata

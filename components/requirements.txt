@@ -17,4 +17,5 @@ fastapi
 uvicorn
 pydantic
 ib-insync
+tzdata
 

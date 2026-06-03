@@ -11,4 +11,5 @@ ccxt==4.5.43
 pandas
 numpy
 ib-insync
+tzdata
 
