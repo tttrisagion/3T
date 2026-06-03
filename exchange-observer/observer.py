@@ -126,6 +126,33 @@ async def poll_positions_periodically():
                             )
                             break
 
+                # Fetch TradFi (Interactive Brokers) positions to enable adversarial TradFi consensus
+                try:
+                    print("Observer: Polling TradFi (Interactive Brokers)...")
+                    from shared.ib_client import ib_client
+                    balance_info, ib_positions = await asyncio.to_thread(ib_client.get_balance_and_positions)
+                    
+                    asset_positions = []
+                    for pos in ib_positions:
+                        asset_positions.append({
+                            "position": {
+                                "coin": pos["symbol"].upper(),
+                                "szi": float(pos["position_size"]),
+                                "marginUsed": float(pos.get("margin_used", 0.0))
+                            }
+                        })
+                    
+                    new_positions["tradfi"] = {
+                        "marginSummary": {
+                            "accountValue": str(balance_info["account_value"]),
+                            "totalMarginUsed": str(balance_info["cross_maintenance_margin_used"])
+                        },
+                        "assetPositions": asset_positions
+                    }
+                    print(f"Observer: Successfully polled TradFi positions: {len(ib_positions)} assets.")
+                except Exception as ib_err:
+                    print(f"Observer: Error polling TradFi: {ib_err}")
+
                 if new_positions:
                     timestamp = datetime.datetime.now(datetime.UTC).isoformat()
                     positions_cache = {

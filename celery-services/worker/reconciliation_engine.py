@@ -644,12 +644,14 @@ def _get_symbol_margin_caps(symbols: list[str], max_margin: float) -> dict[str, 
 
 def get_observer_state(
     symbol: str,
+    wallet_address: str = None,
 ) -> tuple[float | None, str | None, float]:
     """
     Get position from external observer node and perform safety checks.
 
     Args:
         symbol: The trading symbol (e.g., 'BTC/USDC:USDC')
+        wallet_address: Optional wallet or exchange ID (defaults to hyperliquid walletAddress)
 
     Returns:
         Tuple of (position_size, error_message, margin_used)
@@ -661,7 +663,8 @@ def get_observer_state(
         "reconciliation_engine.observer_nodes",
         ["http://exchange-observer:8001/3T-observer.json"],
     )
-    wallet_address = config.get_secret("exchanges.hyperliquid.walletAddress")
+    if not wallet_address:
+        wallet_address = config.get_secret("exchanges.hyperliquid.walletAddress")
     max_heartbeat_age = timedelta(minutes=5)
 
     if not wallet_address:
@@ -737,16 +740,14 @@ def get_actual_state(symbol: str) -> tuple[float | None, bool, float]:
             from shared.database import get_exchange_name_for_symbol
             exchange_name = get_exchange_name_for_symbol(symbol)
             
+            # Determine the observer wallet address or identifier
             if exchange_name == "tradfi":
-                # TradFi does not utilize blockchain observer nodes.
-                # The local position (synced directly from IB Gateway) is the canonical source of truth.
-                local_pos = local_position if local_position is not None else 0.0
-                span.set_attribute("consensus_position", local_pos)
-                span.add_event("TradFi consensus achieved without observer", {"position": local_pos})
-                return local_pos, True, 0.0
+                wallet_id = "tradfi"
+            else:
+                wallet_id = config.get("exchanges.hyperliquid.wallet_address")
 
             # Get position from observer node
-            observer_position, error_message, margin_used = get_observer_state(symbol)
+            observer_position, error_message, margin_used = get_observer_state(symbol, wallet_address=wallet_id)
 
             if error_message:
                 span.add_event("Observer validation failed", {"error": error_message})
