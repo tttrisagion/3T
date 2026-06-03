@@ -1,7 +1,10 @@
-.PHONY: install test clean restart render-diagrams
+.PHONY: install test clean restart render-diagrams reconcile
 
 install:
 	docker compose up -d --build --force-recreate
+
+reconcile:
+	docker compose exec celery_worker celery -A worker.tasks call worker.reconciliation_engine.reconcile_positions
 
 test:
 	@cleanup() { \
