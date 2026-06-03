@@ -27,4 +27,4 @@ USER appuser
 
 EXPOSE 8001
 
-CMD ["uvicorn", "observer:app", "--host", "0.0.0.0", "--port", "8001"]
+CMD ["uvicorn", "observer:app", "--host", "0.0.0.0", "--port", "8001", "--loop", "asyncio"]
