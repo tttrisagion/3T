@@ -1090,52 +1090,10 @@ def cancel_all_open_orders(symbols, exchange_name="hyperliquid"):
     Cancel all open orders across configured symbols.
 
     Called at the start of each reconciliation cycle to ensure a clean slate.
-    Uses fetch_open_orders + cancel_orders per symbol since cancel_all_orders
-    is not supported on HyperLiquid via ccxt.
-
-    Non-fatal: logs warnings on failure without blocking reconciliation.
+    Bypassed in production to prevent sequential rate-limiting floods (as the strategy
+    strictly executes instant-fill MARKET orders, leaving no open book orders).
     """
-    with tracer.start_as_current_span("cancel_all_open_orders") as span:
-        # Skip order cancellation entirely for TradFi (handled natively by the IB client)
-        if exchange_name == "tradfi":
-            return 0
-
-        span.set_attribute("symbols_count", len(symbols))
-        total_cancelled = 0
-
-        try:
-            exchange = exchange_manager.get_exchange(exchange_name)
-        except Exception as e:
-            print(f"Warning: could not get exchange for order cancellation: {e}")
-            span.record_exception(e)
-            return 0
-
-        for symbol in symbols:
-            try:
-                open_orders = exchange.fetch_open_orders(symbol)
-                if not open_orders:
-                    continue
-
-                order_ids = [order["id"] for order in open_orders]
-                span.add_event(
-                    f"Cancelling {len(order_ids)} open orders for {symbol}",
-                    {"symbol": symbol, "order_count": len(order_ids)},
-                )
-
-                exchange.cancel_orders(order_ids, symbol)
-                total_cancelled += len(order_ids)
-                print(
-                    f"Cancelled {len(order_ids)} open orders for {symbol}: {order_ids}"
-                )
-
-            except Exception as e:
-                print(f"Warning: failed to cancel orders for {symbol}: {e}")
-                span.add_event(
-                    f"Failed to cancel orders for {symbol}",
-                    {"symbol": symbol, "error": str(e)},
-                )
-
-        span.set_attribute("total_cancelled", total_cancelled)
+    return 0
 
 
 @app.task(bind=True)
