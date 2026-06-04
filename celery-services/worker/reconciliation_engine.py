@@ -1245,6 +1245,10 @@ def reconcile_positions(self):
                                 
                                 # For TradFi/SPOT, use the total position USD value instead of margin_used (since margin_used is 0)
                                 if exc_name == "tradfi":
+                                    instrument_price = get_current_price(symbol)
+                                    if instrument_price is None:
+                                        print(f"Warning: Could not get current price for clamping {symbol}")
+                                        instrument_price = 0.0
                                     current_used = abs(desired_position) * instrument_price
                                 else:
                                     current_used = symbol_margin_used
@@ -1270,6 +1274,10 @@ def reconcile_positions(self):
                                         f"${symbol_cap:.2f} cap. Scaling desired "
                                         f"position from {original} to {desired_position}."
                                     )
+
+                            # For TradFi standard stocks, guarantee whole integer share quantities (preventing fractional rejections)
+                            if exc_name == "tradfi":
+                                desired_position = float(round(desired_position))
 
                             # Calculate reconciliation action
                             (
