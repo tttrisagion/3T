@@ -90,7 +90,7 @@ exchanges:
 trading_hours:
   # Set to true to bypass weekend/holiday market-closed checks.
   # MUST be false in production.
-  test_mode: true
+  test_mode: false
 
 # Exchange and product configuration can be managed here
 # or dynamically from the database.
