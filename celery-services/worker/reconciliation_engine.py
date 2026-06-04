@@ -1214,15 +1214,13 @@ def reconcile_positions(self):
                                     symbol_margin_caps[symbol] * margin_cap_multiplier
                                 )
                                 
-                                # For TradFi/SPOT, use the total position USD value instead of margin_used (since margin_used is 0)
-                                if exc_name == "tradfi":
-                                    instrument_price = get_current_price(symbol)
-                                    if instrument_price is None:
-                                        print(f"Warning: Could not get current price for clamping {symbol}")
-                                        instrument_price = 0.0
-                                    current_used = abs(desired_position) * instrument_price
-                                else:
-                                    current_used = symbol_margin_used
+                                # Use the total position USD value for clamping across all exchanges
+                                # (ensures absolute portfolio risk preservation and strict margin isolation)
+                                instrument_price = get_current_price(symbol)
+                                if instrument_price is None:
+                                    print(f"Warning: Could not get current price for clamping {symbol}")
+                                    instrument_price = 0.0
+                                current_used = abs(desired_position) * instrument_price
 
                                 if current_used > symbol_cap:
                                     scale = symbol_cap / current_used
