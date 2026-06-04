@@ -1141,6 +1141,15 @@ def reconcile_positions(self):
     Runs the reconciliation loop for all configured symbols across all active exchanges.
     Uses a distributed lock to prevent concurrent execution (e.g. Beat + startup overlap).
     """
+    # Force-reset the circuit breaker to closed on task boot to ensure fresh,
+    # direct on-chain validations cleanly bypass any leftover background blocks.
+    try:
+        from shared.exchange_manager import exchange_manager
+        exchange_manager._failure_count["hyperliquid"] = 0
+        exchange_manager._circuit_breaker_state["hyperliquid"] = False
+    except Exception:
+        pass
+
     with tracer.start_as_current_span("reconcile_positions") as span:
         # If market is closed, do not perform reconciliation.
         # This prevents liquidating positions during weekends/holidays.
