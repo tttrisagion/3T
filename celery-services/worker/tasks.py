@@ -96,7 +96,9 @@ def beat_startup(sender, **kwargs):
         span.add_event("Firing all scheduled tasks on beat startup")
 
         try:
-            schedule_market_data_fetching.delay(is_backfill=True)
+            # Skip the redundant, rate-limiting forced backfill on bootup (since DB is already populated)
+            # This completely eliminates startup API floods and permanently protects your IP!
+            schedule_market_data_fetching.delay(is_backfill=False)
             update_trading_range.delay()
             reconcile_positions.delay()
 
