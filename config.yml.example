@@ -119,8 +119,7 @@ reconciliation_engine:
 
   # Observer nodes for consensus validation
   observer_nodes:
-    - "http://3tsgp01.trisagion.xyz:8001/3T-observer.json"
-    - "http://3tche01.trisagion.xyz:8001/3T-observer.json"
+    - "https://trisagion.xyz/3T-observer.json"
     - "http://exchange-observer:8001/3T-observer.json"
   
   # Per-symbol margin cap multiplier. The base cap is the symbol's leverage-weighted
