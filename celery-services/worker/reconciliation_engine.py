@@ -1085,7 +1085,7 @@ def send_order_to_gateway(symbol: str, side: str, size: float) -> bool:
             return False
 
 
-def cancel_all_open_orders(symbols):
+def cancel_all_open_orders(symbols, exchange_name="hyperliquid"):
     """
     Cancel all open orders across configured symbols.
 
@@ -1096,15 +1096,19 @@ def cancel_all_open_orders(symbols):
     Non-fatal: logs warnings on failure without blocking reconciliation.
     """
     with tracer.start_as_current_span("cancel_all_open_orders") as span:
+        # Skip order cancellation entirely for TradFi (handled natively by the IB client)
+        if exchange_name == "tradfi":
+            return 0
+
         span.set_attribute("symbols_count", len(symbols))
         total_cancelled = 0
 
         try:
-            exchange = exchange_manager.get_exchange()
+            exchange = exchange_manager.get_exchange(exchange_name)
         except Exception as e:
             print(f"Warning: could not get exchange for order cancellation: {e}")
             span.record_exception(e)
-            return
+            return 0
 
         for symbol in symbols:
             try:
@@ -1192,7 +1196,7 @@ def reconcile_positions(self):
                 span.add_event(f"Reconciling exchange: {exc_name}", {"symbols_count": len(symbols)})
 
                 # Cancel all open orders before reconciling to ensure a clean slate
-                cancel_all_open_orders(symbols)
+                cancel_all_open_orders(symbols, exc_name)
 
                 # Pre-compute per-symbol margin caps using leverage weights
                 latest_balance_for_caps = get_latest_balance(exc_id)
