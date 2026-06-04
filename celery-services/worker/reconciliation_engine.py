@@ -88,6 +88,43 @@ def is_market_open() -> bool:
     return True
 
 
+def is_tradfi_market_open() -> bool:
+    """
+    Checks if the US stock market is open for active, safe reconciliation.
+    Trading Hours: Monday - Friday, 9:30 AM to 3:55 PM Eastern Time (EST/EDT).
+    Excludes weekends and US market-closed holidays.
+    If trading_hours.test_mode is True in config.yml, always returns True.
+    """
+    from shared.config import config as _cfg
+    if _cfg.get("trading_hours.test_mode", False):
+        return True
+
+    try:
+        tz = ZoneInfo("America/New_York")
+    except Exception:
+        tz = ZoneInfo("US/Eastern")
+
+    now = datetime.now(tz)
+    d = now.date()
+
+    # --- 1. Check Fixed Holidays (US Markets) ---
+    # New Year's Day (Jan 1), Christmas Day (Dec 25)
+    if (d.month == 1 and d.day == 1) or (d.month == 12 and d.day == 25):
+        return False
+
+    # --- 2. Check Weekly Schedule (Excluding Weekends) ---
+    if now.weekday() >= 5:  # Saturday (5) or Sunday (6)
+        return False
+
+    # --- 3. Check Daily Standard Trading Hours: 9:30 AM to 3:55 PM Eastern ---
+    from datetime import time
+    current_time = now.time()
+    start_time = time(9, 30, 0)
+    end_time = time(15, 55, 0)
+
+    return start_time <= current_time <= end_time
+
+
 def _calculate_kelly_metrics(
     condition: str, symbol: str
 ) -> tuple[float | None, float | None, float | None]:
@@ -1163,6 +1200,14 @@ def reconcile_positions(self):
                     with tracer.start_as_current_span("reconcile_symbol") as symbol_span:
                         symbol_span.set_attribute("symbol", symbol)
                         symbol_span.set_attribute("exchange", exc_name)
+
+                        # Enforce stock safety trading window (9:30 AM - 3:55 PM Eastern)
+                        if exc_name == "tradfi" and not is_tradfi_market_open():
+                            symbol_span.add_event(
+                                "TradFi asset is outside active safety window (9:30 AM - 3:55 PM Eastern). Holding position."
+                            )
+                            print(f"TradFi asset {symbol} is outside active safety window (9:30 AM - 3:55 PM Eastern). Holding position.")
+                            continue
 
                         try:
                             # Get desired state
