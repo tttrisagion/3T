@@ -337,7 +337,6 @@ def send_to_exchange(order_details: dict, client_order_id: str) -> dict:
         order_params = {
             "clientOrderId": client_order_id,
             "loadMarkets": False,
-            "timeInForce": "Alo",
         }
 
         # Execute the market order with retry logic
