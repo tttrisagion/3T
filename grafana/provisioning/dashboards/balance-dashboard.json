@@ -193,7 +193,7 @@
             "uid": "3T-MariaDB-Datasource"
           },
           "format": "table",
-          "rawSql": "SELECT p.symbol, pos.position_size, pos.position_value, pos.unrealized_pnl, pos.timestamp FROM positions pos JOIN products p ON pos.product_id = p.id ORDER BY pos.timestamp DESC LIMIT 100",
+          "rawSql": "SELECT p.symbol, pos.position_size, pos.position_value, pos.unrealized_pnl, pos.timestamp FROM positions pos JOIN products p ON pos.product_id = p.id WHERE p.exchange_id IN ($Exchange) ORDER BY pos.timestamp DESC LIMIT 100",
           "refId": "A"
         }
       ],
