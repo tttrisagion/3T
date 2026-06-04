@@ -793,7 +793,9 @@ def get_actual_state(symbol: str) -> tuple[float | None, bool, float]:
             if exchange_name == "tradfi":
                 wallet_id = "tradfi"
             else:
-                wallet_id = config.get("exchanges.hyperliquid.wallet_address")
+                wallet_id = config.get_secret("exchanges.hyperliquid.walletAddress")
+                if not wallet_id:
+                    wallet_id = config.get("exchanges.hyperliquid.wallet_address")
 
             # Get position from observer node
             observer_position, error_message, margin_used = get_observer_state(symbol, wallet_address=wallet_id)
