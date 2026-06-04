@@ -185,19 +185,19 @@ def schedule_market_data_fetching(is_backfill=False):
                 )  # Reduced from 10
                 pool = GreenPool(size=concurrency_limit)
 
-                threads = [
-                    (
-                        job,
-                        pool.spawn(
-                            traced_fetch_and_store_ohlcv,
-                            job[0],
-                            job[1],
-                            job[2],
-                            parent_context,
-                        ),
+                threads = []
+                for i, job in enumerate(jobs_to_run):
+                    # Inject a small staggered delay (0.5s) to cooperatively pace requests to the exchange API,
+                    # permanently preventing millisecond-level rate-limit spikes from the same IP address.
+                    time.sleep(0.5)
+                    gt = pool.spawn(
+                        traced_fetch_and_store_ohlcv,
+                        job[0],
+                        job[1],
+                        job[2],
+                        parent_context,
                     )
-                    for job in jobs_to_run
-                ]
+                    threads.append((job, gt))
 
                 for job, gt in threads:
                     try:

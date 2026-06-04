@@ -31,9 +31,6 @@ celery:
 # Exchange configuration
 exchanges:
   hyperliquid:
-    # Optional proxy configuration for bypassing IP restrictions
-    proxy:
-        - "http://cors-proxy:8080/"
     origin: "https://trisagion.finance"
     # Polling configuration for non-websocket price updates
     poll_interval: 1.0  # seconds between price polls
@@ -134,7 +131,7 @@ reconciliation_engine:
   position_staleness_timeout: 60
   
   # Minimum trade value in USD to execute orders (avoids dust trades)
-  minimum_trade_threshold: 12.50
+  minimum_trade_threshold: 1.00
   
   # Order gateway request timeout in seconds
   order_timeout: 30
