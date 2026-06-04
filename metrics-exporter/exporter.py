@@ -367,6 +367,20 @@ def collect_order_metrics(cursor):
 
 
 def collect_all():
+    # Clear multi-label gauges to purge stale/ghost labels from Prometheus client memory
+    try:
+        ACTIVE_PNL_BY_SYMBOL.clear()
+        ACTIVE_RUNS_BY_SYMBOL.clear()
+        DIRECTION_DISTRIBUTION.clear()
+        POSITION_BY_SYMBOL.clear()
+        MARKET_DATA_AGE.clear()
+        STREAM_DATA_AGE.clear()
+        HEIGHT_RUN_COUNT.clear()
+        QUEUE_DEPTH.clear()
+        ORDER_COUNT_BY_STATUS.clear()
+    except Exception:
+        log.exception("Error clearing labeled gauges")
+
     conn = None
     r = None
     try:

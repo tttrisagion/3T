@@ -7,7 +7,6 @@ import os
 from celery.utils.log import get_task_logger
 
 from shared.celery_app import app
-from shared.config import Config
 from shared.database import get_db_connection
 from shared.opentelemetry_config import get_tracer
 
@@ -18,31 +17,24 @@ tracer = get_tracer(os.environ.get("OTEL_SERVICE_NAME", "celery-worker"))
 @app.task(name="worker.purge.purge_stale_runs")
 def purge_stale_runs():
     """
-    Finds and marks stale, unprofitable runs to be exited.
+    Surgically purges dead and orphaned runs to keep the runs table lightweight and fast.
     """
     with tracer.start_as_current_span("purge_stale_runs_task") as span:
         db_cnx = None
         try:
-            config = Config()
-            purge_age = config.get("providence.purge_age_minutes", 180)
-
             db_cnx = get_db_connection()
             cursor = db_cnx.cursor()
 
             query = """
-                UPDATE runs
-                SET exit_run = 1
-                WHERE end_time IS NULL
-                  AND TIMESTAMPDIFF(MINUTE, start_time, NOW()) > %s
-                  AND position_direction = 0
-                  AND exit_run = 0
-                  AND height IS NULL;
+                DELETE FROM runs
+                WHERE (exit_run = 1 AND height IS NULL AND update_time < NOW() - INTERVAL 1 HOUR)
+                   OR (end_time IS NOT NULL AND height IS NULL);
             """
-            cursor.execute(query, (purge_age,))
+            cursor.execute(query)
             db_cnx.commit()
 
             rows_affected = cursor.rowcount
-            logger.info(f"Purged {rows_affected} stale runs.")
+            logger.info(f"Surgically purged {rows_affected} dead/orphaned runs.")
             span.set_attribute("purged_runs_count", rows_affected)
 
         except Exception as e:
