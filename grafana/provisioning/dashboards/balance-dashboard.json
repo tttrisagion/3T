@@ -101,7 +101,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT timestamp as time, cross_maintenance_margin_used/account_value FROM `3t`.balance_history  WHERE\n\n     $__timeFilter(timestamp) ORDER BY timestamp ASC",
+          "rawSql": "SELECT timestamp as time, SUM(cross_maintenance_margin_used)/SUM(account_value) FROM `3t`.balance_history WHERE exchange_id IN ($Exchange) AND $__timeFilter(timestamp) GROUP BY timestamp ORDER BY timestamp ASC",
           "refId": "A",
           "sql": {
             "columns": [
@@ -303,7 +303,7 @@
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT timestamp as time, SUM(cross_maintenance_margin_used) as cross_maintenance_margin_used FROM `3t`.balance_history WHERE $__timeFilter(timestamp) GROUP BY timestamp ORDER BY timestamp ASC",
+          "rawSql": "SELECT timestamp as time, SUM(cross_maintenance_margin_used) as cross_maintenance_margin_used FROM `3t`.balance_history WHERE exchange_id IN ($Exchange) AND $__timeFilter(timestamp) GROUP BY timestamp ORDER BY timestamp ASC",
           "refId": "A",
           "sql": {
             "columns": [
@@ -1435,7 +1435,7 @@
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT timestamp AS time, account_value FROM balance_history where $__timeFilter(timestamp) ORDER BY timestamp ASC",
+          "rawSql": "SELECT timestamp AS time, SUM(account_value) AS account_value FROM balance_history WHERE exchange_id IN ($Exchange) AND $__timeFilter(timestamp) GROUP BY timestamp ORDER BY timestamp ASC",
           "refId": "A",
           "sql": {
             "columns": [
@@ -1465,7 +1465,7 @@
           "format": "table",
           "hide": false,
           "rawQuery": true,
-          "rawSql": "WITH agg_bh AS (\n  SELECT timestamp, SUM(account_value) as account_value\n  FROM balance_history\n  WHERE $__timeFilter(timestamp)\n  GROUP BY timestamp\n)\nSELECT\n  timestamp AS time,\n  AVG(account_value) OVER (\n    ORDER BY timestamp ASC\n    ROWS BETWEEN 2000 PRECEDING AND CURRENT ROW\n  ) AS account_value_ma\nFROM agg_bh\nORDER BY timestamp ASC",
+          "rawSql": "WITH agg_bh AS (\n  SELECT timestamp, SUM(account_value) as account_value\n  FROM balance_history\n  WHERE exchange_id IN ($Exchange) AND $__timeFilter(timestamp)\n  GROUP BY timestamp\n)\nSELECT\n  timestamp AS time,\n  AVG(account_value) OVER (\n    ORDER BY timestamp ASC\n    ROWS BETWEEN 2000 PRECEDING AND CURRENT ROW\n  ) AS account_value_ma\nFROM agg_bh\nORDER BY timestamp ASC",
           "refId": "B",
           "sql": {
             "columns": [
@@ -1495,7 +1495,7 @@
           "format": "table",
           "hide": false,
           "rawQuery": true,
-          "rawSql": "SELECT\n  timestamp AS time,\n  AVG(account_value) OVER (\n    ORDER BY timestamp ASC\n    ROWS BETWEEN 250 PRECEDING AND CURRENT ROW\n  ) AS account_value_ma_250\nFROM balance_history\nWHERE $__timeFilter(timestamp)\nORDER BY timestamp ASC",
+          "rawSql": "WITH agg_bh AS (\n  SELECT timestamp, SUM(account_value) as account_value\n  FROM balance_history\n  WHERE exchange_id IN ($Exchange) AND $__timeFilter(timestamp)\n  GROUP BY timestamp\n)\nSELECT\n  timestamp AS time,\n  AVG(account_value) OVER (\n    ORDER BY timestamp ASC\n    ROWS BETWEEN 250 PRECEDING AND CURRENT ROW\n  ) AS account_value_ma_250\nFROM agg_bh\nORDER BY timestamp ASC",
           "refId": "C",
           "sql": {
             "columns": [
@@ -1525,7 +1525,7 @@
           "format": "table",
           "hide": false,
           "rawQuery": true,
-          "rawSql": "WITH RECURSIVE \nagg_bh AS (\n  SELECT timestamp, SUM(account_value) as account_value\n  FROM balance_history\n  WHERE $__timeFilter(timestamp)\n  GROUP BY timestamp\n),\nhourly_data AS (\n  -- Step 1: Bucket data into hours\n  SELECT\n    DATE_FORMAT(timestamp, '%Y-%m-%d %H:00:00') as time_bucket,\n    SUBSTRING_INDEX(GROUP_CONCAT(account_value ORDER BY timestamp DESC), ',', 1) as close_balance\n  FROM agg_bh\n  GROUP BY 1\n),\nreturns_data AS (\n  -- Step 2: Calculate PnL Change\n  SELECT\n    STR_TO_DATE(time_bucket, '%Y-%m-%d %H:%i:%s') as time,\n    CAST(close_balance AS DECIMAL(20,8)) - \n    LAG(CAST(close_balance AS DECIMAL(20,8))) OVER (ORDER BY time_bucket ASC) as pnl_diff\n  FROM hourly_data\n),\nstats_data AS (\n  -- Step 3: Rolling Window Stats + Row Numbering\n  SELECT\n    time,\n    AVG(pnl_diff) OVER (\n      ORDER BY time ASC\n      ROWS BETWEEN 720 PRECEDING AND CURRENT ROW\n    ) as mean_pnl,\n    STDDEV(pnl_diff) OVER (\n      ORDER BY time ASC\n      ROWS BETWEEN 720 PRECEDING AND CURRENT ROW\n    ) as stddev_pnl,\n    -- Create a counter for every row ordered by time\n    ROW_NUMBER() OVER (ORDER BY time ASC) as rn\n  FROM returns_data\n)\nSELECT\n  time,\n  -- Step 4: Sharpe Calculation\n  CASE \n    WHEN stddev_pnl IS NULL OR stddev_pnl = 0 THEN 0 \n    ELSE (mean_pnl / stddev_pnl) * SQRT(8760) \n  END as sharpe_ratio_annualized\nFROM stats_data\nWHERE rn > 5  -- <--- THIS HIDES THE FIRST 10 NOISY VALUES\nORDER BY time ASC;",
+          "rawSql": "WITH RECURSIVE \nagg_bh AS (\n  SELECT timestamp, SUM(account_value) as account_value\n  FROM balance_history\n  WHERE exchange_id IN ($Exchange) AND $__timeFilter(timestamp)\n  GROUP BY timestamp\n),\nhourly_data AS (\n  -- Step 1: Bucket data into hours\n  SELECT\n    DATE_FORMAT(timestamp, '%Y-%m-%d %H:00:00') as time_bucket,\n    SUBSTRING_INDEX(GROUP_CONCAT(account_value ORDER BY timestamp DESC), ',', 1) as close_balance\n  FROM agg_bh\n  GROUP BY 1\n),\nreturns_data AS (\n  -- Step 2: Calculate PnL Change\n  SELECT\n    STR_TO_DATE(time_bucket, '%Y-%m-%d %H:%i:%s') as time,\n    CAST(close_balance AS DECIMAL(20,8)) - \n    LAG(CAST(close_balance AS DECIMAL(20,8))) OVER (ORDER BY time_bucket ASC) as pnl_diff\n  FROM hourly_data\n),\nstats_data AS (\n  -- Step 3: Rolling Window Stats + Row Numbering\n  SELECT\n    time,\n    AVG(pnl_diff) OVER (\n      ORDER BY time ASC\n      ROWS BETWEEN 720 PRECEDING AND CURRENT ROW\n    ) as mean_pnl,\n    STDDEV(pnl_diff) OVER (\n      ORDER BY time ASC\n      ROWS BETWEEN 720 PRECEDING AND CURRENT ROW\n    ) as stddev_pnl,\n    -- Create a counter for every row ordered by time\n    ROW_NUMBER() OVER (ORDER BY time ASC) as rn\n  FROM returns_data\n)\nSELECT\n  time,\n  -- Step 4: Sharpe Calculation\n  CASE \n    WHEN stddev_pnl IS NULL OR stddev_pnl = 0 THEN 0 \n    ELSE (mean_pnl / stddev_pnl) * SQRT(8760) \n  END as sharpe_ratio_annualized\nFROM stats_data\nWHERE rn > 5  -- <--- THIS HIDES THE FIRST 10 NOISY VALUES\nORDER BY time ASC;",
           "refId": "D",
           "sql": {
             "columns": [
@@ -1894,7 +1894,34 @@
   "schemaVersion": 38,
   "tags": [],
   "templating": {
-    "list": []
+    "list": [
+      {
+        "allValue": null,
+        "current": {
+          "selected": true,
+          "value": [
+            "1",
+            "2"
+          ]
+        },
+        "datasource": {
+          "type": "mysql",
+          "uid": "3T-MariaDB-Datasource"
+        },
+        "definition": "SELECT name as __text, id as __value FROM exchanges",
+        "hide": 0,
+        "includeAll": true,
+        "multi": true,
+        "name": "Exchange",
+        "options": [],
+        "query": "SELECT name as __text, id as __value FROM exchanges",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      }
+    ]
   },
   "time": {
     "from": "now-6h",
