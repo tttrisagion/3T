@@ -529,6 +529,9 @@ def fetch_and_store_balance() -> float | None:
             total_account_value = 0.0
             total_margin_used = 0.0
             success_count = 0
+            
+            hl_val, hl_margin = 0.0, 0.0
+            tf_val, tf_margin = 0.0, 0.0
 
             for exc in exchanges:
                 exc_id = exc["id"]
@@ -537,11 +540,13 @@ def fetch_and_store_balance() -> float | None:
                 try:
                     if exc_name == "hyperliquid":
                         val, margin = fetch_and_store_balance_hl(cursor, exc_id)
+                        hl_val, hl_margin = val, margin
                         total_account_value += val
                         total_margin_used += margin
                         success_count += 1
                     elif exc_name == "tradfi":
                         val, margin = fetch_and_store_balance_tradfi(cursor, exc_id)
+                        tf_val, tf_margin = val, margin
                         total_account_value += val
                         total_margin_used += margin
                         success_count += 1
@@ -550,10 +555,17 @@ def fetch_and_store_balance() -> float | None:
                     print(f"Error fetching balance for exchange '{exc['name']}': {exc_err}\n{traceback.format_exc()}")
 
             if success_count == len(exchanges):
-                # Only store if we have successfully retrieved balances from ALL configured exchanges
-                query = "INSERT INTO balance_history (exchange_id, account_value, cross_maintenance_margin_used) VALUES (1, %s, %s)"
-                cursor.execute(query, (total_account_value, total_margin_used))
-                print(f"Aggregated balance synced successfully. Succeeded: {success_count}/{len(exchanges)}, Total Account Value: ${total_account_value}")
+                # Store isolated balances for each exchange to support strict sizing isolation (Option B)
+                for exc in exchanges:
+                    exc_id = exc["id"]
+                    exc_name = exc["name"].lower()
+                    if exc_name == "hyperliquid":
+                        query = "INSERT INTO balance_history (exchange_id, account_value, cross_maintenance_margin_used) VALUES (%s, %s, %s)"
+                        cursor.execute(query, (exc_id, hl_val, hl_margin))
+                    elif exc_name == "tradfi":
+                        query = "INSERT INTO balance_history (exchange_id, account_value, cross_maintenance_margin_used) VALUES (%s, %s, %s)"
+                        cursor.execute(query, (exc_id, tf_val, tf_margin))
+                print(f"Isolated balances synced successfully. Succeeded: {success_count}/{len(exchanges)}, HL: ${hl_val}, TradFi: ${tf_val}")
             else:
                 print(f"Warning: Only {success_count}/{len(exchanges)} exchange balance fetches succeeded. Skipping database entry to prevent partial-sum chart corruption.")
 
