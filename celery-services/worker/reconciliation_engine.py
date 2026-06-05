@@ -1208,22 +1208,14 @@ def reconcile_positions(self):
                             if (
                                 symbol_margin_caps
                                 and symbol in symbol_margin_caps
+                                and symbol_margin_used > 0
                                 and abs(desired_position) > 1e-8
                             ):
                                 symbol_cap = (
                                     symbol_margin_caps[symbol] * margin_cap_multiplier
                                 )
-                                
-                                # Use the total position USD value for clamping across all exchanges
-                                # (ensures absolute portfolio risk preservation and strict margin isolation)
-                                instrument_price = get_current_price(symbol)
-                                if instrument_price is None:
-                                    print(f"Warning: Could not get current price for clamping {symbol}")
-                                    instrument_price = 0.0
-                                current_used = abs(desired_position) * instrument_price
-
-                                if current_used > symbol_cap:
-                                    scale = symbol_cap / current_used
+                                if symbol_margin_used > symbol_cap:
+                                    scale = symbol_cap / symbol_margin_used
                                     original = desired_position
                                     desired_position = desired_position * scale
                                     symbol_span.add_event(
@@ -1232,14 +1224,14 @@ def reconcile_positions(self):
                                             "symbol": symbol,
                                             "original_desired": original,
                                             "clamped_desired": desired_position,
-                                            "symbol_margin_used": current_used,
+                                            "symbol_margin_used": symbol_margin_used,
                                             "symbol_margin_cap": symbol_cap,
                                             "scale_factor": scale,
                                         },
                                     )
                                     print(
                                         f"Per-symbol margin cap: {symbol} using "
-                                        f"${current_used:.2f} of "
+                                        f"${symbol_margin_used:.2f} of "
                                         f"${symbol_cap:.2f} cap. Scaling desired "
                                         f"position from {original} to {desired_position}."
                                     )
