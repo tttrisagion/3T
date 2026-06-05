@@ -238,7 +238,7 @@ def collect_run_metrics(cursor):
 def collect_balance_metrics(cursor):
     cursor.execute(
         "SELECT account_value, cross_maintenance_margin_used "
-        "FROM balance_history ORDER BY timestamp DESC LIMIT 1"
+        "FROM balance_history WHERE exchange_id = 1 ORDER BY timestamp DESC LIMIT 1"
     )
     row = cursor.fetchone()
     if row:
@@ -319,8 +319,8 @@ def collect_account_performance_metrics(cursor):
     # Metric 1: Account % change from take_profit_state baseline
     cursor.execute(
         "SELECT "
-        "  (SELECT SUM(account_value) FROM balance_history "
-        "   WHERE timestamp = (SELECT MAX(timestamp) FROM balance_history)) AS current_balance, "
+        "  (SELECT account_value FROM balance_history "
+        "   WHERE exchange_id = 1 ORDER BY timestamp DESC LIMIT 1) AS current_balance, "
         "  (SELECT last_balance FROM take_profit_state "
         "   ORDER BY id DESC LIMIT 1) AS baseline_balance"
     )
