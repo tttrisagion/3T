@@ -124,14 +124,39 @@
       padding: 10px;
       box-sizing: border-box;
     }
-    #update-status {
-        font-family: 'Courier New', Courier, monospace;
-        font-size: 0.6em;
-        color: var(--secondary-text-color);
-        margin-top: 1em;
-	      margin-right: 1em;
-	      text-align: right;
+    
+    /* --- STATUS & CONTROLS CONTAINER --- */
+    .status-controls-container {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 1.5rem;
+      margin-top: 1.5rem;
+      margin-right: 2.5rem;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 0.6em;
+      color: var(--secondary-text-color);
     }
+    .hide-balances-label {
+      cursor: pointer;
+      user-select: none;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .hide-balances-label:hover {
+      color: var(--text-color);
+    }
+    #hide-small-balances {
+      accent-color: var(--accent-color);
+      cursor: pointer;
+      margin: 0;
+    }
+    #update-status {
+      margin: 0;
+      text-align: right;
+    }
+
     #clocks-container {
       color: var(--accent-color);
       font-family: 'Courier New', Courier, monospace;
@@ -243,18 +268,76 @@
       width: 100%;
       height: auto;
       transition: filter 0.3s;
-      animation: logo-glow 10s infinite;
     }
+    
+    @keyframes draw-logo {
+      0% {
+        stroke-dashoffset: 2000;
+        fill: rgba(244, 117, 33, 0);
+        filter: drop-shadow(0 0 2px #f47521);
+      }
+      70% {
+        stroke-dashoffset: 0;
+        fill: rgba(244, 117, 33, 0);
+        filter: drop-shadow(0 0 12px #f47521);
+      }
+      80% {
+        fill: rgba(244, 117, 33, 0.2);
+        filter: drop-shadow(0 0 18px #f47521);
+      }
+      85% {
+        fill: rgba(244, 117, 33, 0.8);
+        filter: drop-shadow(0 0 4px #f47521);
+      }
+      90% {
+        fill: rgba(244, 117, 33, 0.3);
+        filter: drop-shadow(0 0 15px #f47521);
+      }
+      100% {
+        stroke-dashoffset: 0;
+        fill: #f47521;
+        filter: drop-shadow(0 0 7px rgba(255, 140, 0, 0.5));
+      }
+    }
+
+    #logo-group path {
+      stroke: #f47521;
+      stroke-width: 1.5px;
+      stroke-dasharray: 2000;
+      stroke-dashoffset: 2000;
+      fill: transparent;
+      animation: draw-logo 5s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+    }
+
+    @keyframes draw-logo-light {
+      0% {
+        stroke-dashoffset: 2000;
+        fill: rgba(230, 138, 0, 0);
+        filter: drop-shadow(0 0 2px #e68a00);
+      }
+      70% {
+        stroke-dashoffset: 0;
+        fill: rgba(230, 138, 0, 0);
+        filter: drop-shadow(0 0 12px #e68a00);
+      }
+      100% {
+        stroke-dashoffset: 0;
+        fill: #e68a00;
+        filter: drop-shadow(0 0 7px rgba(230, 138, 0, 0.5));
+      }
+    }
+
+    body[data-theme="light"] #logo-group path {
+      stroke: #e68a00;
+      animation: draw-logo-light 5s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+    }
+
     .motto {
         white-space: nowrap;
         margin-top: 1.2rem;
         font-family: "Times New Roman", Georgia, serif;
         font-size: 12pt;
         text-align: center;
-    }
-    body[data-theme="light"] #logo-wrapper svg {
-        filter: invert(1) hue-rotate(180deg) drop-shadow(0 0 8px rgba(255, 140, 0, 0.5));
-        animation: none;
     }
 
     /* --- RESPONSIVE TABLE COLUMNS --- */
@@ -512,7 +595,12 @@
   </div>
 <div class="motto">DOCILIS • MITIS • HUMILIS</div>
   
-  <p id="update-status">Checking for updates...</p>
+  <div class="status-controls-container">
+    <label class="hide-balances-label">
+      <input type="checkbox" id="hide-small-balances"> HIDE SMALL BALANCES (≤ $10.00)
+    </label>
+    <span id="update-status">Checking for updates...</span>
+  </div>
   <div id="data-container"></div>
 
   <div id="clocks-container">
@@ -580,6 +668,7 @@
      */
     function renderAllData(positionData, statsData) {
         const container = document.getElementById('data-container');
+        const hideSmallBalances = document.getElementById('hide-small-balances').checked;
         
         // Use addresses from position data as the primary source of truth for display
         const sortedAddresses = Object.keys(positionData.positions).sort((a, b) => {
@@ -588,7 +677,14 @@
             return valB - valA; // Sort descending
         });
 
-        const currentAddresses = new Set(sortedAddresses);
+        // Filter out addresses if they have a balance <= 10.0 and hideSmallBalances is checked
+        const filteredAddresses = sortedAddresses.filter(address => {
+            if (!hideSmallBalances) return true;
+            const balance = parseFloat(positionData.positions[address].marginSummary.accountValue || 0);
+            return balance > 10.0;
+        });
+
+        const currentAddresses = new Set(filteredAddresses);
         
         // --- GARBAGE COLLECTION ---
         document.querySelectorAll('.address-container').forEach(div => {
@@ -610,7 +706,7 @@
         });
 
         // --- REORDER DOM ELEMENTS ---
-        sortedAddresses.forEach(address => {
+        filteredAddresses.forEach(address => {
             const existingContainer = document.querySelector(`.address-container[data-address="${address}"]`);
             if (existingContainer) {
                 container.appendChild(existingContainer);
@@ -618,7 +714,7 @@
         });
 
         // --- RENDER CONTENT FOR EACH ADDRESS ---
-        for (const address of sortedAddresses) {
+        for (const address of filteredAddresses) {
             let addressContainer = document.querySelector(`.address-container[data-address="${address}"]`);
             if (!addressContainer) {
                 addressContainer = document.createElement('div');
@@ -1259,6 +1355,16 @@ function renderEquityChart(container, walletStats) {
     setupClock('clock-shanghai', 'Asia/Shanghai', 31.23, 121.47);
     setupClock('clock-new-york', 'America/New_York', 45.50, -73.56);
     
+    // Checkbox initialization (Default to checked/true if not set)
+    const hideSmallSaved = localStorage.getItem('hideSmallBalances') !== 'false';
+    document.getElementById('hide-small-balances').checked = hideSmallSaved;
+    document.getElementById('hide-small-balances').addEventListener('change', (e) => {
+        localStorage.setItem('hideSmallBalances', e.target.checked ? 'true' : 'false');
+        if (lastData && lastStatsData) {
+            renderAllData(lastData, lastStatsData);
+        }
+    });
+
     fetchData(); // Initial fetch
     updateTradingHaltUI(); // Initial halt status check
     setInterval(fetchData, POLLING_INTERVAL); // Fetch every 15 seconds
