@@ -655,7 +655,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT\n    CAST(DATE_FORMAT(o.created_at, '%Y-%m-%d %H:%i:00') AS DATETIME) AS `minute`,\n    SUM(o.size * p.last_px) AS `total_volume_in_usd`\nFROM\n    order_execution_log AS o\nJOIN\n    products AS prod ON o.product_id = prod.symbol\nJOIN\n    (SELECT symbol, last_px\n     FROM stream_data\n     WHERE (symbol, timestamp) IN\n     (\n         SELECT symbol, MAX(timestamp)\n         FROM stream_data\n         GROUP BY symbol\n     )) AS p\nON\n    o.product_id = p.symbol\nWHERE\n    prod.exchange_id IN ($Exchange)\nGROUP BY\n    `minute`\nORDER BY\n    `minute` ASC;",
+          "rawSql": "SELECT\n    CAST(DATE_FORMAT(o.created_at, '%Y-%m-%d %H:%i:00') AS DATETIME) AS `minute`,\n    SUM(o.size * p.close) AS `total_volume_in_usd`\nFROM\n    order_execution_log AS o\nJOIN\n    products AS prod ON o.product_id = prod.symbol\nJOIN\n    (SELECT symbol, close\n     FROM market_data\n     WHERE (symbol, timestamp) IN\n     (\n         SELECT symbol, MAX(timestamp)\n         FROM market_data\n         GROUP BY symbol\n     )) AS p\nON\n    o.product_id = p.symbol\nWHERE\n    prod.exchange_id IN ($Exchange)\nGROUP BY\n    `minute`\nORDER BY\n    `minute` ASC;",
           "refId": "A",
           "sql": {
             "columns": [
