@@ -1220,7 +1220,11 @@ def reconcile_positions(self):
                                 # For TradFi standard stocks, clamp based on the proposed USD value of the desired position
                                 # (since there is no maintenance margin per symbol reported by TWS)
                                 if exc_name == "tradfi":
-                                    proposed_usd_value = abs(desired_position) * instrument_price
+                                    price = get_current_price(symbol)
+                                    if price is None:
+                                        print(f"Warning: Could not get current price for clamping {symbol}")
+                                        price = 0.0
+                                    proposed_usd_value = abs(desired_position) * price
                                     if proposed_usd_value > symbol_cap:
                                         scale = symbol_cap / proposed_usd_value
                                         original = desired_position
