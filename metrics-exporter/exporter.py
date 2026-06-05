@@ -319,8 +319,8 @@ def collect_account_performance_metrics(cursor):
     # Metric 1: Account % change from take_profit_state baseline
     cursor.execute(
         "SELECT "
-        "  (SELECT account_value FROM balance_history "
-        "   ORDER BY timestamp DESC LIMIT 1) AS current_balance, "
+        "  (SELECT SUM(account_value) FROM balance_history "
+        "   WHERE timestamp = (SELECT MAX(timestamp) FROM balance_history)) AS current_balance, "
         "  (SELECT last_balance FROM take_profit_state "
         "   ORDER BY id DESC LIMIT 1) AS baseline_balance"
     )
@@ -414,4 +414,6 @@ def main():
 
 
 if __name__ == "__main__":
+    main()
+__name__ == "__main__":
     main()
