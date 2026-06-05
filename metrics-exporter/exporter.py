@@ -343,11 +343,17 @@ def collect_account_performance_metrics(cursor):
         )
         if total_abs_direction > 0:
             risk_pos_pct = config.get("reconciliation_engine.risk_pos_percentage")
+            if risk_pos_pct is None:
+                risk_pos_pct = config.get("exchanges.hyperliquid.risk.risk_pos_percentage", 0.000003)
+            
             kelly_threshold = config.get("reconciliation_engine.kelly_threshold")
+            if kelly_threshold is None:
+                kelly_threshold = config.get("exchanges.hyperliquid.risk.kelly_threshold", 0.5)
+                
             max_pos = (
                 current_balance
-                * risk_pos_pct
-                * (1 + kelly_threshold)
+                * float(risk_pos_pct or 0.000003)
+                * (1 + float(kelly_threshold or 0.5))
                 * total_abs_direction
             )
             MAX_THEORETICAL_POSITION.set(max_pos)
@@ -414,6 +420,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
-__name__ == "__main__":
     main()
