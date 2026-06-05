@@ -114,25 +114,25 @@
     }
     
     #data-container {
-      line-height: 1.6;
+      line-height: 1.5;
       display: flex;
       flex-wrap: wrap;
       justify-content: center;
       align-items: flex-start;
       gap: 1.5rem;
       width: 100%;
-      padding: 10px;
+      padding: 5px;
       box-sizing: border-box;
     }
     
     /* --- STATUS & CONTROLS CONTAINER --- */
     .status-controls-container {
       display: flex;
-      justify-content: flex-end;
+      justify-content: center;
       align-items: center;
       gap: 1.5rem;
       margin-top: 1.5rem;
-      margin-right: 2.5rem;
+      margin-bottom: 0.5rem;
       font-family: 'Courier New', Courier, monospace;
       font-size: 0.6em;
       color: var(--secondary-text-color);
@@ -186,7 +186,7 @@
       margin-right: auto;
       max-width: 90%;
       margin-top: 1em;
-      margin-bottom: 2em;
+      margin-bottom: 1em;
       display: block;
       overflow-x: auto;
     }
@@ -198,6 +198,7 @@
       flex: 1 1 600px;
       max-width: 800px;
       min-width: 0;
+      margin-bottom: 1rem;
     }
     @media (max-width: 650px) {
       .address-container {
@@ -210,7 +211,8 @@
         font-family: 'Courier New', Courier, monospace;
         font-size: 1.2em;
         color: var(--accent-color);
-        margin-top: 2em;
+        margin-top: 0.8em;
+        margin-bottom: 0.5em;
         word-wrap: break-word;
     }
 
@@ -597,7 +599,8 @@
   
   <div class="status-controls-container">
     <label class="hide-balances-label">
-      <input type="checkbox" id="hide-small-balances"> HIDE SMALL BALANCES (≤ $10.00)
+      Hide Small Balances: 
+      <input type="checkbox" id="hide-small-balances">
     </label>
     <span id="update-status">Checking for updates...</span>
   </div>
@@ -1186,7 +1189,7 @@ function renderEquityChart(container, walletStats) {
         const statusElem = document.getElementById('update-status');
         if (lastUpdateTime) {
             const secondsAgo = Math.round((new Date() - lastUpdateTime) / 1000);
-            statusElem.textContent = `Last update: ${secondsAgo} second${secondsAgo === 1 ? '' : 's'} ago`;
+            statusElem.textContent = `Last Update: ${secondsAgo} second${secondsAgo === 1 ? '' : 's'} ago`;
         }
     }
 
