@@ -1336,7 +1336,7 @@ function renderEquityChart(container, walletStats) {
             
             // Development wallets often run in test mode and ignore market hours.
             // We exempt them from the "Trading Halt" notice to avoid misleading the UI.
-            const isExempt = label.includes("Development") || label.includes("github.com");
+            const isExempt = label.includes("Dev") || label.includes("github.com");
             
             let haltNotice = container.querySelector('.trading-halt-notice');
             if (!isOpen && !isExempt) {
