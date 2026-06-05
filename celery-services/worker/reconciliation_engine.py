@@ -926,6 +926,9 @@ def calculate_reconciliation_action(
             min_trade_threshold = config.get(
                 "reconciliation_engine.minimum_trade_threshold", 20.0
             )
+            # Enforce the hard exchange minimum order value of $10.00 for HyperLiquid
+            if symbol.startswith("XYZ-") or "USDC:USDC" in symbol:
+                min_trade_threshold = max(min_trade_threshold, 10.0)
             position_exists = abs(actual_position) > 1e-8
             open_risk = abs(desired_position) > 1e-8
 

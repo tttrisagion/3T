@@ -37,7 +37,7 @@ exchanges:
     poll_batch_size: 10  # number of symbols to fetch per batch
     risk:
       max_margin_usage_percentage: 0.5
-      risk_pos_percentage: 0.000003
+      risk_pos_percentage: 0.000016  # targets ~$12 position size to respect $10 HL minimum
       kelly_threshold: 0.5
       probationary_multiplier: 0.25
       symbols:
