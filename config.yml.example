@@ -1,7 +1,7 @@
 # trisagion.xyz replication
 www:
   enabled: false
-  wallet: 0x0000000000000000000000000000000000000000
+  wallet: "0x1Db55ecB43BE0D15130A529fc8c10E96c1d52c79"
 
 # Application-wide configuration
 database:
@@ -128,7 +128,7 @@ reconciliation_engine:
   order_gateway_url: "http://order-gateway:8002"
   
   # Position staleness timeout in seconds (how old positions can be before ignored)
-  position_staleness_timeout: 60
+  position_staleness_timeout: 300
   
   # Minimum trade value in USD to execute orders (avoids dust trades)
   minimum_trade_threshold: 1.00
