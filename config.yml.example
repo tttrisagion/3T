@@ -65,7 +65,7 @@ exchanges:
       client_id: 1
     risk:
       max_margin_usage_percentage: 0.25
-      risk_pos_percentage: 0.01  # 1% for stocks
+      risk_pos_percentage: 0.000003  # safe stock scaling factor
       kelly_threshold: 0.5
       probationary_multiplier: 0.25
       symbols:

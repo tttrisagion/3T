@@ -1208,13 +1208,39 @@ def reconcile_positions(self):
                             if (
                                 symbol_margin_caps
                                 and symbol in symbol_margin_caps
-                                and symbol_margin_used > 0
                                 and abs(desired_position) > 1e-8
                             ):
                                 symbol_cap = (
                                     symbol_margin_caps[symbol] * margin_cap_multiplier
                                 )
-                                if symbol_margin_used > symbol_cap:
+                                
+                                # For TradFi standard stocks, clamp based on the proposed USD value of the desired position
+                                # (since there is no maintenance margin per symbol reported by TWS)
+                                if exc_name == "tradfi":
+                                    proposed_usd_value = abs(desired_position) * instrument_price
+                                    if proposed_usd_value > symbol_cap:
+                                        scale = symbol_cap / proposed_usd_value
+                                        original = desired_position
+                                        desired_position = desired_position * scale
+                                        symbol_span.add_event(
+                                            "TradFi proposed position clamped by margin cap",
+                                            {
+                                                "symbol": symbol,
+                                                "original_desired": original,
+                                                "clamped_desired": desired_position,
+                                                "proposed_usd_value": proposed_usd_value,
+                                                "symbol_margin_cap": symbol_cap,
+                                                "scale_factor": scale,
+                                            },
+                                        )
+                                        print(
+                                            f"TradFi Margin Clamp: Scaling desired position for {symbol} "
+                                            f"from {original:.4f} to {desired_position:.4f} "
+                                            f"to respect the ${symbol_cap:.2f} symbol budget."
+                                        )
+                                
+                                # For DeFi perps, clamp using on-chain maintenance margin used
+                                elif symbol_margin_used > symbol_cap:
                                     scale = symbol_cap / symbol_margin_used
                                     original = desired_position
                                     desired_position = desired_position * scale
