@@ -920,9 +920,13 @@ def calculate_reconciliation_action(
         )
 
         try:
+            position_exists = abs(actual_position) > 1e-8
+            open_risk = abs(desired_position) > 1e-8
+
             instrument_price = get_current_price(symbol)
-            if instrument_price is None:
-                span.add_event("No price available")
+            # If opening or adjusting risk, we must have a fresh price
+            if instrument_price is None and open_risk:
+                span.add_event("No price available for opening or adjusting risk")
                 return False, None, None
 
             min_trade_threshold = config.get(
@@ -931,8 +935,6 @@ def calculate_reconciliation_action(
             # Enforce the hard exchange minimum order value of $10.00 for HyperLiquid
             if symbol.startswith("XYZ-") or "USDC:USDC" in symbol:
                 min_trade_threshold = max(min_trade_threshold, 10.0)
-            position_exists = abs(actual_position) > 1e-8
-            open_risk = abs(desired_position) > 1e-8
 
             execute_trade = False
             side = None
@@ -1374,4 +1376,3 @@ def reconcile_positions(self):
                     r.delete("reconciliation:lock")
             except Exception:
                 pass  # Lock will expire via TTL if delete fails
-ass  # Lock will expire via TTL if delete fails
