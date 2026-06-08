@@ -1,6 +1,6 @@
 # Theological & Technical Framework
 
-![Theological & Technical Framework](/img/masthead-framework.png)
+![Theological & Technical Framework](/img/masthead-framework.jpg)
 
 ## Invocation to the Trinity
 

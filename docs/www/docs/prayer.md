@@ -1,6 +1,6 @@
 # Praying The Trisagion
 
-![Praying The Trisagion](/img/masthead-prayer.png)
+![Praying The Trisagion](/img/masthead-prayer.jpg)
 
 The Trisagion project is named for and consecrated to the profound mystery of the Holy Trinity, drawing its inspiration from one of the most ancient and venerable hymns of the Christian faith: the Trisagion (from Greek: Τρισάγιον, 'Thrice Holy'). This doxology, "Holy God, Holy Mighty, Holy Immortal, have mercy on us," serves as a foundational prayer in both Eastern and Western liturgies.
 

@@ -255,6 +255,9 @@
       box-shadow: 0 0 15px rgba(255, 153, 0, 0.15);
       transition: object-position 0.1s ease-out;
     }
+    .doc-section img[src*="masthead-prayer.jpg"] {
+      object-position: 50% calc(10% + var(--parallax-pos, 0%) * 0.9);
+    }
     
     /* --- CRT/SCANLINE EFFECTS --- */
     @keyframes flicker {
@@ -1849,28 +1852,28 @@ function renderEquityChart(container, walletStats) {
         <div class="footer-container">
             <div class="footer-columns">
                 <div class="footer-column">
-                    <h6>Explore</h6>
+                    <h6>EXPLORE</h6>
                     <ul class="footer-links">
-			<li><a href="/trisagion.pdf">Whitepaper</a></li>
-                        <li><a href="#" onclick="document.querySelector('.nav-btn[data-target=tab-framework]').click(); return false;">Framework</a></li>
-                        <li><a href="#" onclick="document.querySelector('.nav-btn[data-target=tab-mission]').click(); return false;">Mission</a></li>
-                        <li><a href="#" onclick="document.querySelector('.nav-btn[data-target=tab-specifications]').click(); return false;">Specifications</a></li>
-                        <li><a href="#" onclick="document.querySelector('.nav-btn[data-target=tab-prayer]').click(); return false;">The Trisagion Prayer</a></li>
-                        <li><a href="https://www.ewtn.com/catholicism/devotions/angelic-trisagion-382" target="_blank" rel="noopener noreferrer">The Angelic Trisagion ↗ [external]</a></li>
-                        <li><a href="#" onclick="document.querySelector('.nav-btn[data-target=tab-legal]').click(); return false;">Legal &amp; Canonical</a></li>
-                    </ul>
+                <li><a href="/trisagion.pdf">Whitepaper</a></li>
+                       <li><a href="#" onclick="document.querySelector('.nav-btn[data-target=tab-framework]').click(); return false;">Framework</a></li>
+                       <li><a href="#" onclick="document.querySelector('.nav-btn[data-target=tab-mission]').click(); return false;">Mission</a></li>
+                       <li><a href="#" onclick="document.querySelector('.nav-btn[data-target=tab-specifications]').click(); return false;">Specifications</a></li>
+                       <li><a href="#" onclick="document.querySelector('.nav-btn[data-target=tab-prayer]').click(); return false;">The Trisagion Prayer</a></li>
+                       <li><a href="https://www.ewtn.com/catholicism/devotions/angelic-trisagion-382" target="_blank" rel="noopener noreferrer">The Angelic Trisagion ↗ [external]</a></li>
+                       <li><a href="#" onclick="document.querySelector('.nav-btn[data-target=tab-legal]').click(); return false;">Legal &amp; Canonical</a></li>
+                   </ul>
                 </div>
 
                 <div class="footer-column">
-                    <h6>Analytics</h6>
+                    <h6>ANALYTICS</h6>
                     <ul class="footer-links">
-			<li><a href="https://hypurrscan.io/address/0x77dEe11bbF0Ad1143Bf008a84AE776557e2ebADE">Ledger of Transparency for Initial Gift</a></li>
-                        <li><a href="https://app.coinmarketman.com/hypertracker/wallet/0x77dEe11bbF0Ad1143Bf008a84AE776557e2ebADE">CMM Tracker</a></li>
-                    </ul>
+                <li><a href="https://hypurrscan.io/address/0x77dEe11bbF0Ad1143Bf008a84AE776557e2ebADE">Ledger of Transparency for Initial Gift</a></li>
+                       <li><a href="https://app.coinmarketman.com/hypertracker/wallet/0x77dEe11bbF0Ad1143Bf008a84AE776557e2ebADE">CMM Tracker</a></li>
+                   </ul>
                 </div>
 
                 <div class="footer-column">
-                    <h6>Connect</h6>
+                    <h6>CONNECT</h6>
                     <ul class="footer-links">
                         <li><a href="#" onclick="document.querySelector('.nav-btn[data-target=tab-connect]').click(); return false;">Connect &amp; Collaborate</a></li>
                         <li><a href="https://stats.trisagion.xyz/">System Status</a></li>
