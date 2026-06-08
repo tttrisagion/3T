@@ -1001,12 +1001,13 @@ def calculate_reconciliation_action(
 
             elif position_exists:  # Liquidate position
                 position_delta = actual_position * -1
-                if abs(position_delta * instrument_price) >= min_trade_threshold:
-                    execute_trade = True
-                    if actual_position > 0:
-                        side = "sell"
-                    else:
-                        side = "buy"
+                # If we are liquidating, always execute the trade to eliminate exposure
+                # (even if the price feed goes offline or prices are unavailable)
+                execute_trade = True
+                if actual_position > 0:
+                    side = "sell"
+                else:
+                    side = "buy"
 
             span.set_attributes(
                 {
@@ -1373,3 +1374,4 @@ def reconcile_positions(self):
                     r.delete("reconciliation:lock")
             except Exception:
                 pass  # Lock will expire via TTL if delete fails
+ass  # Lock will expire via TTL if delete fails
