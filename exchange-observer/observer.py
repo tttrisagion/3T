@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 
 import ccxt.async_support as ccxt
 from fastapi import FastAPI
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 
 # Add shared to sys.path to allow importing config
@@ -180,6 +180,20 @@ def health_check():
 async def get_observer_data():
     """Returns the latest polled position data."""
     return JSONResponse(content=positions_cache)
+
+
+@app.get("/framework")
+@app.get("/mission")
+@app.get("/technology")
+@app.get("/specifications")
+@app.get("/prayer")
+@app.get("/legal")
+@app.get("/connect")
+async def serve_index():
+    for path in ["/app/www/index.html", "docs/www/index.html"]:
+        if os.path.exists(path):
+            return FileResponse(path)
+    return JSONResponse(status_code=404, content={"error": "index.html not found"})
 
 
 # Serve static files from /app/www (mounted from docs/www)

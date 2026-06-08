@@ -41,7 +41,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### Documentation
 - Render PlantUML diagrams: `make render-diagrams`
 - Whitepaper: https://trisagion.xyz/trisagion.pdf
-- GitBook docs: https://trisagion.gitbook.io/
+- Documentation: Integrated directly into the local dashboard, or as Markdown source files in `docs/www/docs/`
 
 ### Git Workflow
 - Feature branches: Use `feature/` prefix (e.g., `feature/providence-v3-celery`)

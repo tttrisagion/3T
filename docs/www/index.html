@@ -14,6 +14,7 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/suncalc/1.8.0/suncalc.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <style>
     /* --- THEME AND COLOR VARIABLES --- */
     :root {
@@ -55,10 +56,204 @@
       text-align: center;
       flex-direction: column;
       transition: background-color 0.3s, color 0.3s;
+      font-family: "Times New Roman", Georgia, serif;
+      font-size: 11pt;
     }
     body, div, p, a, a:visited, a:active {
       color: var(--text-color);
       text-align: center;
+      font-family: "Times New Roman", Georgia, serif;
+    }
+
+    /* --- TABS & NAVIGATION --- */
+    #main-nav {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+      padding: 1.2rem;
+      border-bottom: 1px solid var(--accent-color);
+      background-color: var(--bg-color);
+      flex-wrap: wrap;
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.7);
+    }
+    .nav-btn {
+      background: transparent;
+      border: 1px solid var(--accent-color);
+      color: var(--text-color);
+      padding: 0.6rem 1.2rem;
+      font-family: "Times New Roman", Georgia, serif;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: all 0.25s ease-in-out;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .nav-btn:hover, .nav-btn.active {
+      background: var(--accent-color);
+      color: var(--bg-color);
+      box-shadow: 0 0 12px var(--accent-color);
+    }
+    
+    /* Mobile Hamburger Menu */
+    #nav-toggle {
+      display: none;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      padding: 0.5rem;
+      flex-direction: column;
+      gap: 5px;
+      z-index: 1100;
+    }
+    #nav-toggle span {
+      display: block;
+      width: 25px;
+      height: 3px;
+      background-color: var(--accent-color);
+      transition: all 0.3s ease-in-out;
+    }
+
+    @media (max-width: 768px) {
+      #nav-toggle {
+        display: flex;
+      }
+      #main-nav {
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.8rem 1.5rem;
+      }
+      #main-nav .nav-btn {
+        display: none;
+        width: 100%;
+        text-align: center;
+        margin-top: 0.5rem;
+      }
+      #main-nav.open .nav-btn {
+        display: block;
+      }
+      #main-nav.open #nav-toggle span:nth-child(1) {
+        transform: translateY(8px) rotate(45deg);
+      }
+      #main-nav.open #nav-toggle span:nth-child(2) {
+        opacity: 0;
+      }
+      #main-nav.open #nav-toggle span:nth-child(3) {
+        transform: translateY(-8px) rotate(-45deg);
+      }
+    }
+
+    .tab-content {
+      display: none;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .tab-content.active {
+      display: block;
+      animation: fadeIn 0.4s ease-out;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    /* --- MARKDOWN STYLES --- */
+    .doc-section {
+        background-color: rgba(0, 0, 0, 0.45);
+        border: 1px solid rgba(255, 153, 0, 0.2);
+        padding: 2.5rem;
+        border-radius: 6px;
+        margin-bottom: 2rem;
+        box-shadow: 0 5px 20px rgba(0,0,0,0.5);
+        max-width: 900px;
+        margin: 2rem auto;
+        text-align: left;
+    }
+    body[data-theme="light"] .doc-section {
+        background-color: rgba(245, 245, 245, 0.9);
+        border: 1px solid rgba(0, 0, 0, 0.1);
+        box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+    }
+    .doc-section h1, .doc-section h2, .doc-section h3 {
+      color: var(--accent-color);
+      text-align: left;
+      border-bottom: 1px solid var(--accent-darker);
+      padding-bottom: 0.5rem;
+      margin-top: 2rem;
+      font-family: "Times New Roman", Georgia, serif;
+    }
+    .doc-section h1 {
+      font-size: 2rem;
+      margin-top: 0;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .doc-section h2 {
+      font-size: 1.5rem;
+    }
+    .doc-section h3 {
+      font-size: 1.2rem;
+      border-bottom: none;
+    }
+    .doc-section p, .doc-section li, .doc-section td, .doc-section th {
+      text-align: left;
+      line-height: 1.7;
+      font-size: 1.05rem;
+      font-family: "Times New Roman", Georgia, serif;
+    }
+    .doc-section ul {
+      text-align: left;
+      padding-left: 2rem;
+      list-style-type: square;
+    }
+    .doc-section li {
+      margin-bottom: 0.5rem;
+    }
+    .doc-section strong {
+      color: var(--accent-color);
+      font-weight: bold;
+    }
+    .doc-section a, .doc-section a:visited, .doc-section a:active {
+      color: var(--accent-color) !important;
+      text-decoration: underline;
+      transition: color 0.2s;
+    }
+    .doc-section a:hover {
+      color: var(--accent-darker) !important;
+    }
+    .doc-section table {
+      width: 100%;
+      max-width: 100%;
+      margin: 1.5rem 0;
+      border-collapse: collapse;
+      display: table !important;
+    }
+    .doc-section th, .doc-section td {
+      border: 1px solid var(--accent-color);
+      padding: 10px 12px;
+      text-align: left;
+    }
+    .doc-section th {
+      background-color: var(--table-hover-bg);
+      color: var(--accent-color);
+      font-weight: bold;
+    }
+    .doc-section hr {
+      border: 0;
+      border-top: 1px solid rgba(255, 153, 0, 0.2);
+      margin: 2rem 0;
+    }
+    .doc-section img {
+      width: 100%;
+      max-height: 350px;
+      object-fit: cover;
+      object-position: 50% var(--parallax-pos, 0%);
+      border-radius: 4px;
+      margin-bottom: 1.5rem;
+      border: 1px solid rgba(255, 153, 0, 0.3);
+      box-shadow: 0 0 15px rgba(255, 153, 0, 0.15);
+      transition: object-position 0.1s ease-out;
     }
     
     /* --- CRT/SCANLINE EFFECTS --- */
@@ -133,8 +328,8 @@
       gap: 1.5rem;
       margin-top: 1.5rem;
       margin-bottom: 0.5rem;
-      font-family: 'Courier New', Courier, monospace;
-      font-size: 0.6em;
+      font-family: "Times New Roman", Georgia, serif;
+      font-size: 11pt;
       color: var(--secondary-text-color);
     }
     .hide-balances-label {
@@ -159,7 +354,7 @@
 
     #clocks-container {
       color: var(--accent-color);
-      font-family: 'Courier New', Courier, monospace;
+      font-family: "Times New Roman", Georgia, serif;
       display: flex;
       justify-content: center;
       align-items: center;
@@ -184,16 +379,20 @@
       width: 100%;
       margin-left: auto;
       margin-right: auto;
-      max-width: 90%;
+      max-width: 100%;
       margin-top: 1em;
       margin-bottom: 1em;
-      display: block;
-      overflow-x: auto;
+      display: table;
     }
     th {
       cursor: pointer;
     }
     
+    .address-container, .address-container * {
+        font-family: 'Courier New', Courier, monospace !important;
+        font-size: 9pt !important;
+    }
+
     .address-container {
       flex: 1 1 600px;
       max-width: 800px;
@@ -208,8 +407,6 @@
     }
 
     .address-container h3 {
-        font-family: 'Courier New', Courier, monospace;
-        font-size: 1.2em;
         color: var(--accent-color);
         margin-top: 0.8em;
         margin-bottom: 0.5em;
@@ -222,8 +419,6 @@
         gap: 10px;
         max-width: 90%;
         margin: 1em auto;
-        font-family: Courier;
-        font-size: 9pt;
         text-align: left;
     }
 
@@ -561,6 +756,26 @@
   </style>
 </head>
 <body>
+  <!-- --- NAVIGATION PORTAL --- -->
+  <nav id="main-nav" class="scanline-effect">
+    <button id="nav-toggle" aria-label="Toggle Navigation">
+      <span></span>
+      <span></span>
+      <span></span>
+    </button>
+    <button class="nav-btn active" data-target="tab-dashboard">Dashboard</button>
+    <button class="nav-btn" data-target="tab-framework" data-doc="docs/framework.md">Framework</button>
+    <button class="nav-btn" data-target="tab-mission" data-doc="docs/mission.md">Mission</button>
+    <button class="nav-btn" data-target="tab-technology" data-doc="docs/technology.md">Technology</button>
+    <button class="nav-btn" data-target="tab-specifications" data-doc="docs/specifications.md">Specifications</button>
+    <button class="nav-btn" data-target="tab-prayer" data-doc="docs/prayer.md">Prayer</button>
+    <!-- Hidden from top nav, accessible via footer only -->
+    <button class="nav-btn" data-target="tab-legal" data-doc="docs/legal.md" style="display: none;">Legal</button>
+    <button class="nav-btn" data-target="tab-connect" data-doc="docs/connect.md" style="display: none;">Connect</button>
+  </nav>
+
+  <!-- --- DASHBOARD TAB --- -->
+  <div id="tab-dashboard" class="tab-content active">
 <!--
   <button id="theme-toggle" aria-label="Toggle theme"></button>
  -->
@@ -625,6 +840,30 @@
       </div>
       <div class="time-zone-label">Montréal</div>
     </div>
+  </div>
+  </div> <!-- --- END DASHBOARD TAB --- -->
+
+  <!-- --- OTHER TABS --- -->
+  <div id="tab-framework" class="tab-content">
+    <div class="doc-section"><p>Loading Framework...</p></div>
+  </div>
+  <div id="tab-mission" class="tab-content">
+    <div class="doc-section"><p>Loading Mission...</p></div>
+  </div>
+  <div id="tab-technology" class="tab-content">
+    <div class="doc-section"><p>Loading Technology...</p></div>
+  </div>
+  <div id="tab-specifications" class="tab-content">
+    <div class="doc-section"><p>Loading Specifications...</p></div>
+  </div>
+  <div id="tab-prayer" class="tab-content">
+    <div class="doc-section"><p>Loading Prayer...</p></div>
+  </div>
+  <div id="tab-legal" class="tab-content">
+    <div class="doc-section"><p>Loading Legal...</p></div>
+  </div>
+  <div id="tab-connect" class="tab-content">
+    <div class="doc-section"><p>Loading Connect...</p></div>
   </div>
 
   <script>
@@ -1368,7 +1607,153 @@ function renderEquityChart(container, walletStats) {
         }
     });
 
+    // --- TAB AND MARKDOWN RENDERING LOGIC ---
+    const loadedDocs = new Set();
+
+    async function loadMarkdown(tabId, docPath) {
+      if (loadedDocs.has(tabId)) return; // Only load once
+      const tabElement = document.getElementById(tabId);
+      try {
+        const response = await fetch(docPath);
+        if (!response.ok) throw new Error(`HTTP error ${response.status}`);
+        const md = await response.text();
+        
+        // Use marked to parse (if global marked is available)
+        if (typeof marked !== 'undefined') {
+          tabElement.innerHTML = `<div class="doc-section">${marked.parse(md)}</div>`;
+        } else {
+          tabElement.innerHTML = `<div class="doc-section"><pre style="white-space: pre-wrap; font-family: monospace;">${md}</pre></div>`;
+        }
+        loadedDocs.add(tabId);
+      } catch (err) {
+        console.error(`Error loading markdown for ${tabId}:`, err);
+        tabElement.innerHTML = `<div class="doc-section"><p style="color: var(--accent-color);">Failed to load document: ${err.message}</p></div>`;
+      }
+    }
+
+    document.querySelectorAll('.nav-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const targetId = btn.getAttribute('data-target');
+        const docPath = btn.getAttribute('data-doc');
+
+        // Toggle buttons
+        document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        // Toggle content
+        document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+        document.getElementById(targetId).classList.add('active');
+
+        // URL Path routing via History API (for SEO clean URLs)
+        const cleanPath = targetId === 'tab-dashboard' ? '/' : '/' + targetId.replace('tab-', '');
+        if (window.location.pathname !== cleanPath) {
+          window.history.pushState(null, '', cleanPath);
+        }
+
+        // Scroll to the top of the page smoothly
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+
+        // Load document dynamically if applicable
+        if (docPath) {
+          loadMarkdown(targetId, docPath);
+        }
+
+        // Trigger dynamic layout updates if needed
+        if (targetId === 'tab-dashboard') {
+          if (typeof updateTradingHaltUI === 'function') updateTradingHaltUI();
+          // Resize charts to fit newly active container
+          chartInstances.forEach(chart => {
+            if (typeof chart.resize === 'function') chart.resize();
+          });
+        }
+      });
+    });
+
+    // --- ON PAGE LOAD ROUTER & POPSTATE ---
+    function routeFromPath() {
+      const path = window.location.pathname.replace(/\/$/, ''); // strip trailing slash
+      let targetTab = 'tab-dashboard';
+      
+      if (path === '/framework') targetTab = 'tab-framework';
+      else if (path === '/mission') targetTab = 'tab-mission';
+      else if (path === '/technology') targetTab = 'tab-technology';
+      else if (path === '/specifications') targetTab = 'tab-specifications';
+      else if (path === '/prayer') targetTab = 'tab-prayer';
+      else if (path === '/legal') targetTab = 'tab-legal';
+      else if (path === '/connect') targetTab = 'tab-connect';
+      
+      const btn = document.querySelector(`.nav-btn[data-target="${targetTab}"]`);
+      if (btn) {
+        const targetId = btn.getAttribute('data-target');
+        const docPath = btn.getAttribute('data-doc');
+
+        // Toggle buttons
+        document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        // Toggle content
+        document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+        document.getElementById(targetId).classList.add('active');
+
+        if (docPath) {
+          loadMarkdown(targetId, docPath);
+        }
+        
+        // Trigger resize on load if dashboard is chosen
+        if (targetId === 'tab-dashboard') {
+          setTimeout(() => {
+            chartInstances.forEach(chart => {
+              if (typeof chart.resize === 'function') chart.resize();
+            });
+          }, 150);
+        }
+      }
+    }
+
+    window.addEventListener('popstate', routeFromPath);
+
+    // --- MASTHEAD PARALLAX EFFECT ---
+    function updateMastheadParallax() {
+      const images = document.querySelectorAll('.doc-section img');
+      const windowHeight = window.innerHeight;
+      
+      images.forEach(img => {
+        const rect = img.getBoundingClientRect();
+        if (rect.bottom > 0 && rect.top < windowHeight) {
+          // Calculate ratio where it starts top-aligned (0%) when near the top of the viewport (rect.top = 100)
+          // and moves to bottom-aligned (100%) as it scrolls out at the top (rect.top = -rect.height)
+          const startTop = 100;
+          const endTop = -rect.height;
+          const ratio = Math.min(Math.max((startTop - rect.top) / (startTop - endTop), 0), 1);
+          const percent = ratio * 100;
+          img.style.setProperty('--parallax-pos', `${percent}%`);
+        }
+      });
+    }
+
+    window.addEventListener('scroll', updateMastheadParallax);
+    window.addEventListener('resize', updateMastheadParallax);
+    // Periodically run to snap correct alignment after dynamic markdown finishes loading
+    setInterval(updateMastheadParallax, 500);
+
+    // --- MOBILE HAMBURGER MENU TOGGLE ---
+    const navToggle = document.getElementById('nav-toggle');
+    const mainNav = document.getElementById('main-nav');
+    if (navToggle && mainNav) {
+      navToggle.addEventListener('click', () => {
+        mainNav.classList.toggle('open');
+      });
+
+      // Close menu when a navigation button is clicked
+      document.querySelectorAll('.nav-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          mainNav.classList.remove('open');
+        });
+      });
+    }
+
     fetchData(); // Initial fetch
+    routeFromPath(); // Initial SPA route evaluation based on clean url path
     updateTradingHaltUI(); // Initial halt status check
     setInterval(fetchData, POLLING_INTERVAL); // Fetch every 15 seconds
     setInterval(updateTimer, 1000); // Update the 'ago' timer every second
@@ -1399,7 +1784,7 @@ function renderEquityChart(container, walletStats) {
 
     <style>
         .site-footer {
-        font-family: 'Courier New', Courier, monospace;
+            font-family: "Times New Roman", Georgia, serif;
             background-color: var(--footer-bg);
             color: var(--footer-text);
             padding: 45px 0 20px;
@@ -1466,11 +1851,13 @@ function renderEquityChart(container, walletStats) {
                 <div class="footer-column">
                     <h6>Explore</h6>
                     <ul class="footer-links">
-			<li><a href="/trisagion.pdf">Whitepaper</a>
-                        <li><a href="https://trisagion.gitbook.io/trisagion-docs/">Documentation</a></li>
-                        <li><a href="https://trisagion.gitbook.io/trisagion-docs/documentation/praying-the-trisagion">The Trisagion Prayer</a></li>
-                        <li><a href="https://www.ewtn.com/catholicism/devotions/angelic-trisagion-382">The Angelic Trisagion</a></li>
-                        <li><a href="https://stats.trisagion.xyz/">Uptime</a></li>
+			<li><a href="/trisagion.pdf">Whitepaper</a></li>
+                        <li><a href="#" onclick="document.querySelector('.nav-btn[data-target=tab-framework]').click(); return false;">Framework</a></li>
+                        <li><a href="#" onclick="document.querySelector('.nav-btn[data-target=tab-mission]').click(); return false;">Mission</a></li>
+                        <li><a href="#" onclick="document.querySelector('.nav-btn[data-target=tab-specifications]').click(); return false;">Specifications</a></li>
+                        <li><a href="#" onclick="document.querySelector('.nav-btn[data-target=tab-prayer]').click(); return false;">The Trisagion Prayer</a></li>
+                        <li><a href="https://www.ewtn.com/catholicism/devotions/angelic-trisagion-382" target="_blank" rel="noopener noreferrer">The Angelic Trisagion ↗ [external]</a></li>
+                        <li><a href="#" onclick="document.querySelector('.nav-btn[data-target=tab-legal]').click(); return false;">Legal &amp; Canonical</a></li>
                     </ul>
                 </div>
 
@@ -1485,6 +1872,8 @@ function renderEquityChart(container, walletStats) {
                 <div class="footer-column">
                     <h6>Connect</h6>
                     <ul class="footer-links">
+                        <li><a href="#" onclick="document.querySelector('.nav-btn[data-target=tab-connect]').click(); return false;">Connect &amp; Collaborate</a></li>
+                        <li><a href="https://stats.trisagion.xyz/">System Status</a></li>
                         <li><a href="https://x.com/tttrisagion">X (Twitter)</a></li>
                         <li><a href="https://github.com/tttrisagion/3T">GitHub</a></li>
                         <li><a href="https://github.com/tttrisagion/3T/actions/workflows/deploy.yml" target="_blank" rel="noopener noreferrer"><img src="https://github.com/tttrisagion/3T/actions/workflows/deploy.yml/badge.svg" alt="Deploy Status" style="vertical-align: middle;"></a></li>

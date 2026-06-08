@@ -12,7 +12,7 @@
 
 Tactical Trend Trader (3T) is a sophisticated, distributed trading platform powered by **Providence** - a massively parallel trading engine that executes concurrent runs using permutation entropy signals, Kelly criterion position sizing, and evolutionary clonal adaptation. The system leverages a microservices architecture with priority-based task queuing to analyze market data, execute trades, and provide comprehensive observability.
 
-Read the latest [whitepaper](https://trisagion.xyz/trisagion.pdf) and documentation at [trisagion.gitbook.io](https://trisagion.gitbook.io/trisagion-docs/).
+Read the latest [whitepaper](https://trisagion.xyz/trisagion.pdf) and documentation via the local dashboard or directly inside the `docs/www/docs/` directory.
 
 <p align="center">
   <a href="https://github.com/tttrisagion/3T/actions/workflows/ci.yml">
@@ -182,8 +182,8 @@ Note: Your system must have docker and docker-compose available. The docker serv
 
 # Documentation
 
-- Whitepaper  https://trisagion.xyz/trisagion.pdf
-- Documentation https://trisagion.gitbook.io/
+- Whitepaper: https://trisagion.xyz/trisagion.pdf
+- Documentation: Integrated directly into the local dashboard, or as Markdown source files in `docs/www/docs/`
 
 ## Development
 
@@ -263,8 +263,6 @@ The current plans for this repository involve migrating the proof-of-concept fun
 - **Advanced Analytics**: Integrating advanced analytics and machine learning to improve trading performance.
 - **Real-time Portfolio Management**: Developing a real-time portfolio management system to track and manage assets.
 - **Expanded Exchange Support**: Adding support for more cryptocurrency exchanges and trading pairs.
-
-The future plans for the 3T project are updated here https://trisagion.gitbook.io/trisagion-docs/technology/research-and-roadmap
 
 ## Contributing
 
