@@ -333,7 +333,7 @@ def fetch_and_store_ohlcv(symbol: str, timeframe: str, lookback: int):
                 latest_price = ohlcv_sorted[-1][4]
                 
                 with get_redis_connection() as r:
-                    r.set(f"price:{symbol}", float(latest_price), ex=120)
+                    r.set(f"price:{symbol}", float(latest_price), ex=86400)
                     
                     stream_name = config.get("redis.streams.price_updates", "prices:updated")
                     r.xadd(stream_name, {
