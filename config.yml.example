@@ -106,6 +106,29 @@ reconciliation_engine:
   # How often to run reconciliation checks (in seconds)
   rebalance_frequency: 600.0 # in seconds
 
+  # Symbols list for the Providence Supervisor to manage virtual runs
+  symbols:
+    - "XYZ-AAPL/USDC:USDC"
+    - "XYZ-SP500/USDC:USDC"
+    - "XYZ-INTC/USDC:USDC"
+    - "XYZ-SILVER/USDC:USDC"
+    - "XYZ-MU/USDC:USDC"
+    - "XYZ-GOLD/USDC:USDC"
+    - "XYZ-SNDK/USDC:USDC"
+    - "XYZ-NVDA/USDC:USDC"
+    - "XYZ-CRCL/USDC:USDC"
+    - "XYZ-TSLA/USDC:USDC"
+    - "AAPL"
+    - "SPY"
+    - "INTC"
+    - "SLV"
+    - "MU"
+    - "GLD"
+    - "SNDK"
+    - "NVDA"
+    - "CRCL"
+    - "TSLA"
+
   # If true, flips the direction of the desired position (long becomes short, short becomes long).
   # Applied BEFORE can_go_long/can_go_short filters.
   invert_decisions: false
