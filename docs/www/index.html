@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Trisagion</title>
+  <title>TRISAGION</title>
   <link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="shortcut icon" href="/favicon.ico" />
@@ -85,11 +85,15 @@
       color: var(--text-color);
       padding: 0.6rem 1.2rem;
       font-family: "Times New Roman", Georgia, serif;
-      font-size: 0.95rem;
+      font-size: 1.2em;
+      font-weight: bold;
       cursor: pointer;
       transition: all 0.25s ease-in-out;
       text-transform: uppercase;
       letter-spacing: 1px;
+    }
+    .mobile-logo {
+      display: none;
     }
     .nav-btn:hover, .nav-btn.active {
       background: var(--accent-color);
@@ -117,6 +121,20 @@
     }
 
     @media (max-width: 768px) {
+      .mobile-logo {
+        display: block;
+        font-family: "Times New Roman", Georgia, serif;
+        font-weight: bold;
+        font-size: 1.4rem;
+        letter-spacing: 2px;
+        color: var(--accent-color);
+        position: absolute;
+        left: 50%;
+        top: 0.95rem;
+        transform: translateX(-50%);
+        pointer-events: auto;
+        cursor: pointer;
+      }
       #nav-toggle {
         display: flex;
       }
@@ -209,6 +227,16 @@
     }
     .doc-section li {
       margin-bottom: 0.5rem;
+    }
+    .doc-section blockquote {
+      border-left: 3px solid var(--accent-color);
+      padding-left: 1.5rem;
+      margin: 1.5rem 0;
+      color: var(--secondary-text-color);
+      font-style: italic;
+    }
+    .doc-section blockquote p {
+      color: var(--secondary-text-color);
     }
     .doc-section strong {
       color: var(--accent-color);
@@ -766,6 +794,7 @@
       <span></span>
       <span></span>
     </button>
+    <span class="mobile-logo">TRISAGION</span>
     <button class="nav-btn active" data-target="tab-dashboard">Dashboard</button>
     <button class="nav-btn" data-target="tab-framework" data-doc="docs/framework.md">Framework</button>
     <button class="nav-btn" data-target="tab-mission" data-doc="docs/mission.md">Mission</button>
@@ -1613,6 +1642,21 @@ function renderEquityChart(container, walletStats) {
     // --- TAB AND MARKDOWN RENDERING LOGIC ---
     const loadedDocs = new Set();
 
+    function updateTitle(targetId) {
+      if (targetId === 'tab-dashboard') {
+        document.title = 'TRISAGION';
+      } else {
+        const section = targetId.replace('tab-', '').toUpperCase();
+        if (section === 'LEGAL') {
+          document.title = 'TRISAGION LEGAL & CANONICAL';
+        } else if (section === 'CONNECT') {
+          document.title = 'TRISAGION CONNECT & COLLABORATE';
+        } else {
+          document.title = `TRISAGION ${section}`;
+        }
+      }
+    }
+
     async function loadMarkdown(tabId, docPath) {
       if (loadedDocs.has(tabId)) return; // Only load once
       const tabElement = document.getElementById(tabId);
@@ -1638,6 +1682,8 @@ function renderEquityChart(container, walletStats) {
       btn.addEventListener('click', () => {
         const targetId = btn.getAttribute('data-target');
         const docPath = btn.getAttribute('data-doc');
+
+        updateTitle(targetId);
 
         // Toggle buttons
         document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
@@ -1689,6 +1735,8 @@ function renderEquityChart(container, walletStats) {
       if (btn) {
         const targetId = btn.getAttribute('data-target');
         const docPath = btn.getAttribute('data-doc');
+
+        updateTitle(targetId);
 
         // Toggle buttons
         document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
@@ -1753,6 +1801,17 @@ function renderEquityChart(container, walletStats) {
           mainNav.classList.remove('open');
         });
       });
+
+      // Add click handler for mobile logo to switch to dashboard
+      const mobileLogo = document.querySelector('.mobile-logo');
+      if (mobileLogo) {
+        mobileLogo.addEventListener('click', () => {
+          const dashboardBtn = document.querySelector(".nav-btn[data-target='tab-dashboard']");
+          if (dashboardBtn) {
+            dashboardBtn.click();
+          }
+        });
+      }
     }
 
     fetchData(); // Initial fetch
@@ -1793,6 +1852,7 @@ function renderEquityChart(container, walletStats) {
             padding: 45px 0 20px;
             font-size: 15px;
             transition: background-color 0.3s, color 0.3s;
+            border-top: 1px solid var(--accent-color);
         }
         .footer-container {
             width: 80%;

@@ -1,5 +1,7 @@
 # Mission
 
+![Mission](/img/masthead-mission.jpg)
+
 ## The Call to Stewardship in a Digital Age
 
 The Trisagion project is a direct and faithful response to the material challenges facing the Church's global mission in the 21st century. The Holy See has faced chronic structural deficits, pension fund shortfalls, and a marked decline in the efficacy of traditional fundraising mechanisms. Donations to Peter's Pence, once a primary source of funding for the Roman Curia and papal charities, have fallen significantly from a high of over $100 million in 2006 to less than half that in recent years, a decline exacerbated by global pandemics and structural shifts that eroded donor trust.   
@@ -10,11 +12,14 @@ This new reality calls for new models of stewardship. The project is founded on 
 
 The mission of the Trisagion project is not without precedent. It stands within a rich tradition of lay-led Catholic organizations that have successfully adapted secular structures and tools for a sacred purpose, "baptizing" them for the work of the Church. Two modern examples provide a powerful model for this endeavor:
 
-### The International Order of Alhambra
-Founded in 1904 by William Harper Bennett, the Order of Alhambra provides a historical template. This organization adapted the popular model of secular fraternal and social clubs, complete with their unique ceremonies and structures, to create a community dedicated to Catholic charity. Its primary missions are to provide assistance, education, and residences for persons with intellectual and developmental disabilities, and to identify, mark, and preserve Catholic historical sites. By taking a familiar secular form—the social order—and infusing it with a Catholic purpose, the Order of Alhambra has for over a century provided immense material and social support where it is most needed.   
+> ### The International Order of Alhambra
+>
+> Founded in 1904 by William Harper Bennett, the Order of Alhambra provides a historical template. This organization adapted the popular model of secular fraternal and social clubs, complete with their unique ceremonies and structures, to create a community dedicated to Catholic charity. Its primary missions are to provide assistance, education, and residences for persons with intellectual and developmental disabilities, and to identify, mark, and preserve Catholic historical sites. By taking a familiar secular form—the social order—and infusing it with a Catholic purpose, the Order of Alhambra has for over a century provided immense material and social support where it is most needed.   
 
-### Pietra Fitness
-Founded by Karen Barbieri, Pietra Fitness was created as a direct and deliberate Catholic alternative to yoga. After experiencing debilitating back pain and finding relief in certain physical exercises, Barbieri, a devout Catholic, felt a call to develop a program that offered the physical benefits of stretching and strengthening without the conflicting spiritual and philosophical underpinnings of yoga, which are rooted in non-Christian beliefs. She undertook yoga certification not to embrace it, but to understand precisely which elements to exclude. Pietra Fitness explicitly "redeems" beneficial physical movements by detaching them from non-Christian spiritualities and integrating them with Catholic prayer, meditation, and a theology of the body centered on the concept of the "Cathedral of You". The program demonstrates a modern application of the ancient principle of inculturation and reclamation.   
+> ### Pietra Fitness
+>
+> Founded by Karen Barbieri, Pietra Fitness was created as a direct and deliberate Catholic alternative to yoga. After experiencing debilitating back pain and finding relief in certain physical exercises, Barbieri, a devout Catholic, felt a call to develop a program that offered the physical benefits of stretching and strengthening without the conflicting spiritual and philosophical underpinnings of yoga, which are rooted in non-Christian beliefs. She undertook yoga certification not to embrace it, but to understand precisely which elements to exclude. Pietra Fitness explicitly "redeems" beneficial physical movements by detaching them from non-Christian spiritualities and integrating them with Catholic prayer, meditation, and a theology of the body centered on the concept of the "Cathedral of You". The program demonstrates a modern application of the ancient principle of inculturation and reclamation.   
 
 ## Redeeming Quantitative Tools
+
 The project does not seek to invent a new form of finance but to apply a traditional principle of "redeeming" a secular practice for a new domain. The Trisagion project separates the powerful mathematical and statistical tools of quantitative finance from the ethos of pure greed or amorality with which they are often associated. This act of reclamation preempts the critique that the project is merely playing in a secular arena. Instead, it is framed as a work of consecration, bringing a powerful worldly tool under the dominion of a moral and sacred purpose, for the material support of the Church and the greater glory of God.

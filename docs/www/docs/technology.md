@@ -1,5 +1,7 @@
 # Technology
 
+![Technology](/img/masthead-technology.jpg)
+
 The heart of the Trisagion project is the **Tactical Trend Trader (3T)**. This collection of integrated components represents the technical manifestation of a rational, ordered, and robust system. It is an algorithmic, fully automated trading agent built on a foundation of quantitative analysis, concurrent systems, and decentralized finance protocols.
 
 ## System Architecture and Operational Cycle

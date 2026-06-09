@@ -1,0 +1,22 @@
+# Trisagion Project
+
+The Trisagion project is an autonomous lay-led Catholic initiative dedicated to quantitative finance, artificial intelligence, and decentralized protocols for the material support of the Church. It operates the Tactical Trend Trader (3T) system on the Hyperliquid DEX.
+
+## Key Resources
+
+- [Theological & Technical Framework](/framework): Detailed synthesis of prayer, purpose, logo symbology, and Trinity dedication.
+- [Mission](/mission): Explains lay stewardship in a digital age, traditional faithful innovation, and quantitative tools reclamation.
+- [Technology](/technology): Operational cycle, Parameter Optimization Engine (stochastic hill climbing), performance-based Kelly Criterion, and Permutation Entropy regime detection.
+- [Specifications](/specifications): Active perpetual contracts on Hyperliquid DEX, holiday trading hours, and accounting heuristics.
+- [Prayer](/prayer): Complete guide to Praying the Trisagion devotionally.
+- [Legal & Canonical Framework](/legal): Canonical de facto private association status (Canon 215/300) and risk disclaimers.
+- [Connect & Collaborate](/connect): Community channels and target contributor profiles.
+
+## Architecture Overview
+
+The 3T system is a robust service-oriented architecture containing:
+- **Providence:** Massively parallel trading engine running online parameter search.
+- **Reconciliation Engine:** Periodic Celery task that enforces state/position consensus.
+- **VOMS:** In-memory Virtual Order Management System with robust state persistence/resumption.
+- **Hyperliquid Client:** Cryptographically signs and broadcasts orders to the central order book L1 DEX.
+- **Ecosystem:** Redis stream cache, Celery/Flower/Eventlet, MariaDB, Prometheus, and Grafana Tempo.
