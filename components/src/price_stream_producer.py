@@ -120,9 +120,17 @@ def start_price_streaming():
 
             # Filter to native perps only (skip HIP-3 for WebSocket)
             ws_instruments = []
+            config_obj = Config()
+            active_symbols = config_obj.get("reconciliation_engine.symbols", [])
+
             for inst in instruments:
                 name = inst["name"]
                 symbol = inst["symbol"]
+
+                # Filter to active symbols in config if specified
+                if active_symbols and symbol not in active_symbols:
+                    continue
+
                 if not symbol.startswith(f"{name}/"):
                     print(
                         f"Skipping {name} for WebSocket (HIP-3, use polling producer)",

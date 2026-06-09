@@ -165,9 +165,15 @@ class PricePollProducer:
                         if instruments:
                             symbols = []
                             hip3_symbols = []
+                            active_symbols = config.get("reconciliation_engine.symbols", [])
                             for inst in instruments:
                                 name = inst["name"]
                                 sym = inst["symbol"]
+
+                                # Filter to active symbols in config if specified
+                                if active_symbols and sym not in active_symbols:
+                                    continue
+
                                 if sym.startswith(f"{name}/"):
                                     symbols.append(sym)
                                 else:
