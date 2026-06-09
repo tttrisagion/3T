@@ -27,8 +27,15 @@ def update_trading_range():
             connection = get_db_connection()
             cursor = connection.cursor(dictionary=True)
 
-            # Fetch all product symbols from the database
-            cursor.execute("SELECT symbol FROM products")
+            # Fetch active product symbols from the database
+            from shared.config import config
+            active_symbols = config.get("reconciliation_engine.symbols", [])
+            if active_symbols:
+                placeholders = ", ".join(["%s"] * len(active_symbols))
+                query = f"SELECT symbol FROM products WHERE symbol IN ({placeholders})"
+                cursor.execute(query, tuple(active_symbols))
+            else:
+                cursor.execute("SELECT symbol FROM products")
             symbols = [item["symbol"] for item in cursor.fetchall()]
             if not symbols:
                 logger.warning("No product symbols found in the database.")

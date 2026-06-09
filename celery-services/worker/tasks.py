@@ -136,7 +136,14 @@ def schedule_market_data_fetching(is_backfill=False):
             with get_redis_connection() as redis_cnx:
                 cursor = db_cnx.cursor(dictionary=True)
 
-                cursor.execute("SELECT symbol FROM products")
+                active_symbols = config.get("reconciliation_engine.symbols", [])
+                if active_symbols:
+                    placeholders = ", ".join(["%s"] * len(active_symbols))
+                    query = f"SELECT symbol FROM products WHERE symbol IN ({placeholders})"
+                    cursor.execute(query, tuple(active_symbols))
+                else:
+                    cursor.execute("SELECT symbol FROM products")
+                
                 products = cursor.fetchall()
                 timeframes = config.get("market_data.timeframes", ["1m"])
                 span.set_attribute("products.count", len(products))
