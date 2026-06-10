@@ -739,6 +739,7 @@ def _run_supervisor():
 
                     # Use stable hostname (Docker container name) instead of volatile MAC address
                     stable_host = os.environ.get("HOSTNAME", socket.gethostname())
+                    host_value = os.path.basename(latest_file) if (use_apex_survivors and latest_file) else stable_host
 
                     cursor.execute(
                         """
@@ -751,7 +752,7 @@ def _run_supervisor():
                             chosen_symbol,
                             json.dumps(ann_params),
                             json.dumps(initial_state),
-                            stable_host,
+                            host_value,
                         ),
                     )
                     db_cnx.commit()
