@@ -15,6 +15,7 @@
   <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/suncalc/1.8.0/suncalc.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
   <style>
     /* --- THEME AND COLOR VARIABLES --- */
     :root {
@@ -1848,6 +1849,13 @@ function renderEquityChart(container, walletStats) {
         .site-footer {
             font-family: "Times New Roman", Georgia, serif;
             background-color: var(--footer-bg);
+            background-image: repeating-linear-gradient(
+                135deg,
+                rgba(0, 0, 0, 0.15),
+                rgba(0, 0, 0, 0.15) 1.5px,
+                transparent 1.5px,
+                transparent 12px
+            );
             color: var(--footer-text);
             padding: 45px 0 20px;
             font-size: 15px;
@@ -1866,6 +1874,7 @@ function renderEquityChart(container, walletStats) {
         .footer-column {
             width: 100%;
             margin-bottom: 30px;
+            text-align: left;
         }
         @media (min-width: 768px) {
             .footer-column {
@@ -1877,18 +1886,24 @@ function renderEquityChart(container, walletStats) {
             color: var(--footer-heading);
             font-size: 1.2em;
             margin-top: 5px;
+            text-align: left;
         }
         .footer-links {
             list-style: none;
-            padding: 0;
+            padding: 0 0 0 15px;
             margin: 0;
+            text-align: left;
         }
         .footer-links li {
             margin-bottom: 10px;
+            text-align: left;
         }
         .footer-links a {
             color: var(--footer-text);
             text-decoration: none;
+            text-align: left;
+            display: inline-flex;
+            align-items: center;
         }
         .footer-links a:hover {
             color: var(--footer-heading);
@@ -1935,11 +1950,13 @@ function renderEquityChart(container, walletStats) {
                 <div class="footer-column">
                     <h6>CONNECT</h6>
                     <ul class="footer-links">
-                        <li><a href="#" onclick="document.querySelector('.nav-btn[data-target=tab-connect]').click(); return false;">Connect &amp; Collaborate</a></li>
-                        <li><a href="https://stats.trisagion.xyz/">System Status</a></li>
-                        <li><a href="https://x.com/tttrisagion">X (Twitter)</a></li>
-                        <li><a href="https://github.com/tttrisagion/3T">GitHub</a></li>
-                        <li><a href="https://github.com/tttrisagion/3T/actions/workflows/deploy.yml" target="_blank" rel="noopener noreferrer"><img src="https://github.com/tttrisagion/3T/actions/workflows/deploy.yml/badge.svg" alt="Deploy Status" style="vertical-align: middle;"></a></li>
+                        <li><a href="#" onclick="document.querySelector('.nav-btn[data-target=tab-connect]').click(); return false;"><i class="fa-solid fa-users" style="margin-right: 8px; width: 16px; text-align: center;"></i>Connect &amp; Collaborate</a></li>
+                        <li><a href="https://stats.trisagion.xyz/"><i class="fa-solid fa-chart-line" style="margin-right: 8px; width: 16px; text-align: center;"></i>System Status</a></li>
+                        <li><a href="https://x.com/tttrisagion"><i class="fa-brands fa-x-twitter" style="margin-right: 8px; width: 16px; text-align: center;"></i>(formerly Twitter)</a></li>
+                        <li><a href="https://github.com/tttrisagion/3T"><i class="fa-brands fa-github" style="margin-right: 8px; width: 16px; text-align: center;"></i>GitHub</a></li>
+                        <li><a href="https://trisagion.medium.com/"><i class="fa-brands fa-medium" style="margin-right: 8px; width: 16px; text-align: center;"></i>Medium</a></li>
+                        <li><a href="mailto:support@trisagion.xyz"><i class="fa-solid fa-envelope" style="margin-right: 8px; width: 16px; text-align: center;"></i>support@trisagion.xyz</a></li>
+                        <li style="margin-top: 8px;"><a href="https://github.com/tttrisagion/3T/actions/workflows/deploy.yml" target="_blank" rel="noopener noreferrer"><img src="https://github.com/tttrisagion/3T/actions/workflows/deploy.yml/badge.svg" alt="Deploy Status" style="vertical-align: middle;"></a></li>
                     </ul>
                 </div>
 

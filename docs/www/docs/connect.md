@@ -19,4 +19,5 @@ We extend an open invitation to all who are drawn to this mission—*Veni et Vid
 
 * **GitHub Repository:** [tttrisagion/3T](https://github.com/tttrisagion/3T)
 * **X (formerly Twitter):** [@tttrisagion](https://x.com/tttrisagion)
+* **Medium Publication:** [trisagion.medium.com](https://trisagion.medium.com/)
 * **General Inquiries:** [support@trisagion.xyz](mailto:support@trisagion.xyz)
