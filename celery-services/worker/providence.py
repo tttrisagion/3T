@@ -36,6 +36,29 @@ logger = get_task_logger(__name__)
 tracer = get_tracer(os.environ.get("OTEL_SERVICE_NAME", "celery-worker"))
 
 
+def get_params_hash(ann_params):
+    """Generates a stable, sorted hash of the ann_params dict."""
+    import hashlib
+    # Sort keys to ensure stable JSON representation
+    serialized = json.dumps(ann_params, sort_keys=True, default=str)
+    return hashlib.sha256(serialized.encode('utf-8')).hexdigest()
+
+
+def load_apex_survivors(filepath, max_retries=5, delay=1.0):
+    """Loads apex survivors file, retrying on JSON decode errors."""
+    for attempt in range(max_retries):
+        try:
+            with open(filepath, 'r') as f:
+                return json.load(f)
+        except (json.JSONDecodeError, FileNotFoundError, PermissionError) as e:
+            if attempt == max_retries - 1:
+                raise
+            logger.warning(
+                f"Failed to load apex survivors file {filepath}: {e}. Retrying in {delay}s..."
+            )
+            time.sleep(delay)
+
+
 def get_close_entropy(state):
     """Helper to calculate entropy from the current run state."""
     ann_params = state["ann_params"]
@@ -176,6 +199,12 @@ def _perform_trading_iteration(run_id, state):
         logger.error(f"Run {run_id}: No symbol found in state. Ending run.")
         _end_run(run_id, state.get("start_balance", 0), state)
         return {"status": "completed", "reason": "missing_symbol", "run_id": run_id}
+
+    configured_symbols = config.get("reconciliation_engine.symbols", [])
+    if symbol not in configured_symbols:
+        logger.info(f"Run {run_id}: Symbol '{symbol}' is no longer configured. Ending run.")
+        _end_run(run_id, state.get("start_balance", 0), state)
+        return {"status": "completed", "reason": "unconfigured_symbol", "run_id": run_id}
 
     leverage = ann_params["leverage"]
 
@@ -587,6 +616,45 @@ def _run_supervisor():
             # Create new runs if needed
             needed_runs = desired_run_count - current_total_runs
             spawned_count = 0
+
+            use_apex_survivors = config.get("providence.use_apex_survivors", False)
+            latest_file = None
+            survivors_list = []
+            burned_hashes = set()
+
+            if use_apex_survivors and needed_runs > 0:
+                survivors_dir = config.get("providence.apex_survivors_dir", "providence")
+                import glob
+                files = glob.glob(os.path.join(survivors_dir, "apex_survivors_*.json"))
+                if files:
+                    latest_file = max(files, key=os.path.getmtime)
+                    try:
+                        survivors_list = load_apex_survivors(latest_file)
+                        logger.info(f"Supervisor: Loaded {len(survivors_list)} survivors from {latest_file}")
+                    except Exception as e:
+                        logger.error(f"Supervisor: Failed to load survivors from {latest_file}: {e}")
+                        latest_file = None
+                else:
+                    logger.warning(f"Supervisor: No survivors file found in {survivors_dir} matching pattern 'apex_survivors_*.json'")
+
+                if latest_file and survivors_list:
+                    # Query MySQL for runs created from the current apex survivors file
+                    file_basename = os.path.basename(latest_file)
+                    cursor.execute(
+                        "SELECT ann_params FROM runs WHERE ann_params LIKE %s",
+                        (f'%"apex_file": "{file_basename}"%',)
+                    )
+                    rows = cursor.fetchall()
+                    for row in rows:
+                        try:
+                            params = json.loads(row["ann_params"])
+                            apex_hash = params.get("apex_hash")
+                            if apex_hash:
+                                burned_hashes.add(apex_hash)
+                        except Exception:
+                            pass
+                    logger.info(f"Supervisor: Found {len(burned_hashes)} already burned configurations from this file in the DB.")
+
             if needed_runs > 0:
                 logger.info(f"Supervisor: Creating {needed_runs} new runs.")
                 for _ in range(needed_runs):
@@ -608,22 +676,54 @@ def _run_supervisor():
                         )
                         break
 
-                    weights = [leverage_map[s] for s in eligible]
-                    chosen_symbol = random.choices(eligible, weights=weights, k=1)[0]
-                    chosen_leverage = leverage_map[chosen_symbol]
+                    ann_params = None
+                    chosen_symbol = None
+                    chosen_leverage = None
 
-                    ann_params = generate_ann_params(
-                        symb,
-                        chosen_leverage,
-                        virtual_balance,
-                        symbol=chosen_symbol,
-                        ann_ranges=ann_ranges,
-                    )
+                    if use_apex_survivors and latest_file:
+                        for survivor in survivors_list:
+                            s_params = survivor.get("ann_params", {})
+                            s_symbol = s_params.get("symbol")
+                            if s_symbol not in eligible:
+                                continue
+
+                            s_hash = get_params_hash(s_params)
+                            if s_hash in burned_hashes:
+                                continue
+
+                            # Found a valid, eligible, unburned survivor!
+                            chosen_symbol = s_symbol
+                            chosen_leverage = leverage_map[chosen_symbol]
+                            ann_params = s_params.copy()
+                            # Inject tracking info
+                            ann_params["apex_file"] = os.path.basename(latest_file)
+                            ann_params["apex_hash"] = s_hash
+                            ann_params["apex_rank"] = survivor.get("rank")
+
+                            # Burn it
+                            burned_hashes.add(s_hash)
+                            break
+
+                    # Fall back to random generation if not using apex survivors or if we ran out
+                    if ann_params is None:
+                        weights = [leverage_map[s] for s in eligible]
+                        chosen_symbol = random.choices(eligible, weights=weights, k=1)[0]
+                        chosen_leverage = leverage_map[chosen_symbol]
+
+                        ann_params = generate_ann_params(
+                            symb,
+                            chosen_leverage,
+                            virtual_balance,
+                            symbol=chosen_symbol,
+                            ann_ranges=ann_ranges,
+                        )
+
+                    start_balance = ann_params.get("virtual_balance", virtual_balance)
 
                     # Create initial state
                     initial_state = {
                         "start_time": time.time(),
-                        "start_balance": virtual_balance,
+                        "start_balance": start_balance,
                         "symbol": chosen_symbol,
                         "ann_params": ann_params,
                         "weights": [],
@@ -646,7 +746,7 @@ def _run_supervisor():
                         VALUES (%s, %s, %s, %s, %s, NOW(), %s)
                     """,
                         (
-                            virtual_balance,
+                            start_balance,
                             ann_params["max_duration"],
                             chosen_symbol,
                             json.dumps(ann_params),

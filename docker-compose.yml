@@ -38,6 +38,7 @@ services:
     volumes:
       - ./config.yml:/app/config.yml
       - ./secrets.yml:/app/secrets.yml
+      - ./providence:/app/providence
     logging:
       driver: "json-file"
       options:
@@ -80,6 +81,7 @@ services:
     volumes:
       - ./config.yml:/app/config.yml
       - ./secrets.yml:/app/secrets.yml
+      - ./providence:/app/providence
     logging:
       driver: "json-file"
       options:

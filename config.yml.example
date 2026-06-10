@@ -61,6 +61,9 @@ market_data:
 
 # Reconciliation Engine Configuration
 reconciliation_engine:
+  # The threshold for live PnL of active runs to be included in trading consensus. Default is 0.2.
+  live_pnl_threshold: 0.2
+
   # How often to run reconciliation checks (in seconds)
   rebalance_frequency: 600.0 # in seconds
 
@@ -140,6 +143,11 @@ observability:
   sampling_rate: 0.00001
 
 providence:
+  # Toggle to load ANN configurations from the latest apex_survivors JSON file sequentially
+  use_apex_survivors: false
+  # Directory where apex survivors files are located
+  apex_survivors_dir: "providence"
+
   # Desired number of concurrent trading tasks to be managed by the supervisor
   desired_run_count: 100
   # Starting virtual balance for VOMS

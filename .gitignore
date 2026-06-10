@@ -11,7 +11,6 @@ database/runs.sql
 database/migrations/*
 database/init-*
 database/internal-*
-providence/completed_runs
-providence/saved_runs
+providence/*.json
 commit.txt
 mission-control/health.json

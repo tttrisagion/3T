@@ -389,6 +389,10 @@ def get_desired_state(symbol: str) -> float:
             with get_db_connection() as conn:
                 cursor = conn.cursor()
 
+                live_pnl_threshold = config.get(
+                    "reconciliation_engine.live_pnl_threshold", 0.2
+                )
+
                 # Query from the spec using full symbol format
                 query = """
                 SELECT symbol,
@@ -399,14 +403,14 @@ def get_desired_state(symbol: str) -> float:
                 WHERE exit_run = 0
                   AND height IS NULL
                   AND end_time IS NULL
-                  AND live_pnl > 0.2
+                  AND live_pnl > %s
                   AND abs(position_direction) > 0
                   AND symbol = %s
                   AND update_time >= NOW() - INTERVAL 10 MINUTE
                 HAVING total_pnl > 0 AND ABS(position) >= 1
                 """
 
-                cursor.execute(query, (symbol,))
+                cursor.execute(query, (live_pnl_threshold, symbol))
                 result = cursor.fetchone()
 
                 if result and result[1] is not None:  # position column
