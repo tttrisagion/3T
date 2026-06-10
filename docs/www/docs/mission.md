@@ -10,7 +10,7 @@ This new reality calls for new models of stewardship. The project is founded on 
 
 ## A Tradition of Faithful Innovation
 
-The mission of the Trisagion project is not without precedent. It stands within a rich tradition of lay-led Catholic organizations that have successfully adapted secular structures and tools for a sacred purpose, "baptizing" them for the work of the Church. Two modern examples provide a powerful model for this endeavor:
+The mission of the Trisagion project is not without precedent. It stands within a rich tradition of lay-led Catholic organizations that have successfully adapted secular structures and tools for a sacred purpose, "baptizing" them for the work of the Church. These modern examples provide a powerful model for this endeavor:
 
 > ### The International Order of Alhambra
 >
