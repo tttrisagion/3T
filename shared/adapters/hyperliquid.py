@@ -140,29 +140,31 @@ class HyperliquidAdapter(BaseExchangeAdapter):
                     data = response.json()
                     
                     # Validate heartbeat
-                    hb_time_str = data.get("heartbeat_time")
+                    hb_time_str = data.get("timestamp")
                     if not hb_time_str:
                         continue
                     hb_time = datetime.fromisoformat(hb_time_str.replace("Z", "+00:00"))
                     if datetime.now(hb_time.tzinfo) - hb_time > max_heartbeat_age:
                         continue
 
-                    wallets = data.get("wallets", {})
-                    wallet_data = wallets.get(wallet_id, {})
-                    positions = wallet_data.get("positions", [])
+                    positions_dict = data.get("positions", {})
+                    if wallet_id not in positions_dict:
+                        continue
 
-                    # Search for our symbol
-                    pos_size = 0.0
-                    margin_used = 0.0
-                    found = False
-                    for pos in positions:
-                        if pos.get("symbol") == symbol:
-                            pos_size = float(pos.get("position_size", 0.0))
-                            margin_used = float(pos.get("margin_used", 0.0))
-                            found = True
-                            break
+                    wallet_data = positions_dict.get(wallet_id, {})
+                    asset_positions = wallet_data.get("assetPositions", [])
 
-                    return pos_size, None, margin_used
+                    from worker.reconciliation_engine import get_api_coin
+                    api_coin = get_api_coin(symbol)
+
+                    for asset_pos in asset_positions:
+                        pos_info = asset_pos.get("position", {})
+                        if pos_info.get("coin", "").upper() == api_coin.upper():
+                            pos_size = float(pos_info.get("szi", 0.0))
+                            margin_used = float(pos_info.get("marginUsed", 0.0))
+                            return pos_size, None, margin_used
+
+                    return 0.0, None, 0.0
             except Exception as e:
                 print(f"Warning: Failed to query observer node {observer_url}: {e}")
 
