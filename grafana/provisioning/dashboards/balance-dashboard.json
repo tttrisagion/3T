@@ -475,7 +475,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "select symbol,\nsum(position_direction) as 'position',\nsum(live_pnl) as 'total_pnl',count(*) as 'runs',\nsum(position_direction)/count(*) as 'size_per_run' \nfrom runs \nwhere exit_run=0 \nand end_time is null \nand live_pnl > 0.2\nand height IS NULL\nAND update_time >= NOW() - INTERVAL 20 MINUTE\ngroup by symbol\nHAVING total_pnl > 0 AND ABS(position) >= 1\norder by 3 desc",
+          "rawSql": "select r.symbol,\nsum(r.position_direction) as 'position',\nsum(r.live_pnl) as 'total_pnl',count(*) as 'runs',\nsum(r.position_direction)/count(*) as 'size_per_run' \nfrom runs r\njoin products p on r.symbol = p.symbol\nwhere r.exit_run=0 \nand r.end_time is null \nand r.live_pnl > 0.2\nand r.height IS NULL\nAND r.update_time >= NOW() - INTERVAL 20 MINUTE\nand p.exchange_id in ($Exchange)\ngroup by r.symbol\nHAVING total_pnl > 0 AND ABS(position) >= 1\norder by 3 desc",
           "refId": "A",
           "sql": {
             "columns": [
