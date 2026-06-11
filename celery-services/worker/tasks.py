@@ -21,7 +21,7 @@ from shared.celery_app import app
 from shared.config import config
 from shared.database import get_db_connection, get_redis_connection, get_exchange_name_for_symbol
 from shared.exchange_manager import exchange_manager
-from shared.ib_client import ib_client
+from shared.adapters import get_adapter, get_adapter_for_symbol
 from shared.opentelemetry_config import get_tracer, setup_log_sampling, setup_telemetry
 
 # --- OTel Setup ---
@@ -279,28 +279,12 @@ def traced_fetch_and_store_ohlcv(
 def fetch_and_store_ohlcv(symbol: str, timeframe: str, lookback: int):
     """
     Connects to the exchange, fetches OHLCV data, and stores it in the database.
-    Uses the resilient exchange manager for connection pooling and retry logic.
+    Uses the resilient exchange adapters to fetch data.
     """
     db_cnx = None
     try:
-        exchange_name = get_exchange_name_for_symbol(symbol)
-
-        if exchange_name == "tradfi":
-            from shared.iqfeed_client import iqfeed_client
-            ohlcv_data = iqfeed_client.fetch_ohlcv(symbol, timeframe, lookback)
-        else:
-            # Get resilient exchange instance
-            exchange = exchange_manager.get_exchange()
-
-            # Fetch the last N bars to be safe
-            since = int(time.time() * 1000) - (
-                lookback * exchange.parse_timeframe(timeframe) * 1000
-            )
-
-            # Execute with automatic retry and circuit breaker protection
-            ohlcv_data = exchange_manager.execute_with_retry(
-                exchange.fetchOHLCV, symbol, timeframe, since
-            )
+        adapter = get_adapter_for_symbol(symbol)
+        ohlcv_data = adapter.fetch_ohlcv(symbol, timeframe, lookback)
 
         if not ohlcv_data:
             return
@@ -389,134 +373,6 @@ def publish_balance_update_event(account_value: float):
             raise
 
 
-def fetch_and_store_balance_hl(cursor, exchange_id) -> float:
-    # Get resilient exchange instance
-    exchange = exchange_manager.get_exchange()
-
-    # --- Fetch ALL data from exchange before touching DB ---
-    # Native perp balance (with retry/circuit breaker)
-    exchange_status = exchange_manager.execute_with_retry(
-        exchange.fetch_balance
-    )
-
-    # Build API-coin → DB-symbol map using CCXT market info
-    hl_exchange = exchange_manager.get_exchange("hyperliquid")
-    if not hl_exchange.markets:
-        exchange_manager.execute_with_retry(hl_exchange.load_markets)
-
-    # Fetch HIP-3 dex states (positions + margin live on separate dexes)
-    hip3_dexes = ["xyz"]
-    hip3_states = []
-    for dex in hip3_dexes:
-        try:
-            hip3_state = exchange_manager.execute_with_retry(
-                lambda d=dex: hl_exchange.public_post_info(
-                    {
-                        "type": "clearinghouseState",
-                        "user": hl_exchange.walletAddress,
-                        "dex": d,
-                    }
-                )
-            )
-            if hip3_state:
-                hip3_states.append(hip3_state)
-                if hip3_state.get("assetPositions"):
-                    exchange_status["info"].setdefault(
-                        "assetPositions", []
-                    ).extend(hip3_state["assetPositions"])
-        except Exception as e:
-            print(f"Error fetching HIP-3 dex '{dex}': {e}")
-
-    # Compute aggregate account value and margin
-    account_value = float(
-        exchange_status["info"]["marginSummary"]["accountValue"]
-    )
-    margin_used = float(exchange_status["info"]["crossMaintenanceMarginUsed"])
-
-    # Include HIP-3 margin in totals (HIP-3 uses isolated margin,
-    # so crossMaintenanceMarginUsed is always 0 — use totalMarginUsed)
-    for hip3_state in hip3_states:
-        account_value += float(
-            hip3_state.get("marginSummary", {}).get("accountValue", 0)
-        )
-        margin_used += float(
-            hip3_state.get("marginSummary", {}).get("totalMarginUsed", 0)
-        )
-
-    # Clean positions only for HyperLiquid
-    cursor.execute(
-        "DELETE FROM positions WHERE product_id IN (SELECT id FROM products WHERE exchange_id = %s)",
-        (exchange_id,)
-    )
-
-    cursor.execute(
-        "SELECT id, symbol FROM products WHERE exchange_id = %s", (exchange_id,)
-    )
-    products = {row["symbol"]: row["id"] for row in cursor.fetchall()}
-
-    api_coin_to_symbol = {}
-    for sym in products:
-        if sym in hl_exchange.markets:
-            api_coin = hl_exchange.markets[sym]["info"].get("name", "")
-            if api_coin:
-                api_coin_to_symbol[api_coin.upper()] = sym
-
-    if len(exchange_status["info"]["assetPositions"]) > 0:
-        for pos in exchange_status["info"]["assetPositions"]:
-            api_coin = pos["position"]["coin"]
-            symbol = api_coin_to_symbol.get(api_coin.upper())
-            if symbol is None:
-                # HIP-3 coins use colon (xyz:CL) but DB uses dash (XYZ-CL)
-                coin_name = api_coin.upper().replace(":", "-")
-                symbol = coin_name + "/USDC:USDC"
-            if symbol in products:
-                query = "INSERT INTO positions (product_id, position_size, position_value, unrealized_pnl) VALUES (%s, %s, %s, %s)"
-                cursor.execute(
-                    query,
-                    (
-                        products[symbol],
-                        pos["position"]["szi"],
-                        pos["position"]["positionValue"],
-                        float(pos["position"]["unrealizedPnl"]),
-                    ),
-                )
-
-    return account_value, margin_used
-
-
-def fetch_and_store_balance_tradfi(cursor, exchange_id) -> float:
-    balance_info, positions = ib_client.get_balance_and_positions()
-    account_value = balance_info["account_value"]
-    margin_used = balance_info["cross_maintenance_margin_used"]
-
-    # Clean positions only for TradFi
-    cursor.execute(
-        "DELETE FROM positions WHERE product_id IN (SELECT id FROM products WHERE exchange_id = %s)",
-        (exchange_id,)
-    )
-
-    cursor.execute(
-        "SELECT id, symbol FROM products WHERE exchange_id = %s", (exchange_id,)
-    )
-    products = {row["symbol"]: row["id"] for row in cursor.fetchall()}
-
-    for pos in positions:
-        symbol = pos["symbol"]
-        if symbol in products:
-            query = "INSERT INTO positions (product_id, position_size, position_value, unrealized_pnl) VALUES (%s, %s, %s, %s)"
-            cursor.execute(
-                query,
-                (
-                    products[symbol],
-                    pos["position_size"],
-                    pos["position_value"],
-                    pos["unrealized_pnl"],
-                ),
-            )
-
-    return account_value, margin_used
-
-
 def fetch_and_store_balance() -> float | None:
     with tracer.start_as_current_span("fetch_and_store_balance") as span:
         db_cnx = None
@@ -532,42 +388,29 @@ def fetch_and_store_balance() -> float | None:
             total_margin_used = 0.0
             success_count = 0
             
-            hl_val, hl_margin = 0.0, 0.0
-            tf_val, tf_margin = 0.0, 0.0
+            balances_to_insert = []
 
             for exc in exchanges:
                 exc_id = exc["id"]
                 exc_name = exc["name"].lower()
 
                 try:
-                    if exc_name == "hyperliquid":
-                        val, margin = fetch_and_store_balance_hl(cursor, exc_id)
-                        hl_val, hl_margin = val, margin
-                        total_account_value += val
-                        total_margin_used += margin
-                        success_count += 1
-                    elif exc_name == "tradfi":
-                        val, margin = fetch_and_store_balance_tradfi(cursor, exc_id)
-                        tf_val, tf_margin = val, margin
-                        total_account_value += val
-                        total_margin_used += margin
-                        success_count += 1
+                    adapter = get_adapter(exc_name)
+                    val, margin = adapter.fetch_and_store_balance(cursor, exc_id)
+                    balances_to_insert.append((exc_id, val, margin))
+                    total_account_value += val
+                    total_margin_used += margin
+                    success_count += 1
                 except Exception as exc_err:
                     import traceback
                     print(f"Error fetching balance for exchange '{exc['name']}': {exc_err}\n{traceback.format_exc()}")
 
             if success_count == len(exchanges):
-                # Store isolated balances for each exchange to support strict sizing isolation (Option B)
-                for exc in exchanges:
-                    exc_id = exc["id"]
-                    exc_name = exc["name"].lower()
-                    if exc_name == "hyperliquid":
-                        query = "INSERT INTO balance_history (exchange_id, account_value, cross_maintenance_margin_used) VALUES (%s, %s, %s)"
-                        cursor.execute(query, (exc_id, hl_val, hl_margin))
-                    elif exc_name == "tradfi":
-                        query = "INSERT INTO balance_history (exchange_id, account_value, cross_maintenance_margin_used) VALUES (%s, %s, %s)"
-                        cursor.execute(query, (exc_id, tf_val, tf_margin))
-                print(f"Isolated balances synced successfully. Succeeded: {success_count}/{len(exchanges)}, HL: ${hl_val}, TradFi: ${tf_val}")
+                # Store isolated balances for each exchange to support strict sizing isolation
+                for exc_id, val, margin in balances_to_insert:
+                    query = "INSERT INTO balance_history (exchange_id, account_value, cross_maintenance_margin_used) VALUES (%s, %s, %s)"
+                    cursor.execute(query, (exc_id, val, margin))
+                print(f"Isolated balances synced successfully. Succeeded: {success_count}/{len(exchanges)}")
             else:
                 print(f"Warning: Only {success_count}/{len(exchanges)} exchange balance fetches succeeded. Skipping database entry to prevent partial-sum chart corruption.")
 

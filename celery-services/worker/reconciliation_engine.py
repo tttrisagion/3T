@@ -19,6 +19,7 @@ from shared.celery_app import app
 from shared.config import config
 from shared.database import get_db_connection, get_redis_connection
 from shared.exchange_manager import exchange_manager
+from shared.adapters import get_adapter, get_adapter_for_symbol
 from shared.opentelemetry_config import get_tracer
 
 # Get a tracer
@@ -86,43 +87,6 @@ def is_market_open() -> bool:
 
     # Otherwise Open (Mon 00:00 -> Fri 22:59)
     return True
-
-
-def is_tradfi_market_open() -> bool:
-    """
-    Checks if the US stock market is open for active, safe reconciliation.
-    Trading Hours: Monday - Friday, 9:30 AM to 3:55 PM Eastern Time (EST/EDT).
-    Excludes weekends and US market-closed holidays.
-    If trading_hours.test_mode is True in config.yml, always returns True.
-    """
-    from shared.config import config as _cfg
-    if _cfg.get("trading_hours.test_mode", False):
-        return True
-
-    try:
-        tz = ZoneInfo("America/New_York")
-    except Exception:
-        tz = ZoneInfo("US/Eastern")
-
-    now = datetime.now(tz)
-    d = now.date()
-
-    # --- 1. Check Fixed Holidays (US Markets) ---
-    # New Year's Day (Jan 1), Christmas Day (Dec 25)
-    if (d.month == 1 and d.day == 1) or (d.month == 12 and d.day == 25):
-        return False
-
-    # --- 2. Check Weekly Schedule (Excluding Weekends) ---
-    if now.weekday() >= 5:  # Saturday (5) or Sunday (6)
-        return False
-
-    # --- 3. Check Daily Standard Trading Hours: 9:30 AM to 3:55 PM Eastern ---
-    from datetime import time
-    current_time = now.time()
-    start_time = time(9, 30, 0)
-    end_time = time(15, 55, 0)
-
-    return start_time <= current_time <= end_time
 
 
 def _calculate_kelly_metrics(
@@ -541,11 +505,8 @@ def get_desired_state(symbol: str) -> float:
                         position_direction * risk_pos_size / instrument_price
                     )
 
-                    if exchange_name == "tradfi":
-                        # TradFi (standard stocks) require whole integer share quantities.
-                        # Enforce integer rounding to prevent fractional share execution rejection
-                        # and eliminate infinite remainder rebalance loops.
-                        target_position = float(round(target_position))
+                    adapter = get_adapter_for_symbol(symbol)
+                    target_position = adapter.apply_position_clamping_and_rounding(symbol, target_position, 0.0)
 
                     # Invert decisions if configured
                     if config.get("reconciliation_engine.invert_decisions", False):
@@ -690,80 +651,9 @@ def get_observer_state(
 ) -> tuple[float | None, str | None, float]:
     """
     Get position from external observer node and perform safety checks.
-
-    Args:
-        symbol: The trading symbol (e.g., 'BTC/USDC:USDC')
-        wallet_address: Optional wallet or exchange ID (defaults to hyperliquid walletAddress)
-
-    Returns:
-        Tuple of (position_size, error_message, margin_used)
-        - position_size: Position size, or None if validation fails.
-        - error_message: A string describing the error, or None if successful.
-        - margin_used: Margin used for this position (0.0 if unavailable).
     """
-    if not wallet_address:
-        wallet_address = config.get_secret("exchanges.hyperliquid.walletAddress")
-    max_heartbeat_age = timedelta(minutes=5)
-
-    if not wallet_address:
-        return None, "No wallet address configured", 0.0
-
-    if wallet_address == "tradfi":
-        # TradFi positions are private to your local brokerage link.
-        # Only query our own independent, private local observer node.
-        observer_nodes = ["http://exchange-observer:8001/3T-observer.json"]
-    else:
-        # Blockchain perps use both public and private decentralized observer nodes
-        observer_nodes = config.get(
-            "reconciliation_engine.observer_nodes",
-            ["http://exchange-observer:8001/3T-observer.json"],
-        )
-
-    for observer_url in observer_nodes:
-        try:
-            response = requests.get(observer_url, timeout=5)
-            response.raise_for_status()
-            observer_data = response.json()
-
-            # Check heartbeat
-            timestamp_str = observer_data.get("timestamp")
-            if not timestamp_str:
-                return None, f"Observer {observer_url} has no timestamp", 0.0
-
-            timestamp = datetime.fromisoformat(timestamp_str)
-            if datetime.now(UTC) - timestamp > max_heartbeat_age:
-                return None, f"Observer {observer_url} data is stale", 0.0
-
-            # Check for wallet presence
-            positions = observer_data.get("positions", {})
-            if wallet_address not in positions:
-                return (
-                    None,
-                    f"Wallet {wallet_address} not found in observer {observer_url}",
-                    0.0,
-                )
-
-            # Extract position
-            wallet_data = positions.get(wallet_address, {})
-            asset_positions = wallet_data.get("assetPositions", [])
-            api_coin = get_api_coin(symbol)
-
-            for asset_pos in asset_positions:
-                position_data = asset_pos.get("position", {})
-                if position_data.get("coin", "").upper() == api_coin.upper():
-                    margin_used = float(position_data.get("marginUsed", 0))
-                    return float(position_data.get("szi", 0)), None, margin_used
-
-            # If no position found, it's a flat position
-            return 0.0, None, 0.0
-
-        except requests.RequestException as e:
-            print(f"Could not connect to observer {observer_url}: {e}")
-            continue  # Try next observer
-        except (ValueError, KeyError) as e:
-            return None, f"Invalid data from observer {observer_url}: {e}", 0.0
-
-    return None, "All observers failed", 0.0
+    adapter = get_adapter_for_symbol(symbol)
+    return adapter.get_observer_state(symbol, wallet_id=wallet_address)
 
 
 def get_actual_state(symbol: str) -> tuple[float | None, bool, float]:
@@ -785,20 +675,8 @@ def get_actual_state(symbol: str) -> tuple[float | None, bool, float]:
                 "local_position", local_position if local_position else 0.0
             )
 
-            # Check if this is a TradFi symbol
-            from shared.database import get_exchange_name_for_symbol
-            exchange_name = get_exchange_name_for_symbol(symbol)
-            
-            # Determine the observer wallet address or identifier
-            if exchange_name == "tradfi":
-                wallet_id = "tradfi"
-            else:
-                wallet_id = config.get_secret("exchanges.hyperliquid.walletAddress")
-                if not wallet_id:
-                    wallet_id = config.get("exchanges.hyperliquid.wallet_address")
-
             # Get position from observer node
-            observer_position, error_message, margin_used = get_observer_state(symbol, wallet_address=wallet_id)
+            observer_position, error_message, margin_used = get_observer_state(symbol)
 
             if error_message:
                 span.add_event("Observer validation failed", {"error": error_message})
@@ -1175,17 +1053,19 @@ def reconcile_positions(self):
                 else:
                     symbol_margin_caps = {}
 
+                adapter = get_adapter(exc_name)
+
                 for symbol in symbols:
                     with tracer.start_as_current_span("reconcile_symbol") as symbol_span:
                         symbol_span.set_attribute("symbol", symbol)
                         symbol_span.set_attribute("exchange", exc_name)
 
-                        # Enforce stock safety trading window (9:30 AM - 3:55 PM Eastern)
-                        if exc_name == "tradfi" and not is_tradfi_market_open():
+                        # Enforce safety trading window
+                        if not adapter.is_market_open(symbol):
                             symbol_span.add_event(
-                                "TradFi asset is outside active safety window (9:30 AM - 3:55 PM Eastern). Holding position."
+                                f"Market for {symbol} is outside active safety window. Holding position."
                             )
-                            print(f"TradFi asset {symbol} is outside active safety window (9:30 AM - 3:55 PM Eastern). Holding position.")
+                            print(f"Market for {symbol} is outside active safety window. Holding position.")
                             continue
 
                         try:
@@ -1209,74 +1089,14 @@ def reconcile_positions(self):
                                 symbol_span.add_event("Could not determine actual position")
                                 continue
 
-                            # Clamp desired position to per-symbol margin cap
+                            # Clamp desired position to per-symbol margin cap and apply rounding
                             margin_cap_multiplier = config.get(
                                 "reconciliation_engine.margin_cap_multiplier", 1
                             )
-                            if (
-                                symbol_margin_caps
-                                and symbol in symbol_margin_caps
-                                and abs(desired_position) > 1e-8
-                            ):
-                                symbol_cap = (
-                                    symbol_margin_caps[symbol] * margin_cap_multiplier
-                                )
-                                
-                                # For TradFi standard stocks, clamp based on the proposed USD value of the desired position
-                                # (since there is no maintenance margin per symbol reported by TWS)
-                                if exc_name == "tradfi":
-                                    price = get_current_price(symbol)
-                                    if price is None:
-                                        print(f"Warning: Could not get current price for clamping {symbol}")
-                                        price = 0.0
-                                    proposed_usd_value = abs(desired_position) * price
-                                    if proposed_usd_value > symbol_cap:
-                                        scale = symbol_cap / proposed_usd_value
-                                        original = desired_position
-                                        desired_position = desired_position * scale
-                                        symbol_span.add_event(
-                                            "TradFi proposed position clamped by margin cap",
-                                            {
-                                                "symbol": symbol,
-                                                "original_desired": original,
-                                                "clamped_desired": desired_position,
-                                                "proposed_usd_value": proposed_usd_value,
-                                                "symbol_margin_cap": symbol_cap,
-                                                "scale_factor": scale,
-                                            },
-                                        )
-                                        print(
-                                            f"TradFi Margin Clamp: Scaling desired position for {symbol} "
-                                            f"from {original:.4f} to {desired_position:.4f} "
-                                            f"to respect the ${symbol_cap:.2f} symbol budget."
-                                        )
-                                
-                                # For DeFi perps, clamp using on-chain maintenance margin used
-                                elif symbol_margin_used > symbol_cap:
-                                    scale = symbol_cap / symbol_margin_used
-                                    original = desired_position
-                                    desired_position = desired_position * scale
-                                    symbol_span.add_event(
-                                        "Desired position clamped by per-symbol margin cap",
-                                        {
-                                            "symbol": symbol,
-                                            "original_desired": original,
-                                            "clamped_desired": desired_position,
-                                            "symbol_margin_used": symbol_margin_used,
-                                            "symbol_margin_cap": symbol_cap,
-                                            "scale_factor": scale,
-                                        },
-                                    )
-                                    print(
-                                        f"Per-symbol margin cap: {symbol} using "
-                                        f"${symbol_margin_used:.2f} of "
-                                        f"${symbol_cap:.2f} cap. Scaling desired "
-                                        f"position from {original} to {desired_position}."
-                                    )
-
-                            # For TradFi standard stocks, guarantee whole integer share quantities (preventing fractional rejections)
-                            if exc_name == "tradfi":
-                                desired_position = float(round(desired_position))
+                            symbol_cap = symbol_margin_caps.get(symbol, 0.0) * margin_cap_multiplier
+                            desired_position = adapter.apply_position_clamping_and_rounding(
+                                symbol, desired_position, symbol_cap, symbol_margin_used
+                            )
 
                             # Calculate reconciliation action
                             (
